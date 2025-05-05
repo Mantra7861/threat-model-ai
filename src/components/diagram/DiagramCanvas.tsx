@@ -7,7 +7,7 @@ import {
   Controls,
   Background,
   addEdge,
-  MiniMap,
+  // MiniMap, // Removed MiniMap
   Panel,
   useReactFlow,
   type Node,
@@ -42,7 +42,7 @@ interface DiagramCanvasProps {
   onEdgesChange: OnEdgesChange;
   setNodes: Dispatch<SetStateAction<Node[]>>; // Needed for adding nodes
   setEdges: Dispatch<SetStateAction<Edge[]>>; // Needed for adding edges
-  onNodeClick: (event: React.MouseEvent, node: Node) => void;
+  onNodeClick: (event: React.MouseEvent | null, node: Node) => void; // Allow null event
   onPaneClick: () => void;
   onMoveEnd?: (event: MouseEvent | TouchEvent | undefined, viewport: Viewport) => void; // Optional viewport saving
   viewport?: Viewport; // Optional controlled viewport
@@ -141,7 +141,7 @@ export function DiagramCanvas({
   );
 
    // Handle node drag stop - parent component (ProjectClientLayout) will handle saving
-   const onNodeDragStop = useCallback((_: MouseEvent, node: Node) => {
+   const onNodeDragStop = useCallback((_: MouseEvent | null, node: Node) => { // Allow null event
         console.log('Node drag stopped, state updated:', node.id, node.position);
         // No need to explicitly save here, ProjectClientLayout's handleSave will use the latest nodes state.
     }, []);
@@ -154,7 +154,7 @@ export function DiagramCanvas({
             // Note: This might conflict if onNodeClick already handles single clicks.
             // Ensure this logic complements or replaces part of onNodeClick if needed.
             // We pass a null event as it wasn't a direct click event.
-            onNodeClick(null as any, selectedNodes[0]);
+            onNodeClick(null, selectedNodes[0]);
         } else if (selectedNodes.length === 0) {
             // If selection is cleared (e.g., clicking pane), call onPaneClick.
             onPaneClick();
@@ -194,7 +194,7 @@ export function DiagramCanvas({
         selectNodesOnDrag={true} // Select nodes when dragging them
       >
         <Controls />
-        <MiniMap nodeStrokeWidth={3} zoomable pannable />
+        {/* <MiniMap nodeStrokeWidth={3} zoomable pannable /> Removed MiniMap */}
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-background/80 rounded">
           Drag components to add. Click components to select & edit properties. Drag to move.
@@ -203,3 +203,5 @@ export function DiagramCanvas({
     </div>
   );
 }
+
+    
