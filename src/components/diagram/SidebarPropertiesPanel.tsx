@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -12,19 +11,31 @@ import { suggestComponentProperties } from '@/ai/flows/suggest-component-propert
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, Trash2 } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox'; // Import Checkbox
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 
 interface SidebarPropertiesPanelProps {
   selectedNode: Node | null;
   onUpdateProperties: (nodeId: string, newProperties: Record<string, any>) => void;
   diagramDescription?: string; // Optional: For AI context
-  // TODO: Add onDeleteNode prop: (nodeId: string) => void;
+  onDeleteNode: (nodeId: string) => void; // Add onDeleteNode prop
 }
 
 export function SidebarPropertiesPanel({
   selectedNode,
   onUpdateProperties,
   diagramDescription,
-  // TODO: Implement onDeleteNode callback
+  onDeleteNode, // Receive onDeleteNode callback
 }: SidebarPropertiesPanelProps) {
   const [localProperties, setLocalProperties] = useState<Record<string, any>>({});
   const [isSuggesting, setIsSuggesting] = useState(false);
@@ -33,7 +44,8 @@ export function SidebarPropertiesPanel({
   // Update local state when selectedNode changes
   useEffect(() => {
     if (selectedNode) {
-      setLocalProperties(selectedNode.data.properties || {});
+      // Ensure properties exist, default to empty object if not
+      setLocalProperties(selectedNode.data?.properties || {});
     } else {
       setLocalProperties({}); // Clear properties when no node is selected
     }
@@ -44,8 +56,9 @@ export function SidebarPropertiesPanel({
     debounce((nodeId: string, props: Record<string, any>) => {
       onUpdateProperties(nodeId, props);
     }, 500), // Debounce time in ms
-    [onUpdateProperties]
+    [onUpdateProperties] // Dependency array includes the callback
   );
+
 
   const handleInputChange = (propName: string, value: any) => {
     if (!selectedNode) return;
@@ -55,8 +68,15 @@ export function SidebarPropertiesPanel({
       [propName]: value,
     };
     setLocalProperties(newProps); // Update local state immediately for responsiveness
-    debouncedUpdate(selectedNode.id, { [propName]: value }); // Send debounced update to parent
+
+    // Special handling for name to update the node label immediately
+    if (propName === 'name') {
+        onUpdateProperties(selectedNode.id, { [propName]: value }); // Update immediately
+    } else {
+        debouncedUpdate(selectedNode.id, { [propName]: value }); // Debounce other updates
+    }
   };
+
 
    const handleSuggestProperties = async () => {
     if (!selectedNode) return;
@@ -116,20 +136,15 @@ export function SidebarPropertiesPanel({
     }
   };
 
-  const handleDeleteNode = () => {
+  const confirmDeleteNode = () => {
       if (!selectedNode) return;
-       // TODO: Implement deletion
-       // Needs a way to signal deletion back to the parent (ProjectClientLayout)
-       // Option 1: Pass an onDeleteNode callback prop
-       // Option 2: Use a shared state management library (Zustand, Redux)
-       // Example using a hypothetical callback:
-       // onDeleteNode(selectedNode.id);
-       toast({
-           title: "Delete Node (Not Implemented)",
-           description: `Would delete node ${selectedNode.data.label}`,
-           variant: "destructive"
-        });
-       console.log("Request to delete node:", selectedNode.id);
+      onDeleteNode(selectedNode.id); // Call the passed onDeleteNode function
+       // Toast is handled in the parent after successful deletion state update
+       // toast({
+       //     title: "Node Deleted",
+       //     description: `Deleted node ${selectedNode.data.label}`,
+       //  });
+       console.log("Confirmed delete node:", selectedNode.id);
   }
 
 
@@ -141,18 +156,28 @@ export function SidebarPropertiesPanel({
     );
   }
 
+  // Ensure selectedNode.data and properties exist before trying to access them
+  const nodeData = selectedNode.data || {};
+  const nodeProperties = nodeData.properties || {};
+  const nodeType = nodeData.type || 'default';
+  const nodeName = nodeProperties.name || nodeType;
+
+
   return (
     <ScrollArea className="h-full">
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-1">Component Properties</h3>
-          <p className="text-sm text-muted-foreground">Edit details for '{localProperties?.name || selectedNode.data.type}'</p>
+          <p className="text-sm text-muted-foreground">Edit details for '{nodeName}' ({nodeType})</p>
         </div>
 
         <div className="space-y-4">
           {Object.entries(localProperties).map(([key, value]) => {
-            // Skip position, width, height - managed by ReactFlow
-            if (key === 'position' || key === 'width' || key === 'height') return null;
+            // Skip position, width, height, type - managed by ReactFlow or core node structure
+            if (['position', 'width', 'height', 'type'].includes(key)) return null;
+
+            // Skip parentNode property - managed implicitly by React Flow structure
+            if (key === 'parentNode') return null;
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()); // Format label
 
@@ -166,10 +191,10 @@ export function SidebarPropertiesPanel({
                          <Checkbox
                             id={`prop-${key}`}
                             checked={value}
-                            onCheckedChange={(checked) => handleInputChange(key, checked)}
+                            onCheckedChange={(checked) => handleInputChange(key, Boolean(checked))} // Ensure boolean value
                           />
                          <Label htmlFor={`prop-${key}`} className="text-sm font-normal">
-                            {value ? 'Enabled' : 'Disabled'}
+                            {value ? 'True' : 'False'} {/* More explicit labels */}
                          </Label>
                      </div>
                   ) : typeof value === 'string' && value.length > 60 ? (
@@ -187,13 +212,17 @@ export function SidebarPropertiesPanel({
                       value={String(value ?? '')} // Handle null/undefined safely
                       onChange={(e) => handleInputChange(key, e.target.value)}
                       className="text-sm"
-                      type={typeof value === 'number' ? 'number' : 'text'}
+                      type={typeof value === 'number' ? 'number' : 'text'} // Keep number type if applicable
                       placeholder={`Enter ${labelText}...`}
                     />
                   )}
                 </div>
             );
           })}
+           {/* Show message if no editable properties exist */}
+           {Object.keys(localProperties).filter(key => !['position', 'width', 'height', 'type', 'parentNode'].includes(key)).length === 0 && (
+               <p className="text-sm text-muted-foreground">No editable properties for this component.</p>
+            )}
         </div>
 
          <Button onClick={handleSuggestProperties} disabled={isSuggesting} variant="outline" size="sm" className="w-full">
@@ -201,10 +230,29 @@ export function SidebarPropertiesPanel({
              {isSuggesting ? "Suggesting..." : "AI Suggest Properties"}
         </Button>
 
-         <Button onClick={handleDeleteNode} variant="destructive" size="sm" className="w-full mt-2">
-             <Trash2 className="mr-2 h-4 w-4" />
-             Delete Component
-        </Button>
+        {/* Confirmation Dialog for Deletion */}
+         <AlertDialog>
+             <AlertDialogTrigger asChild>
+                 <Button variant="destructive" size="sm" className="w-full mt-2">
+                     <Trash2 className="mr-2 h-4 w-4" />
+                     Delete Component
+                 </Button>
+             </AlertDialogTrigger>
+             <AlertDialogContent>
+                 <AlertDialogHeader>
+                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                 <AlertDialogDescription>
+                     This action cannot be undone. This will permanently delete the component
+                     and remove its data from the diagram.
+                 </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                 <AlertDialogCancel>Cancel</AlertDialogCancel>
+                 <AlertDialogAction onClick={confirmDeleteNode}>Continue</AlertDialogAction>
+                 </AlertDialogFooter>
+             </AlertDialogContent>
+         </AlertDialog>
+
 
       </div>
     </ScrollArea>
@@ -224,5 +272,6 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     timeout = setTimeout(() => func(...args), waitFor);
   };
 
-  return debounced as (...args: Parameters<F>) => ReturnType<F>;
+  // Type assertion needed because TypeScript can't infer the return type correctly with generics here
+  return debounced as (...args: Parameters<F>) => void;
 }

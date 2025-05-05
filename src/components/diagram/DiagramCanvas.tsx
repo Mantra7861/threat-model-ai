@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useRef, type DragEvent, type MouseEvent, type Dispatch, type SetStateAction } from 'react';
@@ -23,7 +22,7 @@ import {
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
-import { componentToNode } from '@/lib/diagram-utils'; // Import utility
+// Removed componentToNode import as it's not used here anymore
 
 // Define node types map for ReactFlow
 const nodeTypes = {
@@ -40,6 +39,7 @@ interface DiagramCanvasProps {
   edges: Edge[];
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
+  onConnect: OnConnect; // Added prop for connection logic
   setNodes: Dispatch<SetStateAction<Node[]>>; // Needed for adding nodes
   setEdges: Dispatch<SetStateAction<Edge[]>>; // Needed for adding edges
   onNodeClick: (event: React.MouseEvent | null, node: Node) => void; // Allow null event
@@ -54,6 +54,7 @@ export function DiagramCanvas({
   edges,
   onNodesChange,
   onEdgesChange,
+  onConnect, // Use passed onConnect prop
   setNodes,
   setEdges,
   onNodeClick,
@@ -65,15 +66,6 @@ export function DiagramCanvas({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getIntersectingNodes } = useReactFlow(); // Use hook for coordinate conversion and intersection
   const { toast } = useToast();
-
-  // Handle connecting nodes
-  const onConnect: OnConnect = useCallback(
-    (connection: Connection) => {
-      setEdges((eds) => addEdge({ ...connection, animated: true, type: 'smoothstep' }, eds));
-      // TODO: Update diagram data model with the new connection if saving structure
-    },
-    [setEdges]
-  );
 
   // Handle drag over event for dropping components
   const onDragOver = useCallback((event: DragEvent) => {
@@ -102,23 +94,29 @@ export function DiagramCanvas({
       }
 
       const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      const position = screenToFlowPosition({ // Use hook method
+      // Adjust position based on drop location relative to the wrapper
+      const position = screenToFlowPosition({
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
       });
+
       console.log("Calculated position:", position); // Log: Calculated position
 
       // Find parent node if dropped inside one (e.g., boundary)
+       // Increase tolerance slightly for intersection check
       const intersectingNodes = getIntersectingNodes({
-        x: position.x,
-        y: position.y,
-        width: 1, // Small dimension for point check
-        height: 1,
+        x: position.x - 5, // small offset to ensure overlap
+        y: position.y - 5,
+        width: 10,
+        height: 10,
       }).filter((n) => n.type === 'boundary'); // Example: only consider boundaries as parents
 
       const parentNode = intersectingNodes[0] ?? null;
       console.log("Parent node (if any):", parentNode?.id); // Log: Parent node
 
+      const isBoundary = type === 'boundary';
+      const defaultWidth = isBoundary ? 300 : 150;
+      const defaultHeight = isBoundary ? 350 : 80;
 
       const newNode: Node = {
         id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, // More unique ID
@@ -128,20 +126,35 @@ export function DiagramCanvas({
           label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
           properties: { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Node` },
           type: type, // Ensure type is in data for CustomNode
-          resizable: type !== 'boundary',
+          resizable: !isBoundary,
         },
-        style: { width: 150, height: 80 },
+        style: { width: defaultWidth, height: defaultHeight },
         ...(type !== 'boundary' && { dragHandle: '.drag-handle' }),
-        // Assign parentNode if found
+        // Assign parentNode if found and keep node inside parent
         ...(parentNode && {
             parentNode: parentNode.id,
-            extent: 'parent' // Keep node inside parent
+            extent: 'parent',
+             // Adjust position relative to parent if needed, React Flow might handle this automatically
+             // position: { x: position.x - parentNode.positionAbsolute.x, y: position.y - parentNode.positionAbsolute.y },
         }),
+          // Ensure boundaries have correct initial styling flags
+        ...(isBoundary && { selectable: true, connectable: false, dragHandle: undefined, zIndex: 0 }),
       };
       console.log("Creating newNode:", newNode); // Log: New node object
 
       setNodes((nds) => {
           console.log("Current nodes before adding:", nds); // Log: Nodes before update
+          // Ensure parent node (if any) is rendered before the child
+          if (parentNode) {
+              const parentIndex = nds.findIndex(n => n.id === parentNode.id);
+              if (parentIndex !== -1) {
+                 // Insert child after parent to help with rendering order if needed, though CSS z-index is better
+                 const newNodesArray = [...nds];
+                 newNodesArray.splice(parentIndex + 1, 0, newNode);
+                 console.log("Updated nodes array (inside setNodes, with parent):", newNodesArray);
+                 return newNodesArray;
+              }
+          }
           const newNodes = nds.concat(newNode);
           console.log("Updated nodes array (inside setNodes):", newNodes); // Log: Nodes after update
           return newNodes;
@@ -157,64 +170,55 @@ export function DiagramCanvas({
    const onNodeDragStop = useCallback((_: MouseEvent | null, node: Node) => { // Allow null event
         console.log('Node drag stopped, state updated:', node.id, node.position);
         // No need to explicitly save here, ProjectClientLayout's handleSave will use the latest nodes state.
+        // Parent layout handles saving via its `nodes` state.
     }, []);
 
    // Update node selection in parent state when selection changes
+   // Note: onNodesChange now handles selection updates directly passed from React Flow
+   // This onSelectionChange might be redundant if onNodesChange covers it.
+   // Let's remove it to avoid potential conflicts unless specific multi-select logic is needed here.
+   /*
    const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[], edges: Edge[]}) => {
-        if (selectedNodes.length === 1) {
-            // If exactly one node is selected via box select or other means,
-            // call the onNodeClick handler to update the parent state.
-            // Note: This might conflict if onNodeClick already handles single clicks.
-            // Ensure this logic complements or replaces part of onNodeClick if needed.
-            // We pass a null event as it wasn't a direct click event.
-            onNodeClick(null, selectedNodes[0]);
-        } else if (selectedNodes.length === 0) {
-            // If selection is cleared (e.g., clicking pane), call onPaneClick.
-            onPaneClick();
-        }
-        // If multiple nodes are selected, we might want to clear the single selection
-        // or handle multi-select properties (currently not implemented).
-        else if (selectedNodes.length > 1) {
-             onPaneClick(); // Clear single selection view for multi-select
-        }
+        // ... logic from previous version ...
    }, [onNodeClick, onPaneClick]);
+   */
 
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={nodes.map(n => ({ ...n, selected: n.id === selectedNodeId }))} // Highlight selected node
+        nodes={nodes.map(n => ({ ...n, selected: n.id === selectedNodeId }))} // Highlight selected node based on parent state
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onNodesChange={onNodesChange} // Let parent handle node changes (including selection)
+        onEdgesChange={onEdgesChange} // Let parent handle edge changes
+        onConnect={onConnect} // Use the passed handler
         // onInit={setReactFlowInstance} // Instance managed by useReactFlow hook now
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
-        onNodeClick={onNodeClick} // Pass handler
-        onPaneClick={onPaneClick} // Pass handler
+        onNodeClick={onNodeClick} // Pass node click handler
+        onPaneClick={onPaneClick} // Pass pane click handler
         onMoveEnd={onMoveEnd} // Pass handler
-        onNodeDragStop={onNodeDragStop} // Pass handler
-        onSelectionChange={onSelectionChange} // Handle selection changes
+        onNodeDragStop={onNodeDragStop} // Pass node drag stop handler
+        // onSelectionChange={onSelectionChange} // Removed as onNodesChange should handle selection
         defaultViewport={viewport} // Use viewport prop if provided
         // fitView // Removed fitView as it might interfere with initial placement
         className="bg-background"
-        deleteKeyCode={['Backspace', 'Delete']} // Enable deletion
+        deleteKeyCode={['Backspace', 'Delete']} // Enable deletion via keyboard
         nodesDraggable={true} // Ensure nodes are draggable
         nodesConnectable={true}
         elementsSelectable={true} // Ensure elements are selectable
         selectNodesOnDrag={true} // Select nodes when dragging them
+        multiSelectionKeyCode={['Meta', 'Control']} // Allow multi-select with Cmd/Ctrl
+        nodeDragThreshold={1} // Make nodes easier to drag
       >
         <Controls />
         {/* <MiniMap nodeStrokeWidth={3} zoomable pannable /> Removed MiniMap */}
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-background/80 rounded">
-          Drag components to add. Click components to select & edit properties. Drag to move.
+          Drag components to add. Click components to select & edit properties. Drag to move. Press Backspace/Delete to remove selected.
         </Panel>
       </ReactFlow>
     </div>
   );
 }
-
-    

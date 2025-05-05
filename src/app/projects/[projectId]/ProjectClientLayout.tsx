@@ -1,8 +1,7 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
-import { useNodesState, useEdgesState, type Node, type Edge, type NodeChange, type EdgeChange, type Connection, type Viewport, applyNodeChanges, applyEdgeChanges } from '@xyflow/react';
+import { useNodesState, useEdgesState, type Node, type Edge, type NodeChange, type EdgeChange, type Connection, type Viewport, applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +18,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const [edges, setEdges] = useEdgesState<Edge[]>([]);
     const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [diagramName, setDiagramName] = useState<string>('Loading...'); // Add state for diagram name
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { toast } = useToast();
@@ -34,6 +34,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 // TODO: Load edges if they are part of the diagram data model
                 // const flowEdges = diagramData.connections?.map(...) ?? [];
                 setNodes(flowNodes);
+                setDiagramName(diagramData.name); // Set diagram name
                 // setEdges(flowEdges);
                 // TODO: Load viewport if saved
                 // setViewport(diagramData.viewport);
@@ -55,10 +56,26 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const isSelectedNodeRemoved = changes.some(change =>
                 change.type === 'remove' && change.id === selectedNodeId
             );
-            if (isSelectedNodeRemoved) {
-                setSelectedNodeId(null); // Clear selection if the node is removed
-            }
-            setNodes((nds) => applyNodeChanges(changes, nds));
+
+            setNodes((nds) => {
+                const updatedNodes = applyNodeChanges(changes, nds);
+                // If the selected node was removed by a change other than our deleteNode function, clear selection
+                if (isSelectedNodeRemoved && !updatedNodes.find(n => n.id === selectedNodeId)) {
+                   setSelectedNodeId(null);
+                }
+                 // Check if selection changed
+                const selectionChange = changes.find(change => change.type === 'select');
+                if (selectionChange) {
+                    if (selectionChange.selected) {
+                         setSelectedNodeId(selectionChange.id);
+                    } else if (selectedNodeId === selectionChange.id && !selectionChange.selected){
+                        // Deselected the currently selected node
+                         setSelectedNodeId(null);
+                    }
+                }
+
+                return updatedNodes;
+            });
         },
         [setNodes, selectedNodeId]
     );
@@ -68,10 +85,22 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         [setEdges]
     );
 
+    // Handle connecting nodes
+    const onConnect = useCallback(
+        (connection: Connection) => {
+          setEdges((eds) => addEdge({ ...connection, animated: true, type: 'smoothstep' }, eds));
+          // TODO: Update diagram data model with the new connection if saving structure
+        },
+        [setEdges]
+    );
+
+
     // Handle selecting a node
-    const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
+    const onNodeClick = useCallback((event: React.MouseEvent | null, node: Node) => {
         setSelectedNodeId(node.id);
-    }, []);
+        // Bring selected node to front (optional, requires z-index management or reordering nodes array)
+        // setNodes(nds => [...nds.filter(n => n.id !== node.id), node]);
+    }, [setNodes]);
 
     // Handle clicking the pane (deselect)
     const onPaneClick = useCallback(() => {
@@ -102,13 +131,27 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             })
         );
         // Consider triggering a save here (debounced ideally)
+        // handleSave(); // Trigger save immediately or use debounced version
     }, [setNodes]);
+
+    // Function to delete a node
+    const deleteNode = useCallback((nodeId: string) => {
+        setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+        setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)); // Remove edges connected to the node
+        if (selectedNodeId === nodeId) {
+             setSelectedNodeId(null); // Clear selection if the deleted node was selected
+        }
+        toast({ title: 'Component Deleted', description: `Component removed from the diagram.` });
+        // Consider triggering a save here
+        // handleSave();
+    }, [setNodes, setEdges, selectedNodeId, toast]);
+
 
     // Handle saving the diagram (can be triggered from DiagramHeader or automatically)
     const handleSave = useCallback(async () => {
         const diagramToSave: Diagram = {
             id: projectId,
-            name: 'Sample Diagram', // Fetch or manage name separately
+            name: diagramName, // Use the state variable for the name
             components: nodes.map(nodeToComponent),
             // TODO: Add connections/edges to the Diagram interface and save them
             // connections: edges.map(edge => ({ source: edge.source, target: edge.target, ... })),
@@ -123,10 +166,12 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             console.error('Failed to save diagram:', error);
             toast({ title: 'Error', description: 'Could not save diagram.', variant: 'destructive' });
         }
-    }, [projectId, nodes, edges, viewport, toast]);
+    }, [projectId, diagramName, nodes, edges, viewport, toast]);
 
-    // Expose handleSave to DiagramHeader - potentially via context or prop drilling if DiagramHeader becomes client component
-    // For now, maybe DiagramHeader calls a global save function or we trigger save differently
+    // Provide save function to header via props
+    // In layout.tsx, pass handleSave to DiagramHeader
+    // This requires DiagramHeader to be a client component or use context/global state.
+    // Let's adjust layout.tsx and DiagramHeader.tsx
 
     if (loading) {
         return <div className="flex items-center justify-center h-full text-muted-foreground flex-1">Loading Diagram...</div>;
@@ -144,6 +189,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                     edges={edges}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
+                    onConnect={onConnect} // Pass connection handler
                     setNodes={setNodes} // Pass setNodes for dropping new nodes
                     setEdges={setEdges} // Pass setEdges for connections
                     onNodeClick={onNodeClick}
@@ -165,6 +211,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         <SidebarPropertiesPanel
                             selectedNode={selectedNodeData}
                             onUpdateProperties={updateNodeProperties}
+                            onDeleteNode={deleteNode} // Pass delete handler
                             // Pass diagram description if needed for AI suggestions
                             // diagramDescription={diagramData?.description}
                         />

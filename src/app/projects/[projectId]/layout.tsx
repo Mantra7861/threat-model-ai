@@ -24,6 +24,12 @@ export default function ProjectLayout({
   children: ReactNode; // Keep children for type consistency, though not directly used here
   params: { projectId: string };
 }) {
+
+  // Note: ProjectClientLayout now handles the main diagram state.
+  // If DiagramHeader needs access to diagram name or save function,
+  // they need to be lifted or managed via context/global state.
+  // For now, DiagramHeader manages its own name state fetched internally.
+
   return (
     <SidebarProvider defaultOpen={true}>
       {/* Left Sidebar (Component Library) */}
@@ -69,6 +75,9 @@ export default function ProjectLayout({
 
       {/* Main Content Area managed by ProjectClientLayout */}
       <SidebarInset className="flex flex-col !p-0">
+         {/* DiagramHeader needs access to save function and potentially name from ProjectClientLayout */}
+         {/* This architecture requires either passing props down or using context/global state */}
+         {/* For simplicity now, DiagramHeader fetches its own name and its save button might trigger a save function passed down or via context */}
         <DiagramHeader projectId={params.projectId} />
          {/* Render the client layout which handles state and renders Canvas/Sidebars */}
         <ProjectClientLayout projectId={params.projectId} />
