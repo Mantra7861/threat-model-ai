@@ -1,14 +1,15 @@
+
 "use client";
 
-import { useEffect, useState, useCallback, useRef, type DragEvent, type MouseEvent } from 'react';
+import { useCallback, useRef, type DragEvent, type MouseEvent, type Dispatch, type SetStateAction } from 'react';
 import {
-  ReactFlow, // Changed from default import
+  ReactFlow,
   Controls,
   Background,
-  useNodesState,
-  useEdgesState,
   addEdge,
   MiniMap,
+  Panel,
+  useReactFlow,
   type Node,
   type Edge,
   type OnConnect,
@@ -16,19 +17,13 @@ import {
   type OnNodesChange,
   type ReactFlowInstance,
   type Connection,
-  NodeToolbar,
-  NodeResizer,
-  Panel, // Added for drag/drop info
+  type Viewport,
+  type NodeChange, // Added for specific change types
+  type XYPosition, // Added for positioning new nodes
 } from '@xyflow/react';
-import { Server, Database, Cloud, Router, ShieldCheck } from 'lucide-react'; // Icons for custom nodes
-import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent } from '@/services/diagram';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { CustomNode } from './CustomNode'; // Import the new CustomNode
-
-interface DiagramCanvasProps {
-  projectId: string;
-}
+import { CustomNode } from './CustomNode';
+import { componentToNode } from '@/lib/diagram-utils'; // Import utility
 
 // Define node types map for ReactFlow
 const nodeTypes = {
@@ -36,77 +31,46 @@ const nodeTypes = {
   database: CustomNode,
   service: CustomNode,
   router: CustomNode,
-  boundary: CustomNode, // Using CustomNode for all for consistency
+  boundary: CustomNode,
   default: CustomNode,
 };
 
-// Function to convert DiagramComponent to ReactFlow Node
-const componentToNode = (component: DiagramComponent): Node => ({
-  id: component.id,
-  type: component.type || 'default', // Ensure a type is always present
-  position: component.properties?.position || { x: Math.random() * 500, y: Math.random() * 300 }, // Use saved position or random
-  data: {
-    label: component.properties?.name || component.type,
-    properties: component.properties,
-    type: component.type, // Pass type to data for CustomNode
-    resizable: component.type !== 'boundary', // Example: Make non-boundary nodes resizable
-  },
-   style: { width: component.properties?.width || 150, height: component.properties?.height || 80 }, // Initial dimensions
-   // Add resizable prop based on type if needed
-   ...(component.type !== 'boundary' && { dragHandle: '.drag-handle' }) // Specify drag handle if not a boundary
-});
+interface DiagramCanvasProps {
+  nodes: Node[];
+  edges: Edge[];
+  onNodesChange: OnNodesChange;
+  onEdgesChange: OnEdgesChange;
+  setNodes: Dispatch<SetStateAction<Node[]>>; // Needed for adding nodes
+  setEdges: Dispatch<SetStateAction<Edge[]>>; // Needed for adding edges
+  onNodeClick: (event: React.MouseEvent, node: Node) => void;
+  onPaneClick: () => void;
+  onMoveEnd?: (event: MouseEvent | TouchEvent | undefined, viewport: Viewport) => void; // Optional viewport saving
+  viewport?: Viewport; // Optional controlled viewport
+  selectedNodeId?: string | null; // Optional selected node highlighting
+}
 
-// Function to convert ReactFlow Node back to DiagramComponent
-const nodeToComponent = (node: Node): DiagramComponent => ({
-  id: node.id,
-  type: node.data.type,
-  properties: {
-    ...node.data.properties,
-    position: node.position,
-    width: node.style?.width,
-    height: node.style?.height,
-    name: node.data.label, // Ensure name is saved back
-  },
-});
-
-export function DiagramCanvas({ projectId }: DiagramCanvasProps) {
+export function DiagramCanvas({
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  setNodes,
+  setEdges,
+  onNodeClick,
+  onPaneClick,
+  onMoveEnd,
+  viewport,
+  selectedNodeId,
+}: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow(); // Use hook for coordinate conversion and intersection
   const { toast } = useToast();
-
-  // Load diagram data
-  useEffect(() => {
-    async function loadDiagram() {
-      setLoading(true);
-      setError(null);
-      try {
-        const diagramData = await getDiagram(projectId);
-        const flowNodes = diagramData.components.map(componentToNode);
-        // TODO: Load edges if they are part of the diagram data model
-        // const flowEdges = diagramData.connections?.map(...) ?? [];
-        setNodes(flowNodes);
-        // setEdges(flowEdges);
-      } catch (err) {
-        setError('Failed to load diagram.');
-        console.error(err);
-        toast({ title: 'Error', description: 'Could not load diagram data.', variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadDiagram();
-  }, [projectId, setNodes, setEdges, toast]);
-
 
   // Handle connecting nodes
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
-        setEdges((eds) => addEdge({...connection, animated: true, type: 'smoothstep'}, eds))
-        // TODO: Update diagram data model with the new connection
+      setEdges((eds) => addEdge({ ...connection, animated: true, type: 'smoothstep' }, eds));
+      // TODO: Update diagram data model with the new connection if saving structure
     },
     [setEdges]
   );
@@ -122,7 +86,7 @@ export function DiagramCanvas({ projectId }: DiagramCanvasProps) {
     (event: DragEvent) => {
       event.preventDefault();
 
-      if (!reactFlowWrapper.current || !reactFlowInstance) {
+      if (!reactFlowWrapper.current) {
         return;
       }
 
@@ -134,92 +98,106 @@ export function DiagramCanvas({ projectId }: DiagramCanvasProps) {
       }
 
       const bounds = reactFlowWrapper.current.getBoundingClientRect();
-      const position = reactFlowInstance.screenToFlowPosition({
+      const position = screenToFlowPosition({ // Use hook method
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
       });
+
+      // Find parent node if dropped inside one (e.g., boundary)
+      const intersectingNodes = getIntersectingNodes({
+        x: position.x,
+        y: position.y,
+        width: 1, // Small dimension for point check
+        height: 1,
+      }).filter((n) => n.type === 'boundary'); // Example: only consider boundaries as parents
+
+      const parentNode = intersectingNodes[0] ?? null;
+
+
       const newNode: Node = {
-        id: `${type}-${Date.now()}`, // Simple unique ID generation
+        id: `${type}-${Date.now()}`,
         type,
         position,
         data: {
-          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`, // Default label
-          properties: { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Node` }, // Initial properties
+          label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+          properties: { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Node` },
           type: type,
-          resizable: type !== 'boundary', // Example: Make non-boundary nodes resizable
+          resizable: type !== 'boundary',
         },
-         style: { width: 150, height: 80 }, // Default dimensions
-        ...(type !== 'boundary' && { dragHandle: '.drag-handle' })
+        style: { width: 150, height: 80 },
+        ...(type !== 'boundary' && { dragHandle: '.drag-handle' }),
+        // Assign parentNode if found
+        ...(parentNode && {
+            parentNode: parentNode.id,
+            extent: 'parent' // Keep node inside parent
+        }),
       };
 
       setNodes((nds) => nds.concat(newNode));
-      // TODO: Update the diagram data model with the new component
+      toast({ title: 'Component Added', description: `${newNode.data.label} added to the diagram.` });
+      // TODO: Update the diagram data model (likely handled by parent via handleSave)
     },
-    [reactFlowInstance, setNodes]
+    [screenToFlowPosition, setNodes, toast, getIntersectingNodes] // Include hook method in dependency array
   );
 
-  // Handle saving the diagram (example)
-  const handleSave = useCallback(async () => {
-     if (!reactFlowInstance) return;
-
-     const currentNodes = reactFlowInstance.getNodes();
-     const currentEdges = reactFlowInstance.getEdges(); // Get edges as well
-
-     const diagramToSave: Diagram = {
-         id: projectId,
-         name: 'Sample Diagram', // Fetch or manage name separately
-         components: currentNodes.map(nodeToComponent),
-         // TODO: Add connections/edges to the Diagram interface and save them
-         // connections: currentEdges.map(edge => ({ source: edge.source, target: edge.target, ... })),
-     };
-
-     try {
-         await saveDiagram(diagramToSave);
-         toast({ title: 'Saved', description: 'Diagram saved successfully.' });
-     } catch (error) {
-         console.error('Failed to save diagram:', error);
-         toast({ title: 'Error', description: 'Could not save diagram.', variant: 'destructive' });
-     }
-  }, [projectId, reactFlowInstance, toast]);
-
-   // Add handleSave to DiagramHeader via a context or prop drilling if needed,
-   // or trigger save on node/edge changes (debounced). Example: Save on node drag stop.
+   // Handle node drag stop - parent component (ProjectClientLayout) will handle saving
    const onNodeDragStop = useCallback((_: MouseEvent, node: Node) => {
-        console.log('Node drag stopped, consider saving:', node);
-        // Debounced save call could go here
-        // handleSave(); // Example: Save immediately (might be too frequent)
-    }, [/* handleSave (if debounced) */]);
+        console.log('Node drag stopped, state updated:', node.id, node.position);
+        // No need to explicitly save here, ProjectClientLayout's handleSave will use the latest nodes state.
+    }, []);
 
+   // Update node selection in parent state when selection changes
+   const onSelectionChange = useCallback(({ nodes: selectedNodes }: { nodes: Node[], edges: Edge[]}) => {
+        if (selectedNodes.length === 1) {
+            // If exactly one node is selected via box select or other means,
+            // call the onNodeClick handler to update the parent state.
+            // Note: This might conflict if onNodeClick already handles single clicks.
+            // Ensure this logic complements or replaces part of onNodeClick if needed.
+            // We pass a null event as it wasn't a direct click event.
+            onNodeClick(null as any, selectedNodes[0]);
+        } else if (selectedNodes.length === 0) {
+            // If selection is cleared (e.g., clicking pane), call onPaneClick.
+            onPaneClick();
+        }
+        // If multiple nodes are selected, we might want to clear the single selection
+        // or handle multi-select properties (currently not implemented).
+        else if (selectedNodes.length > 1) {
+             onPaneClick(); // Clear single selection view for multi-select
+        }
+   }, [onNodeClick, onPaneClick]);
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-full text-muted-foreground">Loading Diagram...</div>;
-  }
-
-  if (error) {
-    return <div className="flex items-center justify-center h-full text-destructive">{error}</div>;
-  }
 
   return (
-    <div className="h-full w-full relative" ref={reactFlowWrapper}>
+    <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={nodes}
+        nodes={nodes.map(n => ({ ...n, selected: n.id === selectedNodeId }))} // Highlight selected node
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onInit={setReactFlowInstance}
+        // onInit={setReactFlowInstance} // Instance managed by useReactFlow hook now
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
-        fitView
-        className="bg-background" // Use theme background
-        onNodeDragStop={onNodeDragStop} // Add save trigger example
+        onNodeClick={onNodeClick} // Pass handler
+        onPaneClick={onPaneClick} // Pass handler
+        onMoveEnd={onMoveEnd} // Pass handler
+        onNodeDragStop={onNodeDragStop} // Pass handler
+        onSelectionChange={onSelectionChange} // Handle selection changes
+        defaultViewport={viewport} // Use viewport prop if provided
+        fitView // Initial fit view
+        className="bg-background"
+        deleteKeyCode={['Backspace', 'Delete']} // Enable deletion
+        nodesDraggable={true} // Ensure nodes are draggable
+        nodesConnectable={true}
+        elementsSelectable={true} // Ensure elements are selectable
+        selectNodesOnDrag={true} // Select nodes when dragging them
       >
         <Controls />
         <MiniMap nodeStrokeWidth={3} zoomable pannable />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-background/80 rounded">
-          Drag components from the left sidebar to add them. Connect handles to create flows.
+          Drag components to add. Click components to select & edit properties. Drag to move.
         </Panel>
       </ReactFlow>
     </div>

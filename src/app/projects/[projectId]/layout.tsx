@@ -11,20 +11,17 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FileText, Workflow, Settings, Users, ShieldAlert, HelpCircle, LayoutDashboard, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DiagramHeader } from "@/components/layout/DiagramHeader";
 import { SidebarComponentLibrary } from "@/components/diagram/SidebarComponentLibrary";
-import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ProjectClientLayout } from "./ProjectClientLayout"; // Import the new client layout
 
 export default function ProjectLayout({
-  children,
+  children, // children prop is now handled by ProjectClientLayout
   params,
 }: {
-  children: ReactNode;
+  children: ReactNode; // Keep children for type consistency, though not directly used here
   params: { projectId: string };
 }) {
   return (
@@ -70,32 +67,11 @@ export default function ProjectLayout({
         </SidebarFooter>
       </Sidebar>
 
-      {/* Main Content Area */}
+      {/* Main Content Area managed by ProjectClientLayout */}
       <SidebarInset className="flex flex-col !p-0">
         <DiagramHeader projectId={params.projectId} />
-        <div className="flex flex-1 overflow-hidden">
-          <main className="flex-1 overflow-auto p-4 bg-secondary/50">
-            {children} {/* Diagram Canvas will go here */}
-          </main>
-
-          {/* Right Sidebar (Properties Panel & Report) */}
-          <aside className="w-80 border-l bg-card flex flex-col">
-             <Tabs defaultValue="properties" className="flex flex-col flex-1 overflow-hidden">
-                <TabsList className="grid w-full grid-cols-2 rounded-none">
-                  <TabsTrigger value="properties">Properties</TabsTrigger>
-                  <TabsTrigger value="report">Report</TabsTrigger>
-                </TabsList>
-                <TabsContent value="properties" className="flex-1 overflow-auto p-4 mt-0">
-                   <SidebarPropertiesPanel />
-                </TabsContent>
-                <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
-                  <h3 className="text-lg font-semibold mb-4">Threat Report</h3>
-                  <p className="text-sm text-muted-foreground">Generate a report after completing your diagram.</p>
-                  {/* Report content will be loaded here */}
-                </TabsContent>
-              </Tabs>
-          </aside>
-        </div>
+         {/* Render the client layout which handles state and renders Canvas/Sidebars */}
+        <ProjectClientLayout projectId={params.projectId} />
       </SidebarInset>
     </SidebarProvider>
   );

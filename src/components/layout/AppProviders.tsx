@@ -1,6 +1,8 @@
+
 "use client";
 
 import type { ReactNode } from "react";
+import { ReactFlowProvider } from '@xyflow/react'; // Import ReactFlowProvider
 // import { ThemeProvider } from "next-themes"; // Example provider
 // import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // Example provider
 
@@ -13,5 +15,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   //     {children}
   //   </QueryClientProvider>
   // </ThemeProvider>
-  return <>{children}</>;
+  return (
+    <ReactFlowProvider>
+        {children}
+    </ReactFlowProvider>
+  );
 }
