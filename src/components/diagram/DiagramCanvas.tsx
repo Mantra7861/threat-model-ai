@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, type DragEvent, type MouseEvent } from 'react';
-import ReactFlow, {
+import {
+  ReactFlow, // Changed from default import
   Controls,
   Background,
   useNodesState,
