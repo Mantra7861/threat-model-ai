@@ -85,15 +85,19 @@ export function DiagramCanvas({
   const onDrop = useCallback(
     (event: DragEvent) => {
       event.preventDefault();
+      console.log("onDrop triggered"); // Log: Start of drop
 
       if (!reactFlowWrapper.current) {
+        console.error("ReactFlow wrapper ref not available"); // Log: Ref missing
         return;
       }
 
       const type = event.dataTransfer.getData('application/reactflow');
+      console.log("Dropped type:", type); // Log: Component type
 
       // Check if the dropped element is valid
       if (typeof type === 'undefined' || !type) {
+        console.error("Invalid drop type:", type); // Log: Invalid type
         return;
       }
 
@@ -102,6 +106,7 @@ export function DiagramCanvas({
         x: event.clientX - bounds.left,
         y: event.clientY - bounds.top,
       });
+      console.log("Calculated position:", position); // Log: Calculated position
 
       // Find parent node if dropped inside one (e.g., boundary)
       const intersectingNodes = getIntersectingNodes({
@@ -112,16 +117,17 @@ export function DiagramCanvas({
       }).filter((n) => n.type === 'boundary'); // Example: only consider boundaries as parents
 
       const parentNode = intersectingNodes[0] ?? null;
+      console.log("Parent node (if any):", parentNode?.id); // Log: Parent node
 
 
       const newNode: Node = {
-        id: `${type}-${Date.now()}`,
+        id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`, // More unique ID
         type,
         position,
         data: {
           label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
           properties: { name: `${type.charAt(0).toUpperCase() + type.slice(1)} Node` },
-          type: type,
+          type: type, // Ensure type is in data for CustomNode
           resizable: type !== 'boundary',
         },
         style: { width: 150, height: 80 },
@@ -132,10 +138,17 @@ export function DiagramCanvas({
             extent: 'parent' // Keep node inside parent
         }),
       };
+      console.log("Creating newNode:", newNode); // Log: New node object
 
-      setNodes((nds) => nds.concat(newNode));
+      setNodes((nds) => {
+          console.log("Current nodes before adding:", nds); // Log: Nodes before update
+          const newNodes = nds.concat(newNode);
+          console.log("Updated nodes array (inside setNodes):", newNodes); // Log: Nodes after update
+          return newNodes;
+      });
+
       toast({ title: 'Component Added', description: `${newNode.data.label} added to the diagram.` });
-      // TODO: Update the diagram data model (likely handled by parent via handleSave)
+      console.log("Toast shown for adding component."); // Log: Toast shown
     },
     [screenToFlowPosition, setNodes, toast, getIntersectingNodes] // Include hook method in dependency array
   );
@@ -185,7 +198,7 @@ export function DiagramCanvas({
         onNodeDragStop={onNodeDragStop} // Pass handler
         onSelectionChange={onSelectionChange} // Handle selection changes
         defaultViewport={viewport} // Use viewport prop if provided
-        fitView // Initial fit view
+        // fitView // Removed fitView as it might interfere with initial placement
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']} // Enable deletion
         nodesDraggable={true} // Ensure nodes are draggable

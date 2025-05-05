@@ -16,14 +16,26 @@ const componentIcons: Record<string, React.ElementType> = {
   default: HelpCircle, // Fallback icon
 };
 
-export const CustomNode: FC<NodeProps> = ({ id, data, selected, type }) => {
+export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos, isConnectable }) => {
+  // console.log(`Rendering CustomNode: id=${id}, type=${type}, data=`, data, `selected=${selected}`, `pos=(${xPos}, ${yPos})`); // Log node rendering
+
   const Icon = componentIcons[type] || componentIcons.default;
-  const isResizable = data.resizable !== false; // Default to true if not specified
+  const isResizable = data?.resizable !== false && type !== 'boundary'; // Default to true if not specified, boundaries usually not resizable by default handle
   const isBoundary = type === 'boundary'; // Special handling for boundaries
+
+  // Validate essential data
+  if (!data) {
+    console.error(`CustomNode (id: ${id}): Missing data prop.`);
+    return <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700">Error: Missing Node Data</div>;
+  }
+   if (!type) {
+     console.error(`CustomNode (id: ${id}): Missing type prop.`);
+     return <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700">Error: Missing Node Type</div>;
+   }
 
   return (
     <>
-      {/* Node Resizer - Conditionally rendered */}
+      {/* Node Resizer - Conditionally rendered for non-boundary, selected nodes */}
       {isResizable && selected && (
         <NodeResizer
           minWidth={100}
@@ -35,18 +47,20 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type }) => {
       )}
 
       {/* Node Toolbar - Optional, example for actions */}
-      <NodeToolbar isVisible={selected} position={Position.Top}>
+      {/* <NodeToolbar isVisible={selected} position={Position.Top}> */}
         {/* Add buttons or actions here, e.g., delete, configure */}
         {/* <button>⚙️</button> */}
-      </NodeToolbar>
+      {/* </NodeToolbar> */}
 
        {/* Main Node Content */}
        <div
          className={cn(
-           "flex flex-col items-center justify-center p-3 w-full h-full relative",
+           "flex flex-col items-center justify-center p-3 w-full h-full relative shadow-md rounded-lg border", // Added base styling
            `react-flow__node-${type}`, // Apply type-specific base styles from globals.css
-           isBoundary && "border-2 border-dashed border-red-400 bg-red-500/5" // Specific boundary styling
+           isBoundary && "border-2 border-dashed border-red-400 bg-red-500/5 cursor-default", // Specific boundary styling override
+           selected && "ring-2 ring-primary ring-offset-2" // Indicate selection visually
          )}
+         // Remove direct style application if possible, rely on classes and ReactFlow's positioning
        >
         {/* Drag Handle (conditionally rendered for non-boundaries) */}
         {!isBoundary && (
@@ -56,40 +70,40 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type }) => {
         )}
 
 
-        {!isBoundary && <Icon className="w-8 h-8 mb-1" />}
+        {!isBoundary && <Icon className="w-8 h-8 mb-1 nodrag" />}
         <span className="text-xs font-medium truncate max-w-[90%] nodrag"> {/* Prevent text selection from dragging */}
            {data.label || 'Unnamed Node'}
          </span>
 
          {/* Handles - Placed around the node */}
-         {/* Add more handles as needed based on connection logic */}
+         {/* Ensure isConnectable is passed down */}
          <Handle
            type="target"
            position={Position.Top}
            id="top"
-           className="!bg-gray-400" // Customize handle appearance
-           isConnectable={true}
+           className="!bg-gray-400 w-3 h-3" // Customize handle appearance
+           isConnectable={isConnectable}
          />
          <Handle
            type="source"
            position={Position.Bottom}
            id="bottom"
-           className="!bg-gray-400"
-           isConnectable={true}
+           className="!bg-gray-400 w-3 h-3"
+           isConnectable={isConnectable}
          />
          <Handle
            type="target"
            position={Position.Left}
            id="left"
-           className="!bg-gray-400"
-           isConnectable={true}
+           className="!bg-gray-400 w-3 h-3"
+           isConnectable={isConnectable}
          />
          <Handle
            type="source"
            position={Position.Right}
            id="right"
-           className="!bg-gray-400"
-           isConnectable={true}
+           className="!bg-gray-400 w-3 h-3"
+           isConnectable={isConnectable}
          />
       </div>
     </>
