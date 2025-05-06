@@ -13,9 +13,6 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
-  // NodeMouseHandler, // Not directly used if overridden
-  // EdgeMouseHandler, // Not directly used if overridden
-  // FlowProps, // Not directly used
   type ReactFlowInstance, 
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
@@ -26,7 +23,7 @@ const nodeTypes = {
   database: CustomNode,
   service: CustomNode,
   router: CustomNode,
-  boundary: CustomNode,
+  boundary: CustomNode, 
   default: CustomNode, 
 };
 
@@ -40,10 +37,10 @@ interface DiagramCanvasProps {
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
   viewport?: Viewport;
-  // selectedElementId?: string | null; // Managed by parent, nodes/edges array will reflect selection
-  onNodeClickOverride?: (event: ReactMouseEvent, node: Node) => void; 
-  onEdgeClickOverride?: (event: ReactMouseEvent, edge: Edge) => void;
-  onPaneClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Allow TouchEvent
+  selectedElementId?: string | null;
+  onNodeClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Unified handler
+  onEdgeClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Unified handler
+  onPaneClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Unified handler
   onRfLoad?: (instance: ReactFlowInstance) => void; 
 }
 
@@ -57,14 +54,14 @@ export function DiagramCanvas({
   setEdges, 
   onMoveEnd,
   viewport,
-  // selectedElementId, // Removed, selection is reflected in nodes/edges arrays
+  selectedElementId, 
   onNodeClickOverride,
   onEdgeClickOverride, 
   onPaneClickOverride,
   onRfLoad, 
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
+  const { screenToFlowPosition, getNodes: rfGetNodes } = useReactFlow();
   const { toast } = useToast();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -85,23 +82,23 @@ export function DiagramCanvas({
         y: event.clientY,
       });
       
-      const parentBoundary = getIntersectingNodes({
-        x: flowPosition.x, y: flowPosition.y, width: 1, height: 1,
-      }).find((n) => n.type === 'boundary' && n.width && n.height && n.positionAbsolute &&
+      const currentNodes = rfGetNodes();
+      const parentBoundary = currentNodes.find(
+        (n) => n.type === 'boundary' && n.positionAbsolute && n.width && n.height &&
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
 
-      const isBoundary = type === 'boundary';
-      const defaultWidth = isBoundary ? 300 : 150; 
-      const defaultHeight = isBoundary ? 350 : 80;
-      const minWidth = isBoundary ? 100 : 100; 
-      const minHeight = isBoundary ? 100 : 50;
+      const isBoundaryBox = type === 'boundary';
+      const defaultWidth = isBoundaryBox ? 400 : 150; 
+      const defaultHeight = isBoundaryBox ? 300 : 80;
+      const minWidth = isBoundaryBox ? 200 : 100; 
+      const minHeight = isBoundaryBox ? 150 : 50;
 
       const newNodeId = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const nodeLabel = `${type.charAt(0).toUpperCase() + type.slice(1)} Component`;
+      const nodeLabel = `${type.charAt(0).toUpperCase() + type.slice(1)} ${isBoundaryBox ? 'Box' : 'Component'}`;
 
       const newNode: Node = {
         id: newNodeId,
@@ -116,42 +113,51 @@ export function DiagramCanvas({
           minHeight: minHeight,
         },
         style: { width: defaultWidth, height: defaultHeight },
-        ...(parentBoundary && !isBoundary && { 
+        ...(parentBoundary && !isBoundaryBox && { 
             parentNode: parentBoundary.id,
             extent: 'parent',
         }),
-        ...(isBoundary && { 
+        ...(isBoundaryBox && { 
             selectable: true, 
-            connectable: false,
+            connectable: false, 
         }),
-        selected: true, // Initially select the new node
+        selected: true, 
       };
 
-      // Update nodes state, ensuring other nodes are deselected
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
-      // Deselect all edges
       setEdges((eds) => eds.map(e => ({...e, selected: false}))); 
       
-      // Inform parent layout about the new node and that it should be selected
-      // ProjectClientLayout's onNodesChange will handle setting selectedElementId
       if (onNodesChange) {
-         onNodesChange([{type: 'add', item: newNode}, {type: 'select', id: newNode.id, selected: true}]);
+         onNodesChange([
+          {type: 'add', item: newNode}, 
+          {type: 'select', id: newNode.id, selected: true}
+        ]);
       }
 
-      toast({ title: 'Component Added', description: `${newNode.data.label} added to the diagram.` });
+      toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, getIntersectingNodes, onNodesChange]
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodes, onNodesChange]
   );
+  
+  // Wrapper functions to ensure the correct event type is passed
+  const handleNodeClick = useCallback((event: ReactMouseEvent, node: Node) => {
+      if (onNodeClickOverride) {
+          onNodeClickOverride(event.nativeEvent as unknown as globalThis.MouseEvent);
+      }
+  }, [onNodeClickOverride]);
 
-  // The `nodes` and `edges` props received here should already have their `selected` status
-  // correctly set by ProjectClientLayout's useEffect that watches `selectedElementId`.
-  // So, no need for `processedNodes` or `processedEdges` here if parent handles it.
+  const handleEdgeClick = useCallback((event: ReactMouseEvent, edge: Edge) => {
+      if (onEdgeClickOverride) {
+          onEdgeClickOverride(event.nativeEvent as unknown as globalThis.MouseEvent);
+      }
+  }, [onEdgeClickOverride]);
+
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={nodes} // Use nodes directly from props
-        edges={edges} // Use edges directly from props
+        nodes={nodes} 
+        edges={edges} 
         onNodesChange={onNodesChange} 
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -159,29 +165,56 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onMoveEnd={onMoveEnd}
-        defaultViewport={viewport} // Use viewport for initial, onMoveEnd updates it
+        defaultViewport={viewport} 
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={true} // Can be true, custom click logic handles fine-grained selection
+        selectNodesOnDrag={false} 
         multiSelectionKeyCode={['Meta', 'Control']}
         nodeDragThreshold={1}
         fitView 
-        fitViewOptions={{ padding: 0.1 }} 
-        onNodeClick={onNodeClickOverride}
-        onEdgeClick={onEdgeClickOverride} 
-        onPaneClick={onPaneClickOverride}
+        fitViewOptions={{ padding: 0.2 }} 
+        onNodeClick={handleNodeClick} // Use wrapped handler
+        onEdgeClick={handleEdgeClick} // Use wrapped handler
+        onPaneClick={onPaneClickOverride} // Directly use passed handler
         onLoad={onRfLoad} 
+        elevateNodesOnSelect={false} 
+        elevateEdgesOnSelect={true}
       >
         <Controls />
         <Background gap={16} />
-        <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-background/80 rounded">
-          Drag components. Click to select/interact. Connect handles.
+        <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
+          Drag components. Click to select. Connect handles.
         </Panel>
+        <svg>
+          <defs>
+            <marker
+              id="arrowclosed"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="5"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,10 L10,5 z" fill="hsl(var(--foreground))" />
+            </marker>
+            <marker
+              id="arrowclosed-selected"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="5"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,10 L10,5 z" fill="hsl(var(--primary))" />
+            </marker>
+          </defs>
+        </svg>
       </ReactFlow>
     </div>
   );
 }
-

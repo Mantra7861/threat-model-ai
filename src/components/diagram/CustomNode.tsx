@@ -11,17 +11,15 @@ const componentIcons: Record<string, React.ElementType> = {
   database: Database,
   service: Cloud,
   router: Router,
-  boundary: ShieldCheck, // Boundary uses this icon for label if needed, but mainly border
+  boundary: ShieldCheck, // Boundary Box uses this icon for label if needed
   default: HelpCircle,
 };
 
 export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos, isConnectable, zIndex: rfProvidedZIndex, parentNode }) => {
   const Icon = componentIcons[type as string] || componentIcons.default;
-  const isBoundary = type === 'boundary';
+  const isBoundaryBox = type === 'boundary';
   
-  // NodeResizer is visible if the node is selected AND (it's a boundary OR data.resizable is true for other nodes)
-  // For non-boundary nodes, resizable is controlled by data.resizable. For boundaries, it's always true if selected.
-  const isNodeResizable = data?.resizable === true || isBoundary;
+  const isNodeResizable = data?.resizable === true || isBoundaryBox;
   const showResizer = selected && isNodeResizable;
 
 
@@ -34,55 +32,53 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
     return <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700">Error: Missing Node Type</div>;
   }
 
-  const effectiveZIndex = calculateEffectiveZIndex(id, type as string, selected, rfProvidedZIndex, null /* Pass global selected ID if needed by util */);
+  // Use selectedElementId from data if passed, or rely on the node's own `selected` prop for z-index calculation context.
+  const effectiveZIndex = calculateEffectiveZIndex(id, type as string, selected, rfProvidedZIndex, selected ? id : null);
 
   return (
     <>
       {showResizer && ( 
         <NodeResizer
-          minWidth={data.minWidth || (isBoundary ? 200 : 80)} // Boundaries have larger min size
-          minHeight={data.minHeight || (isBoundary ? 200 : 40)}
-          isVisible={selected} 
+          minWidth={data.minWidth || (isBoundaryBox ? 200 : 80)} 
+          minHeight={data.minHeight || (isBoundaryBox ? 200 : 40)}
+          isVisible={selected} // Resizer is only visible when node is selected
           lineClassName="!border-primary" 
-          handleClassName={cn(
-            "!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm",
-            "!opacity-100" 
-            )} 
-          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} // Resizer on top
+          handleClassName={cn( // These classes come from globals.css .react-flow__resize-handle
+            "!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100" 
+          )} 
+          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} // Resizer on top of its node
         />
       )}
 
       <div
         className={cn(
-          "flex flex-col items-center justify-center p-3 w-full h-full relative shadow-md rounded-lg",
-          // Base class for node type for styling from globals.css
+          "flex flex-col items-center justify-center p-3 w-full h-full relative",
+          // Base class for node type for styling from globals.css (applies border, text color, etc.)
           `react-flow__node-${type}`, 
-          // Specific styling for boundary nodes from globals.css (border, transparent bg)
-          isBoundary && `react-flow__node-boundary`, 
-          // Selection rings handled via globals.css based on type and selection
-          selected && !isBoundary && "ring-2 ring-primary ring-offset-2", 
-          selected && isBoundary && "ring-2 ring-red-500 ring-offset-0", // No offset for boundary ring on border
-          // Default border for non-boundary unless overridden by specific type styles
-          !isBoundary && "border" 
+          // Conditional selection outline is now handled by .react-flow__node.selected:not(...) and .react-flow__node-boundary.selected in globals.css
+          // No need for explicit ring classes here if globals.css handles it based on .selected
+          // Ensure `react-flow__node-boundary` in globals.css sets bg-transparent and dashed border
         )}
         style={{ zIndex: effectiveZIndex }}
       >
         
-        {!isBoundary && <Icon className="w-8 h-8 mb-1" />} 
+        {!isBoundaryBox && <Icon className="w-8 h-8 mb-1" />} 
         
         <span className={cn(
             "text-xs font-medium truncate max-w-[90%]",
-            isBoundary && "text-sm font-semibold text-red-700 absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-background px-1 rounded" // Boundary label style
+            // Specific styling for boundary label
+            isBoundaryBox && "text-sm font-semibold text-red-700 absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-card px-1 py-0.5 rounded shadow-sm" 
         )}>
           {data.label || 'Unnamed Component'}
         </span>
 
-        {!isBoundary && (
+        {/* Handles are only for non-boundary nodes */}
+        {!isBoundaryBox && (
           <>
-            <Handle type="target" position={Position.Top} id="top" className="!bg-slate-500 !w-3 !h-3 !border-2 !border-background" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-            <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-slate-500 !w-3 !h-3 !border-2 !border-background" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-            <Handle type="target" position={Position.Left} id="left" className="!bg-slate-500 !w-3 !h-3 !border-2 !border-background" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-            <Handle type="source" position={Position.Right} id="right" className="!bg-slate-500 !w-3 !h-3 !border-2 !border-background" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+            <Handle type="target" position={Position.Top} id="top" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+            <Handle type="source" position={Position.Bottom} id="bottom" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+            <Handle type="target" position={Position.Left} id="left" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+            <Handle type="source" position={Position.Right} id="right" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
           </>
         )}
       </div>

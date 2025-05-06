@@ -106,36 +106,45 @@ body {
   
   /* Type-specific styles. These mainly define border and text color. Background is transparent for boundaries. */
   .react-flow__node-server {
-    @apply border-blue-400 text-blue-800; /* bg-card is default, can be overridden if needed */
+    @apply border border-blue-400 text-blue-800; /* Ensure border is applied */
   }
   .react-flow__node-database {
-    @apply border-green-400 text-green-800;
+    @apply border border-green-400 text-green-800; /* Ensure border is applied */
   }
   .react-flow__node-service {
-    @apply border-purple-400 text-purple-800;
+    @apply border border-purple-400 text-purple-800; /* Ensure border is applied */
   }
   .react-flow__node-router {
-    @apply border-yellow-500 text-yellow-800;
+    @apply border border-yellow-500 text-yellow-800; /* Ensure border is applied */
   }
+  /* Boundary Box Specific Styling */
   .react-flow__node-boundary {
-     /* Boundary nodes: dashed border, specific border color, TRANSPARENT background. */
-     /* Selection ring is applied conditionally in CustomNode.tsx. */
-     /* z-index is handled by calculateEffectiveZIndex and applied in CustomNode.tsx. */
-     @apply border-2 border-dashed border-red-500 bg-transparent !important; /* Ensure background is transparent */
-     @apply text-red-600; /* Text color for the label */
-     @apply cursor-default; /* Boundaries are not typically grabbed and moved like other nodes */
+     @apply border-2 border-dashed border-red-500 bg-transparent !important; 
+     @apply text-red-600; 
+     @apply cursor-default; 
+     @apply shadow-none hover:shadow-none; /* No shadow for boundary */
    }
   
    .react-flow__node-default {
-     @apply border-gray-400 text-gray-800;
+     @apply border border-gray-400 text-gray-800; /* Ensure border is applied */
    }
 
+  /* General selection outline for non-boundary nodes */
+  .react-flow__node.selected:not(.react-flow__node-boundary) {
+    @apply ring-2 ring-primary ring-offset-2;
+  }
+  /* Selection outline for boundary nodes */
+  .react-flow__node-boundary.selected {
+    @apply ring-2 ring-red-500 ring-offset-0; /* No offset for boundary outline */
+  }
+
+
   .react-flow__handle {
-    @apply w-3 h-3 bg-gray-500 border-2 border-background rounded-full;
+    @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full opacity-75 hover:opacity-100;
     /* Handles z-index is set inline in CustomNode.tsx to be relative to their node's effective z-index. */
    }
    .react-flow__handle-connecting {
-     @apply bg-primary;
+     @apply !bg-primary !opacity-100;
    }
 
    /* Default edge path style */
@@ -162,17 +171,12 @@ body {
    .react-flow__node-resizer {
       /* z-index is managed by the NodeResizer component itself to be on top */
    }
-   .react-flow__resize-control {
-      /* @apply !border-primary; This was ! causing issues, use inline style or direct class on NodeResizer props */
-   }
    .react-flow__resize-control line {
-      /* @apply !border-primary; Same as above */
+      @apply !border-primary;
    }
     .react-flow__resize-handle {
         /* Default style for handles, can be overridden by NodeResizer handleClassName prop */
-        /* @apply bg-background border-2 border-primary rounded-sm; */
-        width: 10px;
-        height: 10px;
+        @apply !bg-background !border-2 !border-primary !rounded-sm !h-3 !w-3 !opacity-100;
     }
 
    .react-flow__controls {
