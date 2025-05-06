@@ -22,6 +22,7 @@ import { getDiagram, saveDiagram, type Diagram, type Component as DiagramCompone
 import { useToast } from '@/hooks/use-toast';
 import { componentToNode, nodeToComponent, connectionToEdge, edgeToConnection } from '@/lib/diagram-utils';
 import { DiagramHeader } from '@/components/layout/DiagramHeader';
+import { ThreatReportPanel } from '@/components/diagram/ThreatReportPanel';
 
 interface ProjectClientLayoutProps {
     projectId: string;
@@ -47,7 +48,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 const diagramData = await getDiagram(projectId);
                 setDiagramDataForAI(diagramData);
                 
-                // Pass the current selected state from the loaded diagram if available
                 const flowNodes = diagramData.components.map(c => {
                     const existingNode = nodes.find(n => n.id === c.id);
                     return componentToNode(c, existingNode ? existingNode.selected : c.properties?.selected);
@@ -76,7 +76,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         }
         loadDiagram();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectId, toast]); // nodes & edges removed to prevent reload on change
+    }, [projectId, toast]); 
 
 
     const onNodesChange = useCallback(
@@ -88,13 +88,23 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         if (change.id === selectedElementId) {
                             setSelectedElementId(null);
                         }
+                    } else if (change.type === 'select') {
+                        // This handles selection changes propagated from ReactFlow (e.g., box selection)
+                        // We still need our custom click handlers for direct clicks.
+                        if (change.selected) {
+                            setSelectedElementId(change.id);
+                            // Deselect other nodes/edges if a new node is selected by RF
+                            setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+                        } else if (selectedElementId === change.id && !change.selected) {
+                            // If RF deselects the currently selected node, clear our selection
+                            setSelectedElementId(null);
+                        }
                     }
-                    // Selection changes are handled by onNodeClickOverride and onPaneClickOverride
                 }
                 return updatedNodes;
             });
         },
-        [setNodes, selectedElementId] 
+        [setNodes, setEdges, selectedElementId] 
     );
 
     const onEdgesChange = useCallback(
@@ -106,13 +116,19 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         if (change.id === selectedElementId) {
                             setSelectedElementId(null);
                         }
+                    } else if (change.type === 'select') {
+                         if (change.selected) {
+                            setSelectedElementId(change.id);
+                            setNodes(nds => nds.map(n => ({ ...n, selected: false })));
+                        } else if (selectedElementId === change.id && !change.selected) {
+                            setSelectedElementId(null);
+                        }
                     }
-                    // Selection changes are handled by onEdgeClickOverride and onPaneClickOverride
                 }
                 return updatedEdges;
             });
         },
-        [setEdges, selectedElementId]
+        [setEdges, setNodes, selectedElementId]
     );
     
     const onConnect = useCallback(
@@ -121,7 +137,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             ...connection,
             id: `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             animated: true,
-            type: 'smoothstep',
+            type: 'smoothstep', // Ensures smoothstep, can be overridden by custom edge type
             data: {
               label: 'Data Flow',
               properties: {
@@ -226,55 +242,48 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
             const allNodes = getNodes();
     
-            const nodesAtClick = allNodes.filter(n => 
-                n.positionAbsolute && n.width && n.height &&
-                flowPosition.x >= n.positionAbsolute.x &&
-                flowPosition.x <= n.positionAbsolute.x + n.width &&
-                flowPosition.y >= n.positionAbsolute.y &&
-                flowPosition.y <= n.positionAbsolute.y + n.height
-            );
+            // Nodes at click, sorted: non-boundary first, then by z-index (higher first), then by smaller area
+            const nodesAtClick = allNodes
+                .filter(n => 
+                    n.positionAbsolute && n.width && n.height &&
+                    flowPosition.x >= n.positionAbsolute.x &&
+                    flowPosition.x <= n.positionAbsolute.x + n.width &&
+                    flowPosition.y >= n.positionAbsolute.y &&
+                    flowPosition.y <= n.positionAbsolute.y + n.height
+                )
+                .sort((a, b) => {
+                    const aIsBoundary = a.type === 'boundary';
+                    const bIsBoundary = b.type === 'boundary';
 
-            const topNonBoundaryNode = nodesAtClick
-                .filter(n => n.type !== 'boundary')
-                .sort((a,b) => {
-                    const zIndexA = a.zIndex ?? (a.selected ? 3 : 2);
-                    const zIndexB = b.zIndex ?? (b.selected ? 3 : 2);
-                    if (zIndexB !== zIndexA) return zIndexB - zIndexA;
-                    return (a.width! * a.height!) - (b.width! * b.height!);
-                })[0];
-    
-            if (topNonBoundaryNode) {
-                setNodes(nds => nds.map(n => ({ ...n, selected: n.id === topNonBoundaryNode.id })));
-                setEdges(eds => eds.map(e => ({ ...e, selected: false })));
-                setSelectedElementId(topNonBoundaryNode.id);
-                return;
-            }
-    
-            const topBoundaryNode = nodesAtClick
-                .filter(n => n.type === 'boundary')
-                .sort((a,b) => { 
-                    const zIndexA = a.zIndex ?? (a.selected ? 1 : 0);
-                    const zIndexB = b.zIndex ?? (b.selected ? 1 : 0);
-                    if (zIndexB !== zIndexA) return zIndexB - zIndexA;
-                    return (a.width! * a.height!) - (b.width! * b.height!);
-                })[0]; 
-    
-            if (topBoundaryNode) {
-                setNodes(nds => nds.map(n => ({ ...n, selected: n.id === topBoundaryNode.id })));
-                setEdges(eds => eds.map(e => ({ ...e, selected: false })));
-                setSelectedElementId(topBoundaryNode.id);
-                return;
-            }
+                    if (aIsBoundary && !bIsBoundary) return 1; // Non-boundary first
+                    if (!aIsBoundary && bIsBoundary) return -1; // Non-boundary first
+                    
+                    // If both are same category (boundary or non-boundary), sort by z-index then area
+                    const zIndexA = a.zIndex ?? (a.selected ? (aIsBoundary ? 1 : 3) : (aIsBoundary ? 0 : 2));
+                    const zIndexB = b.zIndex ?? (b.selected ? (aIsBoundary ? 1 : 3) : (aIsBoundary ? 0 : 2));
+                    if (zIndexB !== zIndexA) return zIndexB - zIndexA; // Higher z-index on top
+                    return (a.width! * a.height!) - (b.width! * b.height!); // Smaller area on top
+                });
             
-            setNodes(nds => nds.map(n => ({ ...n, selected: false })));
-            setEdges(eds => eds.map(e => ({ ...e, selected: false })));
-            setSelectedElementId(null);
+            const topNodeToSelect = nodesAtClick[0];
+    
+            if (topNodeToSelect) {
+                setNodes(nds => nds.map(n => ({ ...n, selected: n.id === topNodeToSelect.id })));
+                setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+                setSelectedElementId(topNodeToSelect.id);
+            } else {
+                // Clicked on empty canvas space
+                setNodes(nds => nds.map(n => ({ ...n, selected: false })));
+                setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+                setSelectedElementId(null);
+            }
         },
         [reactFlowInstance, setNodes, setEdges, setSelectedElementId]
     );
 
     const onNodeClickOverride = useCallback(
         (event: React.MouseEvent, clickedNodeFromRF: Node) => {
+            event.stopPropagation(); // Prevent pane click from firing after a node click
             if (!reactFlowInstance) return;
     
             const { getNodes, screenToFlowPosition } = reactFlowInstance;
@@ -283,44 +292,44 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     
             let nodeToSelectId: string | null = null;
     
-            // If the node ReactFlow says was clicked is a boundary
-            if (clickedNodeFromRF.type === 'boundary') {
-                // Find if there's a non-boundary node at the exact click spot, on top of or inside the boundary
-                const innerNonBoundaryNode = allNodes
-                    .filter(n =>
-                        n.type !== 'boundary' &&
-                        n.positionAbsolute && n.width && n.height &&
-                        flowPosition.x >= n.positionAbsolute.x &&
-                        flowPosition.x <= n.positionAbsolute.x + n.width &&
-                        flowPosition.y >= n.positionAbsolute.y &&
-                        flowPosition.y <= n.positionAbsolute.y + n.height
-                        // z-index comparison: non-boundary (2 or 3) vs boundary (0 or 1)
-                        // A non-boundary node will always have a higher or equal z-index if overlapping.
-                    )
-                    .sort((a, b) => { 
-                        const zIndexA = a.zIndex ?? (a.selected ? 3 : 2);
-                        const zIndexB = b.zIndex ?? (b.selected ? 3 : 2);
-                        if (zIndexB !== zIndexA) return zIndexB - zIndexA; // Higher z-index first
-                        return (a.width! * a.height!) - (b.width! * b.height!); // Smaller area first
-                    })[0];
-    
-                if (innerNonBoundaryNode) {
-                    nodeToSelectId = innerNonBoundaryNode.id; // Prioritize inner non-boundary
-                } else {
-                    nodeToSelectId = clickedNodeFromRF.id; // No inner non-boundary, select the boundary itself
-                }
+            // Get all nodes at the click point, sorted to prioritize non-boundary, then higher z-index, then smaller area
+            const nodesAtClick = allNodes
+                .filter(n =>
+                    n.positionAbsolute && n.width && n.height &&
+                    flowPosition.x >= n.positionAbsolute.x &&
+                    flowPosition.x <= n.positionAbsolute.x + n.width &&
+                    flowPosition.y >= n.positionAbsolute.y &&
+                    flowPosition.y <= n.positionAbsolute.y + n.height
+                )
+                .sort((a, b) => {
+                    const aIsBoundary = a.type === 'boundary';
+                    const bIsBoundary = b.type === 'boundary';
+
+                    if (aIsBoundary && !bIsBoundary) return 1; 
+                    if (!aIsBoundary && bIsBoundary) return -1;
+                    
+                    const zIndexA = a.zIndex ?? (a.selected ? (aIsBoundary ? 1 : 3) : (aIsBoundary ? 0 : 2));
+                    const zIndexB = b.zIndex ?? (b.selected ? (aIsBoundary ? 1 : 3) : (aIsBoundary ? 0 : 2));
+                    if (zIndexB !== zIndexA) return zIndexB - zIndexA;
+                    return (a.width! * a.height!) - (b.width! * a.height!);
+                });
+
+            const topNodeAtClick = nodesAtClick[0];
+
+            if (topNodeAtClick) {
+                nodeToSelectId = topNodeAtClick.id;
             } else {
-                // Clicked on a non-boundary node
+                // This case should ideally not happen if RF triggered onNodeClick,
+                // but as a fallback, select the node RF provided.
                 nodeToSelectId = clickedNodeFromRF.id;
             }
-    
+            
             if (nodeToSelectId) {
                 setNodes(nds => nds.map(n => ({ ...n, selected: n.id === nodeToSelectId })));
                 setEdges(eds => eds.map(e => ({ ...e, selected: false })));
                 setSelectedElementId(nodeToSelectId);
             } else {
-                // Fallback, should ideally not be reached if onNodeClick is triggered
-                // but if it is, treat as a pane click to ensure deselection or other pane behaviors.
+                 // Fallback if no node could be determined (e.g. if click was somehow missed by RF on a node)
                  onPaneClickOverride(event as unknown as globalThis.MouseEvent);
             }
         },
@@ -329,6 +338,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
     const onEdgeClickOverride = useCallback(
         (event: React.MouseEvent, edge: Edge) => {
+           event.stopPropagation(); // Prevent pane click
            setEdges(eds => eds.map(e => ({ ...e, selected: e.id === edge.id })));
            setNodes(nds => nds.map(n => ({ ...n, selected: false })));
            setSelectedElementId(edge.id);
@@ -387,9 +397,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                             />
                         </TabsContent>
                         <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
-                            <h3 className="text-lg font-semibold mb-4">Threat Report</h3>
-                            <p className="text-sm text-muted-foreground">Generate a report after completing your diagram.</p>
-                            {/* Report content will be loaded here */}
+                           <ThreatReportPanel diagramId={projectId} />
                         </TabsContent>
                     </Tabs>
                     <div className="p-4 border-t">

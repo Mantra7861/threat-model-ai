@@ -101,13 +101,11 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg border shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    /* z-index is now handled dynamically in CustomNode.tsx to ensure correct layering */
+    /* z-index is handled dynamically in CustomNode.tsx */
   }
 
-  .react-flow__node.selected, .react-flow__node:focus, .react-flow__node:focus-within {
-    /* General selection ring for non-boundary nodes is handled in CustomNode.tsx */
-    /* Boundary selection ring (e.g., ring-red-500) is also handled in CustomNode.tsx */
-  }
+  /* General selection ring for non-boundary nodes is handled in CustomNode.tsx via ring-primary */
+  /* Boundary selection ring (e.g., ring-red-500) is also handled in CustomNode.tsx */
   
   .react-flow__node-server {
     @apply bg-blue-100 border-blue-300 text-blue-800;
@@ -122,11 +120,10 @@ body {
     @apply bg-yellow-100 border-yellow-300 text-yellow-800;
   }
   .react-flow__node-boundary {
-     /* Distinct styling for boundary nodes, border color and background opacity set here. */
-     /* Specific selection ring (e.g., ring-red-500) is applied in CustomNode.tsx */
-     /* Dashed border applied via class for visual distinction */
+     /* Distinct styling for boundary nodes: dashed border, specific border color, and semi-transparent background. */
+     /* Selection ring (e.g., ring-red-500) is applied conditionally in CustomNode.tsx. */
+     /* z-index is handled dynamically in CustomNode.tsx. */
      @apply border-2 border-dashed border-red-400 bg-red-500/5 text-red-600 cursor-default;
-     /* z-index for boundaries is handled dynamically in CustomNode.tsx to be lower than other nodes. */
    }
   
    .react-flow__node-default {
@@ -135,7 +132,7 @@ body {
 
   .react-flow__handle {
     @apply w-3 h-3 bg-gray-400 border-2 border-background rounded-full;
-    /* Handles z-index is now set inline in CustomNode.tsx to be relative to their node's z-index. */
+    /* Handles z-index is set inline in CustomNode.tsx to be relative to their node's z-index. */
    }
    .react-flow__handle-connecting {
      @apply bg-primary;
@@ -151,7 +148,7 @@ body {
    .react-flow__edge.selected .react-flow__edge-path,
    .react-flow__edge:focus .react-flow__edge-path,
    .react-flow__edge:focus-within .react-flow__edge-path {
-       @apply stroke-primary stroke-[3px]; /* Teal accent color, thicker */
+       @apply stroke-primary stroke-[3px]; /* Primary color from theme, thicker */
        marker-end: url(#arrowclosed-selected); /* Different arrow for selected state */
    }
     .react-flow__edge.selected .react-flow__edge-text,
@@ -176,6 +173,7 @@ body {
         @apply bg-background border-2 border-primary rounded-sm;
         width: 10px;
         height: 10px;
+        /* z-index is managed by NodeResizer and CustomNode's style prop for NodeResizer */
     }
 
    .react-flow__controls {
