@@ -1,71 +1,101 @@
-
 import type { Node, XYPosition } from '@xyflow/react';
 import type { Component as DiagramComponent } from '@/services/diagram';
 
 /**
  * Converts a DiagramComponent to a ReactFlow Node.
- *
- * @param component The DiagramComponent to convert.
- * @returns A ReactFlow Node object.
  */
 export const componentToNode = (component: DiagramComponent): Node => {
-  const defaultPosition: XYPosition = { x: Math.random() * 500, y: Math.random() * 300 };
+  const defaultPosition: XYPosition = { x: Math.random() * 400 + 50, y: Math.random() * 200 + 50 };
   const position = component.properties?.position || defaultPosition;
-  const type = component.type || 'default'; // Ensure type is always defined
+  const type = component.type || 'default';
   const isBoundary = type === 'boundary';
-  const defaultWidth = isBoundary ? 300 : 150;
-  const defaultHeight = isBoundary ? 350 : 80;
+
+  // Default dimensions - boundaries are larger
+  const defaultWidth = isBoundary ? 350 : 150;
+  const defaultHeight = isBoundary ? 400 : 80;
+
+  // Min dimensions for resizable nodes
+  const minWidth = isBoundary ? 200 : 100;
+  const minHeight = isBoundary ? 250 : 50;
+
   const width = component.properties?.width ?? defaultWidth;
   const height = component.properties?.height ?? defaultHeight;
 
   return {
     id: component.id,
-    type: type, // Use the determined type
+    type: type,
     position: position,
     data: {
-      label: component.properties?.name || component.id, // Use ID as fallback label
-      properties: component.properties || {}, // Ensure properties object exists
-      type: type, // Pass type to data for CustomNode logic
-      resizable: !isBoundary, // Make non-boundary nodes resizable by default
+      label: component.properties?.name || component.id,
+      properties: component.properties || {},
+      type: type, // Pass type to data for CustomNode logic and property panel
+      resizable: !isBoundary, // Boundaries are typically not resizable by corner handles
+      minWidth: minWidth, // Pass minWidth for NodeResizer
+      minHeight: minHeight, // Pass minHeight for NodeResizer
     },
-    style: { // Use saved dimensions or defaults
+    style: {
         width: width,
         height: height,
-        // Apply boundary-specific styles directly if needed, but prefer class-based styling
-        ...(isBoundary && {
-            // backgroundColor: 'rgba(255, 0, 0, 0.05)', // Prefer CSS class
-            // borderColor: 'rgba(255, 0, 0, 0.4)', // Prefer CSS class
-            // borderStyle: 'dashed', // Prefer CSS class
-            // borderWidth: 2, // Prefer CSS class
-            zIndex: 0, // Keep boundaries behind other elements
-        }),
+        zIndex: isBoundary ? 0 : 1, // Keep boundaries behind other elements
     },
-    // Specify drag handle if not a boundary
+    // Specify drag handle for non-boundary nodes
     ...(!isBoundary && { dragHandle: '.drag-handle' }),
-    // Add parentNode if defined in properties (for nesting)
+    // Boundaries properties
+    ...(isBoundary && {
+        selectable: true, // Boundaries can be selected
+        connectable: false, // Boundaries usually don't have connection handles
+        dragHandle: undefined, // Boundaries are dragged by their body
+    }),
+    // Parent node information for nesting
     ...(component.properties?.parentNode && { parentNode: component.properties.parentNode }),
-    ...(isBoundary && { selectable: true, connectable: false, dragHandle: undefined }), // Boundaries usually aren't connectable or dragged by handle
+    selected: component.properties?.selected || false, // Persist selection state if available
   };
 };
 
 /**
  * Converts a ReactFlow Node back to a DiagramComponent.
- *
- * @param node The ReactFlow Node to convert.
- * @returns A DiagramComponent object.
  */
-export const nodeToComponent = (node: Node): DiagramComponent => ({
-  id: node.id,
-  type: node.data.type || node.type || 'default', // Ensure type is saved
-  properties: {
-    // Persist all properties from node.data.properties
-    ...(node.data.properties || {}),
-    // Explicitly overwrite/add position, dimensions, and name from node structure
-    position: node.position,
-    width: node.width || node.style?.width, // Prefer direct width if available (e.g., after resize)
-    height: node.height || node.style?.height, // Prefer direct height if available
-    name: node.data.label || node.id, // Ensure name is saved back from label, fallback to ID
-    // Add parentNode if it exists on the node
-    ...(node.parentNode && { parentNode: node.parentNode }),
-  },
-});
+export const nodeToComponent = (node: Node): DiagramComponent => {
+  // Create a mutable copy of node.data.properties to avoid modifying the original node's data directly
+  const propertiesToSave = { ...(node.data.properties || {}) };
+
+  // Update/add position from the node itself
+  propertiesToSave.position = node.position;
+
+  // Update/add dimensions from node.width/height (set by resizer) or node.style
+  if (node.width) propertiesToSave.width = node.width;
+  else if (node.style?.width) propertiesToSave.width = Number(node.style.width);
+
+  if (node.height) propertiesToSave.height = node.height;
+  else if (node.style?.height) propertiesToSave.height = Number(node.style.height);
+  
+  // Ensure name is saved from label (which might have been edited)
+  propertiesToSave.name = node.data.label || node.id;
+
+  // Persist parentNode if it exists
+  if (node.parentNode) {
+    propertiesToSave.parentNode = node.parentNode;
+  } else {
+    // If node.parentNode is null/undefined, ensure it's removed from properties if it was there
+    delete propertiesToSave.parentNode;
+  }
+
+  // Persist selection state
+  propertiesToSave.selected = !!node.selected;
+
+
+  // Remove internal/derived data properties that shouldn't be saved in 'properties' blob directly
+  // (like 'type' if it's already top-level, 'resizable', 'minWidth', 'minHeight', 'label')
+  delete propertiesToSave.type; // 'type' is a top-level field in DiagramComponent
+  delete propertiesToSave.resizable;
+  delete propertiesToSave.minWidth;
+  delete propertiesToSave.minHeight;
+  delete propertiesToSave.label; // 'label' is derived from 'name'
+
+
+  return {
+    id: node.id,
+    type: node.data?.type || node.type || 'default', // Ensure type is correctly sourced
+    properties: propertiesToSave,
+  };
+};

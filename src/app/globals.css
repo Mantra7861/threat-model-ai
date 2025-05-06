@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -101,7 +100,15 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg border shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
+    /* Ensure nodes are above background but below controls/panels */
+    z-index: 1; 
   }
+  .react-flow__node.selected, .react-flow__node:focus, .react-flow__node:focus-within {
+     /* Higher z-index for selected/focused nodes */
+    @apply ring-2 ring-primary ring-offset-2; /* Ensure ring is applied by Tailwind */
+    z-index: 10;
+  }
+
   .react-flow__node-server {
     @apply bg-blue-100 border-blue-300 text-blue-800;
   }
@@ -111,21 +118,28 @@ body {
   .react-flow__node-service {
     @apply bg-purple-100 border-purple-300 text-purple-800;
   }
-    .react-flow__node-router {
+  .react-flow__node-router {
     @apply bg-yellow-100 border-yellow-300 text-yellow-800;
   }
-   .react-flow__node-boundary {
-     /* Boundaries might need different styling later, e.g., larger containers */
-     @apply border-dashed border-red-400 text-red-600 bg-transparent cursor-default; /* No grab cursor */
+  .react-flow__node-boundary {
+     /* Boundaries should be styled to look like containers */
+     @apply border-2 border-dashed border-red-400 bg-red-500/5 text-red-600 cursor-default;
+     /* Boundaries should typically be behind other nodes */
+     z-index: 0 !important; 
    }
-   /* Default/fallback style */
+   .react-flow__node-boundary.selected {
+      @apply ring-2 ring-red-500 ring-offset-1; /* Custom selection for boundaries */
+      z-index: 5 !important; /* Still behind regular selected nodes but above non-selected */
+   }
+
+   /* Default/fallback style for un-typed nodes */
    .react-flow__node-default {
      @apply bg-gray-100 border-gray-300 text-gray-800;
    }
 
   .react-flow__handle {
-     /* Make handles slightly larger and more visible */
     @apply w-3 h-3 bg-gray-400 border-2 border-background rounded-full;
+    z-index: 15; /* Handles on top of their node */
    }
    .react-flow__handle-connecting {
      @apply bg-primary;
@@ -135,17 +149,25 @@ body {
    }
 
    /* Style for the resizable node wrapper if using node-resizer */
+   .react-flow__node-resizer {
+      z-index: 20; /* Ensure resizer handles are on top */
+   }
    .react-flow__resize-control {
       @apply !border-primary; /* Override default border color */
    }
    .react-flow__resize-control line {
       @apply !border-primary;
    }
+    .react-flow__resize-handle { /* General style for all resizer handles */
+        @apply bg-background border-2 border-primary rounded-sm;
+        width: 10px;
+        height: 10px;
+    }
 
 
    /* Ensure sidebar doesn't overlap react-flow controls */
    .react-flow__controls {
-      z-index: 5; /* Ensure controls are above sidebar in inset mode */
+      z-index: 25; /* Ensure controls are above everything else in the flow area */
    }
 
     /* Adjustments for sidebar inset mode */
@@ -156,6 +178,6 @@ body {
     .react-flow {
         height: 100%;
         width: 100%;
+        position: relative; /* Needed for absolute positioning of children like Panel */
     }
-
 }

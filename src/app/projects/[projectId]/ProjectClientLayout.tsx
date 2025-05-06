@@ -7,34 +7,39 @@ import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPa
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent } from '@/services/diagram';
 import { useToast } from '@/hooks/use-toast';
-import { componentToNode, nodeToComponent } from '@/lib/diagram-utils'; // Import utility functions
+import { componentToNode, nodeToComponent } from '@/lib/diagram-utils';
 
 interface ProjectClientLayoutProps {
     projectId: string;
 }
 
 export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
-    const [nodes, setNodes] = useNodesState<Node[]>([]);
-    const [edges, setEdges] = useEdgesState<Edge[]>([]);
+    const [nodes, setNodes, onNodesChangeInternal] = useNodesState<Node[]>([]);
+    const [edges, setEdges, onEdgesChangeInternal] = useEdgesState<Edge[]>([]);
     const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [diagramName, setDiagramName] = useState<string>('Loading...');
-    const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(null); // For AI context
+    const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { toast } = useToast();
 
-    // Load diagram data
     useEffect(() => {
         async function loadDiagram() {
             setLoading(true);
             setError(null);
             try {
                 const diagramData = await getDiagram(projectId);
-                setDiagramDataForAI(diagramData); // Store full diagram data for context
+                setDiagramDataForAI(diagramData);
                 const flowNodes = diagramData.components.map(componentToNode);
-                setNodes(flowNodes);
+                setNodes(flowNodes); // This will trigger onNodesChangeInternal if it's set up with React Flow's internal state
                 setDiagramName(diagramData.name);
+                 // Initialize selectedNodeId based on loaded nodes if any is marked selected by default (rare)
+                const initiallySelected = flowNodes.find(n => n.selected);
+                if (initiallySelected) {
+                    setSelectedNodeId(initiallySelected.id);
+                }
+
             } catch (err) {
                 setError('Failed to load diagram.');
                 console.error(err);
@@ -44,33 +49,38 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             }
         }
         loadDiagram();
-    }, [projectId, setNodes, toast]); // Removed setEdges as it's not directly used in initial load for edges yet
+    }, [projectId, setNodes, toast]);
+
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
-            setNodes((nds) => {
-                const updatedNodes = applyNodeChanges(changes, nds);
-
+            setNodes((currentNodes) => {
+                const updatedNodes = applyNodeChanges(changes, currentNodes);
+                // Handle selection changes specifically
                 for (const change of changes) {
                     if (change.type === 'select') {
                         if (change.selected) {
                             setSelectedNodeId(change.id);
                         } else {
-                            // If the deselected node was the currently selected one
-                            if (selectedNodeId === change.id) {
+                            // If the deselected node was the currently selected one, clear selection
+                            // This also handles the case where onPaneClick deselects all nodes
+                            if (selectedNodeId === change.id || !updatedNodes.find(n => n.id === selectedNodeId && n.selected)) {
                                 setSelectedNodeId(null);
                             }
                         }
-                    }
-                    if (change.type === 'remove' && change.id === selectedNodeId) {
-                        setSelectedNodeId(null);
+                    } else if (change.type === 'remove') {
+                        // If the removed node was selected, clear selection
+                        if (change.id === selectedNodeId) {
+                            setSelectedNodeId(null);
+                        }
                     }
                 }
                 return updatedNodes;
             });
         },
-        [setNodes, selectedNodeId, setSelectedNodeId] // Added setSelectedNodeId
+        [setNodes, selectedNodeId] // Removed setSelectedNodeId from here as it's handled inside
     );
+
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
@@ -84,13 +94,9 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         [setEdges]
     );
 
-    const onNodeClick = useCallback((event: React.MouseEvent | null, node: Node) => {
-        setSelectedNodeId(node.id);
-    }, [setSelectedNodeId]); // Corrected: Added setSelectedNodeId to dependencies
-
-    const onPaneClick = useCallback(() => {
-        setSelectedNodeId(null);
-    }, [setSelectedNodeId]); // Corrected: Added setSelectedNodeId to dependencies
+    // onNodeClick and onPaneClick are now implicitly handled by onNodesChange for selection
+    // If you need specific logic beyond selection, you can re-add them and pass to DiagramCanvas.
+    // For simple selection, React Flow's `select` change in onNodesChange is sufficient.
 
     const selectedNodeData = nodes.find(node => node.id === selectedNodeId) ?? null;
 
@@ -98,6 +104,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setNodes((nds) =>
             nds.map((node) => {
                 if (node.id === nodeId) {
+                    // Merge newProperties into existing node.data.properties
+                    // Ensure label is updated if 'name' property changes
                     const updatedData = {
                         ...node.data,
                         properties: {
@@ -113,14 +121,14 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         );
     }, [setNodes]);
 
+
     const deleteNode = useCallback((nodeId: string) => {
         setNodes((nds) => nds.filter((node) => node.id !== nodeId));
         setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
-        if (selectedNodeId === nodeId) {
-             setSelectedNodeId(null);
-        }
+        // setSelectedNodeId is handled by onNodesChange when a 'remove' change occurs
         toast({ title: 'Component Deleted', description: `Component removed from the diagram.` });
-    }, [setNodes, setEdges, selectedNodeId, setSelectedNodeId, toast]); // Corrected: Added setSelectedNodeId
+    }, [setNodes, setEdges, toast]);
+
 
     const handleSave = useCallback(async () => {
         const diagramToSave: Diagram = {
@@ -128,17 +136,22 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             name: diagramName,
             components: nodes.map(nodeToComponent),
             // connections: edges.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle })),
-            // viewport: viewport,
+            // viewport: viewport, // You might want to save the viewport state
         };
 
         try {
             await saveDiagram(diagramToSave);
+            setDiagramDataForAI(diagramToSave); // Update AI context data on save
             toast({ title: 'Saved', description: 'Diagram saved successfully.' });
         } catch (error) {
             console.error('Failed to save diagram:', error);
             toast({ title: 'Error', description: 'Could not save diagram.', variant: 'destructive' });
         }
-    }, [projectId, diagramName, nodes, /*edges, viewport,*/ toast]); // Temporarily remove edges and viewport if not fully implemented for save
+    }, [projectId, diagramName, nodes, /*edges, viewport,*/ toast]);
+
+    // Pass handleSave to DiagramHeader via a context or prop drilling if DiagramHeader is a child here
+    // For now, DiagramHeader's save button is illustrative.
+    // If DiagramHeader is a sibling, a global state/context is better.
 
     if (loading) {
         return <div className="flex items-center justify-center h-full text-muted-foreground flex-1">Loading Diagram...</div>;
@@ -154,16 +167,15 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 <DiagramCanvas
                     nodes={nodes}
                     edges={edges}
-                    onNodesChange={onNodesChange}
+                    onNodesChange={onNodesChange} // Pass the refined onNodesChange
                     onEdgesChange={onEdgesChange}
                     onConnect={onConnect}
-                    setNodes={setNodes}
-                    setEdges={setEdges}
-                    onNodeClick={onNodeClick}
-                    onPaneClick={onPaneClick}
+                    setNodes={setNodes} // Still needed for onDrop
+                    setEdges={setEdges} // Still needed for onDrop (if adding edges programmatically)
+                    // onNodeClick and onPaneClick are removed as selection is handled by onNodesChange
                     onMoveEnd={(e, vp) => setViewport(vp)}
                     viewport={viewport}
-                    selectedNodeId={selectedNodeId}
+                    selectedNodeId={selectedNodeId} // Pass selectedNodeId for conditional styling/resizing in CustomNode
                 />
             </main>
 
@@ -177,8 +189,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         <SidebarPropertiesPanel
                             selectedNode={selectedNodeData}
                             onUpdateProperties={updateNodeProperties}
-                            onDeleteNode={deleteNode}
-                            diagramDescription={diagramDataForAI?.name} // Pass diagram name as description
+                            onDeleteNode={deleteNode} // Pass deleteNode
+                            diagramDescription={diagramDataForAI?.name || diagramName} // Pass diagram name for AI context
                         />
                     </TabsContent>
                     <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
