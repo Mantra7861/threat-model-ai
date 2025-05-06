@@ -41,11 +41,20 @@ export function SidebarPropertiesPanel({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (selectedElement && selectedElement.data && selectedElement.data.properties) {
-      setLocalProperties({ ...selectedElement.data.properties }); 
-    } else if (selectedElement && selectedElement.data && !selectedElement.data.properties) {
-      // Handle case where data exists but properties might be missing (e.g. new edge)
-      setLocalProperties(selectedElement.data.label ? { name: selectedElement.data.label } : {});
+    if (selectedElement?.data?.properties) {
+      setLocalProperties({ ...selectedElement.data.properties });
+    } else if (selectedElement?.data && !selectedElement.data.properties && 'source' in selectedElement && 'target' in selectedElement) {
+      // This is likely an edge without pre-defined properties in its data object, common for new edges
+      const defaultEdgeProps = {
+        name: selectedElement.data.label || 'Data Flow',
+        description: 'A data flow connection.',
+        dataType: 'Generic',
+        protocol: 'TCP/IP',
+        securityConsiderations: 'Needs review',
+      };
+      setLocalProperties(defaultEdgeProps);
+    } else if (selectedElement?.data) { // General case for elements with data but maybe no explicit properties obj
+        setLocalProperties({...selectedElement.data}); // Could be a node with simple data
     }
     else {
       setLocalProperties({});
@@ -70,7 +79,8 @@ export function SidebarPropertiesPanel({
     setLocalProperties(newProps);
 
     if (propName === 'name') {
-      onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement); 
+      // For name changes, update immediately as it might affect the label on canvas
+      onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement);
     } else {
       debouncedUpdate(selectedElement.id, newProps, isNodeElement);
     }
@@ -161,7 +171,25 @@ export function SidebarPropertiesPanel({
   const elementType = isNode 
     ? ((selectedElement as Node).data?.type || (selectedElement as Node).type || 'default') 
     : 'Data Flow';
-  const elementName = localProperties.name || elementData.label || elementType;
+  
+  let elementName = localProperties.name || elementData.label || (elementData.properties?.name) ||elementType;
+
+
+  let currentPropsToIterate = localProperties;
+  // If an edge is selected and its properties haven't been populated into localProperties (e.g., from initial state or selection logic)
+  // we should ensure the properties shown are from selectedElement.data.properties or defaults.
+  if (!isNode && selectedElement.data?.properties && Object.keys(localProperties).length === 0) {
+     currentPropsToIterate = selectedElement.data.properties;
+  } else if (!isNode && Object.keys(localProperties).length === 0) {
+    // Fallback for edges that might not have data.properties but do have data.label
+     currentPropsToIterate = {
+        name: selectedElement.data?.label || 'Data Flow',
+        description: 'A data flow connection.',
+        dataType: 'Generic',
+        protocol: 'TCP/IP',
+        securityConsiderations: 'Needs review',
+     };
+  }
 
 
   return (
@@ -173,7 +201,7 @@ export function SidebarPropertiesPanel({
         </div>
 
         <div className="space-y-4">
-          {Object.entries(localProperties).map(([key, value]) => {
+          {Object.entries(currentPropsToIterate).map(([key, value]) => {
             const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 
             // Edge specific internal properties if any, e.g. source, target, sourceHandle, targetHandle are not typically user-edited here
             'source', 'target', 'sourceHandle', 'targetHandle' 
@@ -219,21 +247,22 @@ export function SidebarPropertiesPanel({
                       value={String(value ?? '')}
                       onChange={(e) => {
                           const val = e.target.value;
-                          if (typeof localProperties[key] === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
+                          const originalValue = currentPropsToIterate[key]; 
+                          if (typeof originalValue === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
                               handleInputChange(key, Number(val));
                           } else {
                               handleInputChange(key, val);
                           }
                       }}
                       className="text-sm"
-                      type={typeof value === 'number' ? 'number' : 'text'}
+                      type={typeof currentPropsToIterate[key] === 'number' ? 'number' : 'text'}
                       placeholder={`Enter ${labelText}...`}
                     />
                   )}
                 </div>
             );
           })}
-           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description').length === 0 && (
+           {Object.keys(currentPropsToIterate).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description').length === 0 && (
                <p className="text-sm text-muted-foreground">No editable properties for this element, or click AI Suggest (for components).</p>
             )}
         </div>
@@ -280,3 +309,4 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   };
   return debounced as (...args: Parameters<F>) => void;
 }
+
