@@ -124,8 +124,8 @@ body {
 
   /* Boundary Box Specific Styling - ensure single dashed border and transparent background, always visible */
   .react-flow__node-boundary {
-     @apply border-2 border-dashed border-red-500 bg-transparent !important; /* Explicitly transparent background, single dashed border */
-     @apply text-red-600; 
+     @apply border-2 border-dashed border-[hsl(var(--destructive))] bg-transparent !important; 
+     @apply text-[hsl(var(--destructive))]; /* Ensure label color matches border */
      @apply cursor-default; 
      @apply shadow-none hover:shadow-none; /* No shadow for boundary */
    }
@@ -136,8 +136,11 @@ body {
   }
   /* Selection outline for boundary nodes */
   .react-flow__node-boundary.selected {
-    /* No additional ring for boundary when selected to avoid double border appearance, already has border */
-     @apply ring-0 ring-offset-0; 
+    /* The border is permanent. Selection might add a subtle effect if desired, but not a ring to avoid double border. */
+    /* For example, slightly change border opacity or add a very subtle glow if needed */
+     /* @apply ring-1 ring-offset-0 ring-[hsl(var(--destructive))]; /* Example: subtle ring of same color */
+     /* Keeping it simple: the dashed border is the primary indicator. */
+      @apply ring-0 ring-offset-0;
   }
 
 
@@ -188,4 +191,3 @@ body {
         position: relative; 
     }
 }
-

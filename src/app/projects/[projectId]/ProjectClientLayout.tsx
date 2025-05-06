@@ -14,7 +14,6 @@ import {
     applyEdgeChanges, 
     addEdge,
     type ReactFlowInstance,
-    type ElementClick, // For explicit type on handlers
 } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
@@ -76,7 +75,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 
                 setDiagramName(diagramData.name);
 
-                // Prioritize selected node, then selected edge from loaded data
                 const initiallySelectedComponent = diagramData.components.find(c => c.properties?.selected);
                 const initiallySelectedConnection = diagramData.connections?.find(c => c.selected);
 
@@ -98,61 +96,49 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         }
         loadDiagram();
     // eslint-disable-next-line react-hooks/exhaustive-deps 
-    }, [projectId, toast]); // setNodesInternal, setEdgesInternal removed from deps as they are stable
+    }, [projectId, toast]); 
 
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
-            let newSelectedId: string | null = selectedElementId; // Start with current
-            let selectionChangedByThisBatch = false;
-
+            setNodesInternal((currentNodes) => applyNodeChanges(changes, currentNodes));
+            // If a selection change happens through React Flow (e.g., keyboard), update our selectedElementId
             changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
-                        newSelectedId = change.id;
-                    } else if (newSelectedId === change.id) { // If current selection is deselected
-                        newSelectedId = null;
+                        setSelectedElementId(change.id);
+                    } else if (selectedElementId === change.id) {
+                        // Only deselect if no other element is being selected in this batch
+                        const isAnotherElementSelected = changes.some(c => c.type === 'select' && c.selected && c.id !== change.id);
+                        if (!isAnotherElementSelected) {
+                            setSelectedElementId(null);
+                        }
                     }
-                    selectionChangedByThisBatch = true;
-                } else if (change.type === 'remove' && newSelectedId === change.id) {
-                    newSelectedId = null;
-                    selectionChangedByThisBatch = true;
+                } else if (change.type === 'remove' && selectedElementId === change.id) {
+                    setSelectedElementId(null);
                 }
             });
-            
-            setNodesInternal((currentNodes) => applyNodeChanges(changes, currentNodes));
-
-            if (selectionChangedByThisBatch) {
-                 setSelectedElementId(newSelectedId);
-            }
         },
         [setNodesInternal, selectedElementId] 
     );
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => {
-            let newSelectedId: string | null = selectedElementId; // Start with current
-            let selectionChangedByThisBatch = false;
-            
-            changes.forEach(change => {
+            setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
+             changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
-                        newSelectedId = change.id;
-                    } else if (newSelectedId === change.id) { // If current selection is deselected
-                        newSelectedId = null;
+                        setSelectedElementId(change.id);
+                    } else if (selectedElementId === change.id) {
+                        const isAnotherElementSelected = changes.some(c => c.type === 'select' && c.selected && c.id !== change.id);
+                        if (!isAnotherElementSelected) {
+                            setSelectedElementId(null);
+                        }
                     }
-                    selectionChangedByThisBatch = true;
-                } else if (change.type === 'remove' && newSelectedId === change.id) {
-                    newSelectedId = null;
-                    selectionChangedByThisBatch = true;
+                } else if (change.type === 'remove' && selectedElementId === change.id) {
+                    setSelectedElementId(null);
                 }
             });
-
-            setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
-            
-            if (selectionChangedByThisBatch) {
-                setSelectedElementId(newSelectedId);
-            }
         },
         [setEdgesInternal, selectedElementId]
     );
@@ -160,26 +146,27 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const onConnect = useCallback(
         (connection: Connection) => {
           const newEdgeId = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const newEdgeData = {
+            label: 'Data Flow',
+            properties: {
+              name: 'Data Flow',
+              description: 'A new data flow connection.',
+              dataType: 'Generic',
+              protocol: 'TCP/IP',
+              securityConsiderations: 'Needs review',
+            },
+          };
           const newEdge: Edge = {
             ...connection,
             id: newEdgeId,
             animated: true,
             type: 'smoothstep', 
-            data: {
-              label: 'Data Flow',
-              properties: {
-                name: 'Data Flow',
-                description: 'A new data flow connection.',
-                dataType: 'Generic',
-                protocol: 'TCP/IP',
-                securityConsiderations: 'Needs review',
-              },
-            },
+            data: newEdgeData,
             selected: true, 
           };
-          // Deselect all other elements and select the new edge
-          setNodesInternal(nds => nds.map(n => ({ ...n, selected: false })));
+          
           setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
+          setNodesInternal(nds => nds.map(n => ({ ...n, selected: false }))); // Deselect nodes
           setSelectedElementId(newEdgeId); 
           toast({ title: 'Connection Added', description: 'Data flow created and selected.' });
         },
@@ -220,7 +207,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const deleteElement = useCallback((elementId: string, isNode: boolean) => {
         if (isNode) {
             setNodesInternal((nds) => nds.filter((node) => node.id !== elementId));
-            // Also remove edges connected to the deleted node
             setEdgesInternal((eds) => eds.filter((edge) => edge.source !== elementId && edge.target !== elementId));
         } else {
             setEdgesInternal((eds) => eds.filter((edge) => edge.id !== elementId));
@@ -233,21 +219,39 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
 
     const handleSave = useCallback(async () => {
-        // Ensure selected status reflects current selectedElementId
         const nodesToSave = nodes.map(n => ({
-            ...n,
-            selected: n.id === selectedElementId, 
+            ...nodeToComponent(n), // Use nodeToComponent to prepare for saving
+            properties: {
+                ...nodeToComponent(n).properties, // Ensure all existing serializable props are kept
+                selected: n.id === selectedElementId,
+            }
         }));
         const edgesToSave = edges.map(e => ({
-            ...e,
-            selected: e.id === selectedElementId,
+            ...edgeToConnection(e), // Use edgeToConnection
+             properties: {
+                ...edgeToConnection(e).properties,
+                selected: e.id === selectedElementId,
+            }
         }));
-
+    
         const diagramToSave: Diagram = {
             id: projectId,
             name: diagramName, 
-            components: nodesToSave.map(nodeToComponent),
-            connections: edgesToSave.map(edgeToConnection),
+            components: nodesToSave.map(n => ({
+                id: n.id,
+                type: n.type,
+                properties: n.properties,
+            })),
+            connections: edgesToSave.map(e => ({
+                id: e.id,
+                source: e.source,
+                target: e.target,
+                sourceHandle: e.sourceHandle,
+                targetHandle: e.targetHandle,
+                label: e.label,
+                properties: e.properties,
+                selected: e.properties.selected,
+            })),
         };
 
         try {
@@ -266,17 +270,53 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     }, []);
 
     
-    // Unified click handler for nodes and edges passed to DiagramCanvas
-    const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent, element: Node | Edge) => {
-        setSelectedElementId(element.id);
-        // Manually update selection state for RF internal management if needed, though useEffect handles our styling
-        if ('position' in element) { // It's a Node
-            onNodesChange([{ type: 'select', id: element.id, selected: true }]);
-        } else { // It's an Edge
-            onEdgesChange([{ type: 'select', id: element.id, selected: true }]);
+    const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
+        if (element.id === selectedElementId) {
+            // If clicking the same element that is already selected, do nothing.
+            // This prevents unwanted deselect/reselect flickering.
+            return;
         }
-    }, [setSelectedElementId, onNodesChange, onEdgesChange]);
     
+        setSelectedElementId(element.id);
+    
+        // This part ensures React Flow internal state is also updated.
+        // It's crucial if other RF features rely on its internal selection state.
+        if ('position' in element) { // It's a Node
+            const nodeChanges: NodeChange[] = [{ type: 'select', id: element.id, selected: true }];
+            nodes.forEach(n => {
+                if (n.id !== element.id && n.selected) {
+                    nodeChanges.push({ type: 'select', id: n.id, selected: false });
+                }
+            });
+            onNodesChange(nodeChanges);
+    
+            const edgeChanges: EdgeChange[] = [];
+            edges.forEach(e => {
+                if (e.selected) {
+                    edgeChanges.push({ type: 'select', id: e.id, selected: false });
+                }
+            });
+            if (edgeChanges.length > 0) onEdgesChange(edgeChanges);
+    
+        } else { // It's an Edge
+            const edgeChanges: EdgeChange[] = [{ type: 'select', id: element.id, selected: true }];
+            edges.forEach(e => {
+                if (e.id !== element.id && e.selected) {
+                    edgeChanges.push({ type: 'select', id: e.id, selected: false });
+                }
+            });
+            onEdgesChange(edgeChanges);
+    
+            const nodeChanges: NodeChange[] = [];
+            nodes.forEach(n => {
+                if (n.selected) {
+                    nodeChanges.push({ type: 'select', id: n.id, selected: false });
+                }
+            });
+            if (nodeChanges.length > 0) onNodesChange(nodeChanges);
+        }
+    }, [selectedElementId, setSelectedElementId, nodes, edges, onNodesChange, onEdgesChange]);
+        
 
     const onPaneClick = useCallback(
         (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
@@ -288,28 +328,36 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const point = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
             const currentZoom = reactFlowInstance.getViewport().zoom;
             
-            const rfNodes = reactFlowInstance.getNodes();
-            const rfEdges = reactFlowInstance.getEdges();
+            const currentNodes = reactFlowInstance.getNodes();
+            const currentEdges = reactFlowInstance.getEdges();
 
-            const elementToSelect = getTopmostElementAtClick(rfNodes, rfEdges, point, currentZoom, selectedElementId);
-
+            const elementToSelect = getTopmostElementAtClick(currentNodes, currentEdges, point, currentZoom, selectedElementId);
+            
             if (elementToSelect) {
-                // If a specific element is found by getTopmostElementAtClick, use onElementClick
-                // This ensures consistent selection logic including updating RF's internal state
-                onElementClick(event as unknown as React.MouseEvent, elementToSelect);
-            } else {
-                 // If no specific element is found (clicked on empty pane), deselect
-                 if (selectedElementId !== null) {
-                    setSelectedElementId(null);
-                    // Also inform RF about deselection if something was selected
-                    // This might require iterating or knowing the type of the previously selected element
-                    // For simplicity, if selection is managed mostly via selectedElementId:
-                    onNodesChange(nodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false })));
-                    onEdgesChange(edges.filter(e => e.selected).map(e => ({ type: 'select', id: e.id, selected: false })));
+                if (elementToSelect.id !== selectedElementId) {
+                    onElementClick(event as unknown as React.MouseEvent, elementToSelect);
                 }
+                // If clicking on an element that is already selected, do nothing to prevent deselection
+            } else {
+                 // Clicked on empty pane, deselect current selection if any
+                 if (selectedElementId) {
+                    const deselectChangesNodes: NodeChange[] = [];
+                    nodes.forEach(n => {
+                        if (n.selected) deselectChangesNodes.push({ type: 'select', id: n.id, selected: false });
+                    });
+                    if (deselectChangesNodes.length > 0) onNodesChange(deselectChangesNodes);
+
+                    const deselectChangesEdges: EdgeChange[] = [];
+                    edges.forEach(e => {
+                         if (e.selected) deselectChangesEdges.push({ type: 'select', id: e.id, selected: false });
+                    });
+                     if (deselectChangesEdges.length > 0) onEdgesChange(deselectChangesEdges);
+                    
+                    setSelectedElementId(null);
+                 }
             }
         },
-        [reactFlowInstance, nodes, edges, selectedElementId, setSelectedElementId, onElementClick, onNodesChange, onEdgesChange] 
+        [reactFlowInstance, selectedElementId, setSelectedElementId, onElementClick, nodes, edges, onNodesChange, onEdgesChange] 
     );
 
 
@@ -344,7 +392,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         onEdgeClick={onElementClick} 
                         onPaneClick={onPaneClick}
                         onRfLoad={setReactFlowInstance} 
-                        selectedElementId={selectedElementId}
+                        selectedElementId={selectedElementId} 
                     />
                 </main>
 
