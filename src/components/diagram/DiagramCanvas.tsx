@@ -107,7 +107,8 @@ export function DiagramCanvas({
           minHeight: minHeight,
         },
         style: { width: defaultWidth, height: defaultHeight, zIndex: isBoundary ? 0 : 1 },
-        ...(!isBoundary && { dragHandle: '.drag-handle' }), // Drag handle for non-boundary nodes
+        // Removed explicit dragHandle here: ...(!isBoundary && { dragHandle: '.drag-handle' }),
+        // Nodes are draggable by body by default unless dragHandle is specified.
         ...(parentNode && {
             parentNode: parentNode.id,
             extent: 'parent',
@@ -115,7 +116,6 @@ export function DiagramCanvas({
         ...(isBoundary && { 
             selectable: true, 
             connectable: false, 
-            dragHandle: undefined, // Boundaries dragged by body
         }),
         selected: true, // Select the new node by default
       };

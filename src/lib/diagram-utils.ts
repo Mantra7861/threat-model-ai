@@ -42,13 +42,13 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
         height: height,
         zIndex: isBoundary ? 0 : 1, // Ensure boundaries are visually behind other elements
     },
-    // Add drag handle only for non-boundary nodes
-    ...(!isBoundary && { dragHandle: '.drag-handle' }),
+    // Removed explicit dragHandle assignment: ...(!isBoundary && { dragHandle: '.drag-handle' }),
+    // Nodes are draggable by body by default.
     // Configuration specific to boundary nodes
     ...(isBoundary && {
         selectable: true, // Boundaries should be selectable
         connectable: false, // Boundaries usually don't have connection handles
-        dragHandle: undefined, // Boundaries are dragged by their body, not a specific handle
+        // dragHandle: undefined, // Not needed, boundaries are dragged by body by default
     }),
     ...(component.properties?.parentNode && { parentNode: component.properties.parentNode }),
     selected: selected,

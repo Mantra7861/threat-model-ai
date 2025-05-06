@@ -2,7 +2,7 @@
 
 import type { FC } from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import { Server, Database, Cloud, Router, ShieldCheck, HelpCircle, GripVertical } from 'lucide-react';
+import { Server, Database, Cloud, Router, ShieldCheck, HelpCircle } from 'lucide-react'; // Removed GripVertical
 import { cn } from '@/lib/utils';
 
 const componentIcons: Record<string, React.ElementType> = {
@@ -51,15 +51,10 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
         )}
         style={{ zIndex: isBoundary ? 0 : (selected ? 10 : 1) }} // Boundaries behind, selected nodes on top
       >
-        {/* Drag handle for non-boundary nodes */}
-        {!isBoundary && (
-          <div className="drag-handle absolute top-1 right-1 cursor-move text-muted-foreground/50 hover:text-muted-foreground nodrag">
-            <GripVertical size={16} />
-          </div>
-        )}
+        {/* Drag handle was removed to make the whole node draggable */}
 
-        {!isBoundary && <Icon className="w-8 h-8 mb-1 nodrag" />}
-        <span className="text-xs font-medium truncate max-w-[90%] nodrag">
+        {!isBoundary && <Icon className="w-8 h-8 mb-1" />} {/* Removed nodrag */}
+        <span className="text-xs font-medium truncate max-w-[90%]"> {/* Removed nodrag */}
           {data.label || 'Unnamed Component'}
         </span>
 
