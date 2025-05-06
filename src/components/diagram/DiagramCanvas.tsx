@@ -14,6 +14,7 @@ import {
   type OnNodesChange,
   type Viewport,
   type ReactFlowInstance, 
+  type ElementClick, // Explicitly import if needed for handler types
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -37,10 +38,10 @@ interface DiagramCanvasProps {
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
   viewport?: Viewport;
-  selectedElementId?: string | null;
-  onNodeClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Unified handler
-  onEdgeClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Unified handler
-  onPaneClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Unified handler
+  selectedElementId?: string | null; // This prop is for custom logic, not directly for RF
+  onNodeClick?: ElementClick<Node>; 
+  onEdgeClick?: ElementClick<Edge>; 
+  onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; 
   onRfLoad?: (instance: ReactFlowInstance) => void; 
 }
 
@@ -54,10 +55,12 @@ export function DiagramCanvas({
   setEdges, 
   onMoveEnd,
   viewport,
+  // selectedElementId prop is not directly used by ReactFlow component itself for selection highlighting,
+  // but can be used by parent for managing selection state and passing to CustomNode if needed.
   selectedElementId, 
-  onNodeClickOverride,
-  onEdgeClickOverride, 
-  onPaneClickOverride,
+  onNodeClick,
+  onEdgeClick, 
+  onPaneClick,
   onRfLoad, 
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -121,37 +124,31 @@ export function DiagramCanvas({
             selectable: true, 
             connectable: false, 
         }),
-        selected: true, 
+        selected: true, // New node is initially selected
       };
 
+      // Deselect all other elements and add the new node
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
       setEdges((eds) => eds.map(e => ({...e, selected: false}))); 
       
+      // Directly inform RF about selection if onNodesChange is robust
       if (onNodesChange) {
          onNodesChange([
           {type: 'add', item: newNode}, 
-          {type: 'select', id: newNode.id, selected: true}
+          // The selection part for the new node should ideally be handled by the parent's setSelectedElementId
+          // and the useEffect that maps selectedElementId to node.selected.
+          // However, to ensure RF's internal selection state is also updated immediately:
+          ...currentNodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false } as NodeChange)),
+          {type: 'select', id: newNode.id, selected: true} as NodeChange
         ]);
       }
+
 
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
     [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodes, onNodesChange]
   );
   
-  // Wrapper functions to ensure the correct event type is passed
-  const handleNodeClick = useCallback((event: ReactMouseEvent, node: Node) => {
-      if (onNodeClickOverride) {
-          onNodeClickOverride(event.nativeEvent as unknown as globalThis.MouseEvent);
-      }
-  }, [onNodeClickOverride]);
-
-  const handleEdgeClick = useCallback((event: ReactMouseEvent, edge: Edge) => {
-      if (onEdgeClickOverride) {
-          onEdgeClickOverride(event.nativeEvent as unknown as globalThis.MouseEvent);
-      }
-  }, [onEdgeClickOverride]);
-
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
@@ -171,16 +168,16 @@ export function DiagramCanvas({
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={false} 
+        selectNodesOnDrag={true} // Allow selecting nodes by dragging over them if desired (can be true or false based on preference)
         multiSelectionKeyCode={['Meta', 'Control']}
         nodeDragThreshold={1}
         fitView 
         fitViewOptions={{ padding: 0.2 }} 
-        onNodeClick={handleNodeClick} // Use wrapped handler
-        onEdgeClick={handleEdgeClick} // Use wrapped handler
-        onPaneClick={onPaneClickOverride} // Directly use passed handler
+        onNodeClick={onNodeClick} 
+        onEdgeClick={onEdgeClick} 
+        onPaneClick={onPaneClick} 
         onLoad={onRfLoad} 
-        elevateNodesOnSelect={false} 
+        elevateNodesOnSelect={false} // Custom z-index handling should manage this
         elevateEdgesOnSelect={true}
       >
         <Controls />

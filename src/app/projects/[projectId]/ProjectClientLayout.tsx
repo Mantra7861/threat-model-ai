@@ -14,6 +14,7 @@ import {
     applyEdgeChanges, 
     addEdge,
     type ReactFlowInstance,
+    type ElementClick, // For explicit type on handlers
 } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
@@ -42,19 +43,21 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const { toast } = useToast();
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
 
-    const setNodes = useCallback((updater: Parameters<typeof setNodesInternal>[0]) => {
-        setNodesInternal(prevNodes => {
-            const newNodes = typeof updater === 'function' ? updater(prevNodes) : updater;
-            return newNodes.map(n => ({...n, selected: n.id === selectedElementId}));
-        });
-    }, [setNodesInternal, selectedElementId]);
-
-    const setEdges = useCallback((updater: Parameters<typeof setEdgesInternal>[0]) => {
-        setEdgesInternal(prevEdges => {
-            const newEdges = typeof updater === 'function' ? updater(prevEdges) : updater;
-            return newEdges.map(e => ({...e, selected: e.id === selectedElementId}));
-        });
-    }, [setEdgesInternal, selectedElementId]);
+    // Effect to set nodes and edges based on selectedElementId for styling
+    useEffect(() => {
+        setNodesInternal(prevNodes =>
+            prevNodes.map(n => ({
+                ...n,
+                selected: n.id === selectedElementId
+            }))
+        );
+        setEdgesInternal(prevEdges =>
+            prevEdges.map(e => ({
+                ...e,
+                selected: e.id === selectedElementId
+            }))
+        );
+    }, [selectedElementId, setNodesInternal, setEdgesInternal]);
 
 
     useEffect(() => {
@@ -73,13 +76,14 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 
                 setDiagramName(diagramData.name);
 
-                const initiallySelectedNode = flowNodes.find(n => n.selected);
-                const initiallySelectedEdge = flowEdges.find(e => e.selected);
-                
-                if (initiallySelectedNode) {
-                    setSelectedElementId(initiallySelectedNode.id);
-                } else if (initiallySelectedEdge) {
-                    setSelectedElementId(initiallySelectedEdge.id);
+                // Prioritize selected node, then selected edge from loaded data
+                const initiallySelectedComponent = diagramData.components.find(c => c.properties?.selected);
+                const initiallySelectedConnection = diagramData.connections?.find(c => c.selected);
+
+                if (initiallySelectedComponent) {
+                    setSelectedElementId(initiallySelectedComponent.id);
+                } else if (initiallySelectedConnection) {
+                    setSelectedElementId(initiallySelectedConnection.id);
                 } else {
                     setSelectedElementId(null);
                 }
@@ -94,63 +98,63 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         }
         loadDiagram();
     // eslint-disable-next-line react-hooks/exhaustive-deps 
-    }, [projectId, toast]); 
+    }, [projectId, toast]); // setNodesInternal, setEdgesInternal removed from deps as they are stable
 
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
-            let newSelectedIdUpdate: string | null = null;
-            let clearSelection = false;
+            let newSelectedId: string | null = selectedElementId; // Start with current
+            let selectionChangedByThisBatch = false;
 
             changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
-                        newSelectedIdUpdate = change.id;
-                    } else if (selectedElementId === change.id) {
-                        clearSelection = true;
+                        newSelectedId = change.id;
+                    } else if (newSelectedId === change.id) { // If current selection is deselected
+                        newSelectedId = null;
                     }
-                } else if (change.type === 'remove' && selectedElementId === change.id) {
-                    clearSelection = true;
+                    selectionChangedByThisBatch = true;
+                } else if (change.type === 'remove' && newSelectedId === change.id) {
+                    newSelectedId = null;
+                    selectionChangedByThisBatch = true;
                 }
             });
             
             setNodesInternal((currentNodes) => applyNodeChanges(changes, currentNodes));
 
-            if (newSelectedIdUpdate) {
-                setSelectedElementId(newSelectedIdUpdate);
-            } else if (clearSelection) {
-                 setSelectedElementId(null);
+            if (selectionChangedByThisBatch) {
+                 setSelectedElementId(newSelectedId);
             }
         },
-        [setNodesInternal, selectedElementId, setSelectedElementId] 
+        [setNodesInternal, selectedElementId] 
     );
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => {
-            let newSelectedIdUpdate: string | null = null;
-            let clearSelection = false;
-
+            let newSelectedId: string | null = selectedElementId; // Start with current
+            let selectionChangedByThisBatch = false;
+            
             changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
-                        newSelectedIdUpdate = change.id;
-                    } else if (selectedElementId === change.id) {
-                         clearSelection = true;
+                        newSelectedId = change.id;
+                    } else if (newSelectedId === change.id) { // If current selection is deselected
+                        newSelectedId = null;
                     }
-                } else if (change.type === 'remove' && selectedElementId === change.id) {
-                    clearSelection = true;
+                    selectionChangedByThisBatch = true;
+                } else if (change.type === 'remove' && newSelectedId === change.id) {
+                    newSelectedId = null;
+                    selectionChangedByThisBatch = true;
                 }
             });
 
             setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
-
-            if (newSelectedIdUpdate) {
-                setSelectedElementId(newSelectedIdUpdate);
-            } else if (clearSelection) {
-                setSelectedElementId(null);
+            
+            if (selectionChangedByThisBatch) {
+                setSelectedElementId(newSelectedId);
             }
         },
-        [setEdgesInternal, selectedElementId, setSelectedElementId]
+        [setEdgesInternal, selectedElementId]
     );
     
     const onConnect = useCallback(
@@ -173,11 +177,13 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             },
             selected: true, 
           };
+          // Deselect all other elements and select the new edge
+          setNodesInternal(nds => nds.map(n => ({ ...n, selected: false })));
           setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
           setSelectedElementId(newEdgeId); 
           toast({ title: 'Connection Added', description: 'Data flow created and selected.' });
         },
-        [setEdgesInternal, setSelectedElementId, toast]
+        [setEdgesInternal, setNodesInternal, setSelectedElementId, toast]
     );
     
     const selectedNode = useMemo(() => nodes.find(node => node.id === selectedElementId) ?? null, [nodes, selectedElementId]);
@@ -214,6 +220,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const deleteElement = useCallback((elementId: string, isNode: boolean) => {
         if (isNode) {
             setNodesInternal((nds) => nds.filter((node) => node.id !== elementId));
+            // Also remove edges connected to the deleted node
             setEdgesInternal((eds) => eds.filter((edge) => edge.source !== elementId && edge.target !== elementId));
         } else {
             setEdgesInternal((eds) => eds.filter((edge) => edge.id !== elementId));
@@ -226,6 +233,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
 
     const handleSave = useCallback(async () => {
+        // Ensure selected status reflects current selectedElementId
         const nodesToSave = nodes.map(n => ({
             ...n,
             selected: n.id === selectedElementId, 
@@ -257,8 +265,20 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setDiagramName(newName);
     }, []);
 
-   
-    const onPaneClickOrCanvasClick = useCallback(
+    
+    // Unified click handler for nodes and edges passed to DiagramCanvas
+    const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent, element: Node | Edge) => {
+        setSelectedElementId(element.id);
+        // Manually update selection state for RF internal management if needed, though useEffect handles our styling
+        if ('position' in element) { // It's a Node
+            onNodesChange([{ type: 'select', id: element.id, selected: true }]);
+        } else { // It's an Edge
+            onEdgesChange([{ type: 'select', id: element.id, selected: true }]);
+        }
+    }, [setSelectedElementId, onNodesChange, onEdgesChange]);
+    
+
+    const onPaneClick = useCallback(
         (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
             if (!reactFlowInstance) return;
     
@@ -268,36 +288,29 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const point = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
             const currentZoom = reactFlowInstance.getViewport().zoom;
             
-            // Use the utility function to find the topmost element
-            const elementToSelect = getTopmostElementAtClick(nodes, edges, point, currentZoom, selectedElementId);
+            const rfNodes = reactFlowInstance.getNodes();
+            const rfEdges = reactFlowInstance.getEdges();
+
+            const elementToSelect = getTopmostElementAtClick(rfNodes, rfEdges, point, currentZoom, selectedElementId);
 
             if (elementToSelect) {
-                if (selectedElementId !== elementToSelect.id) {
-                    setSelectedElementId(elementToSelect.id);
-                }
+                // If a specific element is found by getTopmostElementAtClick, use onElementClick
+                // This ensures consistent selection logic including updating RF's internal state
+                onElementClick(event as unknown as React.MouseEvent, elementToSelect);
             } else {
+                 // If no specific element is found (clicked on empty pane), deselect
                  if (selectedElementId !== null) {
                     setSelectedElementId(null);
+                    // Also inform RF about deselection if something was selected
+                    // This might require iterating or knowing the type of the previously selected element
+                    // For simplicity, if selection is managed mostly via selectedElementId:
+                    onNodesChange(nodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false })));
+                    onEdgesChange(edges.filter(e => e.selected).map(e => ({ type: 'select', id: e.id, selected: false })));
                 }
             }
         },
-        [reactFlowInstance, nodes, edges, selectedElementId, setSelectedElementId] 
+        [reactFlowInstance, nodes, edges, selectedElementId, setSelectedElementId, onElementClick, onNodesChange, onEdgesChange] 
     );
-    
-    useEffect(() => {
-        setNodesInternal(prevNodes =>
-            prevNodes.map(n => ({
-                ...n,
-                selected: n.id === selectedElementId
-            }))
-        );
-        setEdgesInternal(prevEdges =>
-            prevEdges.map(e => ({
-                ...e,
-                selected: e.id === selectedElementId
-            }))
-        );
-    }, [selectedElementId, setNodesInternal, setEdgesInternal]);
 
 
     if (loading) {
@@ -323,13 +336,13 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
-                        setNodes={setNodes} 
-                        setEdges={setEdges} 
+                        setNodes={setNodesInternal} 
+                        setEdges={setEdgesInternal} 
                         onMoveEnd={(e, vp) => setViewport(vp)}
                         viewport={viewport}
-                        onNodeClickOverride={onPaneClickOrCanvasClick} // Re-use for nodes
-                        onEdgeClickOverride={onPaneClickOrCanvasClick} // Re-use for edges
-                        onPaneClickOverride={onPaneClickOrCanvasClick} // Re-use for pane
+                        onNodeClick={onElementClick} 
+                        onEdgeClick={onElementClick} 
+                        onPaneClick={onPaneClick}
                         onRfLoad={setReactFlowInstance} 
                         selectedElementId={selectedElementId}
                     />

@@ -106,27 +106,29 @@ body {
   
   /* Type-specific styles. These mainly define border and text color. Background is transparent for boundaries. */
   .react-flow__node-server {
-    @apply border border-blue-400 text-blue-800; /* Ensure border is applied */
+    @apply border border-blue-400 text-blue-800; 
   }
   .react-flow__node-database {
-    @apply border border-green-400 text-green-800; /* Ensure border is applied */
+    @apply border border-green-400 text-green-800; 
   }
   .react-flow__node-service {
-    @apply border border-purple-400 text-purple-800; /* Ensure border is applied */
+    @apply border border-purple-400 text-purple-800; 
   }
   .react-flow__node-router {
-    @apply border border-yellow-500 text-yellow-800; /* Ensure border is applied */
+    @apply border border-yellow-500 text-yellow-800; 
   }
-  /* Boundary Box Specific Styling */
+
+  /* Boundary Box Specific Styling - ensure single dashed border and transparent background */
   .react-flow__node-boundary {
-     @apply border-2 border-dashed border-red-500 bg-transparent !important; 
+     @apply border-2 border-dashed border-red-500 !important; /* Explicitly transparent background */
      @apply text-red-600; 
      @apply cursor-default; 
      @apply shadow-none hover:shadow-none; /* No shadow for boundary */
+     /* Do not apply rounded-lg here if it conflicts with the clean dashed line appearance */
    }
   
    .react-flow__node-default {
-     @apply border border-gray-400 text-gray-800; /* Ensure border is applied */
+     @apply border border-gray-400 text-gray-800; 
    }
 
   /* General selection outline for non-boundary nodes */
@@ -135,13 +137,12 @@ body {
   }
   /* Selection outline for boundary nodes */
   .react-flow__node-boundary.selected {
-    @apply ring-2 ring-red-500 ring-offset-0; /* No offset for boundary outline */
+    @apply ring-2 ring-red-500 ring-offset-0; 
   }
 
 
   .react-flow__handle {
     @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full opacity-75 hover:opacity-100;
-    /* Handles z-index is set inline in CustomNode.tsx to be relative to their node's effective z-index. */
    }
    .react-flow__handle-connecting {
      @apply !bg-primary !opacity-100;
@@ -150,15 +151,15 @@ body {
    /* Default edge path style */
    .react-flow__edge-path {
      @apply stroke-gray-500 stroke-2;
-     marker-end: url(#arrowclosed); /* Example for default arrow */
+     marker-end: url(#arrowclosed); 
    }
 
     /* Style for selected edges */
    .react-flow__edge.selected .react-flow__edge-path,
    .react-flow__edge:focus .react-flow__edge-path,
    .react-flow__edge:focus-within .react-flow__edge-path {
-       @apply stroke-primary stroke-[3px]; /* Primary color from theme, thicker */
-       marker-end: url(#arrowclosed-selected); /* Different arrow for selected state */
+       @apply stroke-primary stroke-[3px]; 
+       marker-end: url(#arrowclosed-selected); 
    }
     .react-flow__edge.selected .react-flow__edge-text,
     .react-flow__edge:focus .react-flow__edge-text,
@@ -167,20 +168,15 @@ body {
     }
 
 
-   /* Style for the resizable node wrapper if using node-resizer */
-   .react-flow__node-resizer {
-      /* z-index is managed by the NodeResizer component itself to be on top */
-   }
    .react-flow__resize-control line {
       @apply !border-primary;
    }
     .react-flow__resize-handle {
-        /* Default style for handles, can be overridden by NodeResizer handleClassName prop */
         @apply !bg-background !border-2 !border-primary !rounded-sm !h-3 !w-3 !opacity-100;
     }
 
    .react-flow__controls {
-      z-index: 200 !important; /* Ensure controls are on top of most elements, including resizers */
+      z-index: 200 !important; 
    }
 
     main.peer-data-\[variant=inset\] {
