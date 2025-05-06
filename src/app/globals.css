@@ -105,6 +105,7 @@ body {
   }
   
   /* Type-specific styles. These mainly define border and text color. Background is transparent for boundaries. */
+  /* Ensure borders are always visible */
   .react-flow__node-server {
     @apply border border-blue-400 text-blue-800; 
   }
@@ -117,26 +118,26 @@ body {
   .react-flow__node-router {
     @apply border border-yellow-500 text-yellow-800; 
   }
+   .react-flow__node-default {
+     @apply border border-gray-400 text-gray-800; 
+   }
 
-  /* Boundary Box Specific Styling - ensure single dashed border and transparent background */
+  /* Boundary Box Specific Styling - ensure single dashed border and transparent background, always visible */
   .react-flow__node-boundary {
-     @apply border-2 border-dashed border-red-500 bg-transparent !important; /* Explicitly transparent background */
+     @apply border-2 border-dashed border-red-500 bg-transparent !important; /* Explicitly transparent background, single dashed border */
      @apply text-red-600; 
      @apply cursor-default; 
      @apply shadow-none hover:shadow-none; /* No shadow for boundary */
    }
   
-   .react-flow__node-default {
-     @apply border border-gray-400 text-gray-800; 
-   }
-
   /* General selection outline for non-boundary nodes */
   .react-flow__node.selected:not(.react-flow__node-boundary) {
     @apply ring-2 ring-primary ring-offset-2;
   }
   /* Selection outline for boundary nodes */
   .react-flow__node-boundary.selected {
-    @apply ring-2 ring-red-500 ring-offset-0; 
+    /* No additional ring for boundary when selected to avoid double border appearance, already has border */
+     @apply ring-0 ring-offset-0; 
   }
 
 
@@ -187,3 +188,4 @@ body {
         position: relative; 
     }
 }
+

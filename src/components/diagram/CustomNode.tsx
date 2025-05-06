@@ -55,9 +55,10 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
           "flex flex-col items-center justify-center p-3 w-full h-full relative",
           // Apply the specific react-flow__node-${type} class which handles border and visuals from globals.css
           // This class will define the border for standard nodes and the dashed border for boundary nodes.
+          // Ensure the class responsible for the border (e.g., `border-2 border-dashed border-red-500`) is always applied to boundary
+          // and standard component borders are always applied via their specific classes.
           `react-flow__node-${type}`, 
-          // If it's a boundary box, ensure its specific styling (like transparent background) from globals.css is prioritized.
-          isBoundaryBox ? "bg-transparent" : "bg-card", // Standard nodes get card background, boundaries are transparent
+          isBoundaryBox ? "bg-transparent" : "bg-card", 
         )}
         style={{ zIndex: effectiveZIndex }}
       >
@@ -67,7 +68,6 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
         <span className={cn(
             "text-xs font-medium truncate max-w-[90%]",
             isBoundaryBox && "text-sm font-semibold text-red-700 absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-card px-1 py-0.5 rounded shadow-sm" 
-            // The background for boundary label is card to make it readable over transparent boundary
         )}>
           {data.label || 'Unnamed Component'}
         </span>
