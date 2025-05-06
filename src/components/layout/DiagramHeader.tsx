@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Save, FileText, Share2, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
-// Removed getDiagram import as name is now passed via props
 
 interface DiagramHeaderProps {
   projectId: string;
-  initialDiagramName: string; // Receive initial name as prop
-  onNameChange: (newName: string) => void; // Callback for name changes
+  initialDiagramName: string;
+  onNameChange: (newName: string) => void;
 }
 
 export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: DiagramHeaderProps) {
@@ -30,11 +29,11 @@ export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: D
 
   const handleNameInputBlur = () => {
     if (localDiagramName !== initialDiagramName) {
-      onNameChange(localDiagramName); // Call parent's update function
+      onNameChange(localDiagramName);
     }
   };
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = useCallback(async () => {
     setIsGenerating(true);
     toast({
       title: "Generating Report",
@@ -42,27 +41,24 @@ export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: D
     });
     try {
       const result = await generateThreatReport({ diagramId: projectId });
-      // TODO: Display the report. This might involve lifting state or using a global state solution.
-      // For now, log to console and show toast.
       console.log("Generated Report:", result.report); 
       toast({
         title: "Report Generated",
-        description: "Threat report generated successfully. (View console for details)", // Placeholder
+        description: "Threat report generated successfully. (View console for details)",
       });
     } catch (error) {
       console.error("Error generating report:", error);
       toast({
         title: "Error Generating Report",
-        description: "Could not generate the threat report.",
+        description: error instanceof Error ? error.message : "Could not generate the threat report.",
         variant: "destructive",
       });
     } finally {
       setIsGenerating(false);
     }
-  };
+  }, [projectId, toast]);
 
   const handleShare = () => {
-    // TODO: Implement share functionality
     console.log("Sharing diagram...");
     toast({
       title: "Sharing Options",
@@ -76,7 +72,7 @@ export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: D
         <Input
           value={localDiagramName}
           onChange={handleNameInputChange}
-          onBlur={handleNameInputBlur} // Update on blur
+          onBlur={handleNameInputBlur}
           className="text-lg font-semibold w-auto border-none shadow-none focus-visible:ring-0 px-1 py-0 h-auto"
           aria-label="Diagram Name"
         />
