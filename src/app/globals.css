@@ -120,11 +120,10 @@ body {
 
   /* Boundary Box Specific Styling - ensure single dashed border and transparent background */
   .react-flow__node-boundary {
-     @apply border-2 border-dashed border-red-500 !important; /* Explicitly transparent background */
+     @apply border-2 border-dashed border-red-500 bg-transparent !important; /* Explicitly transparent background */
      @apply text-red-600; 
      @apply cursor-default; 
      @apply shadow-none hover:shadow-none; /* No shadow for boundary */
-     /* Do not apply rounded-lg here if it conflicts with the clean dashed line appearance */
    }
   
    .react-flow__node-default {

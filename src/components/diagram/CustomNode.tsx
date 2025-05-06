@@ -20,6 +20,7 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
   const isBoundaryBox = type === 'boundary';
   
   const isNodeResizable = data?.resizable === true || isBoundaryBox;
+  // Show resizer only if selected AND resizable. For boundary boxes, they are always resizable.
   const showResizer = selected && isNodeResizable;
 
 
@@ -45,7 +46,7 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
           handleClassName={cn( 
             "!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100" 
           )} 
-          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} 
+          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} // Ensure resizer is above the node
         />
       )}
 
@@ -53,9 +54,10 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
         className={cn(
           "flex flex-col items-center justify-center p-3 w-full h-full relative",
           // Apply the specific react-flow__node-${type} class which handles border and visuals from globals.css
+          // This class will define the border for standard nodes and the dashed border for boundary nodes.
           `react-flow__node-${type}`, 
-          // Ensure no other border classes are applied here for boundary boxes,
-          // as `react-flow__node-boundary` in globals.css should provide the single dashed border.
+          // If it's a boundary box, ensure its specific styling (like transparent background) from globals.css is prioritized.
+          isBoundaryBox ? "bg-transparent" : "bg-card", // Standard nodes get card background, boundaries are transparent
         )}
         style={{ zIndex: effectiveZIndex }}
       >
@@ -65,6 +67,7 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
         <span className={cn(
             "text-xs font-medium truncate max-w-[90%]",
             isBoundaryBox && "text-sm font-semibold text-red-700 absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-card px-1 py-0.5 rounded shadow-sm" 
+            // The background for boundary label is card to make it readable over transparent boundary
         )}>
           {data.label || 'Unnamed Component'}
         </span>
