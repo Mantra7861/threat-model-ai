@@ -22,7 +22,7 @@ import { getDiagram, saveDiagram, type Diagram, type Component as DiagramCompone
 import { useToast } from '@/hooks/use-toast';
 import { componentToNode, nodeToComponent, connectionToEdge, edgeToConnection, getTopmostNodeAtClick } from '@/lib/diagram-utils';
 import { DiagramHeader } from '@/components/layout/DiagramHeader';
-import { ThreatReportPanel } from '@/components/diagram/ThreatReportPanel';
+import { ThreatReportPanel } from "@/components/diagram/ThreatReportPanel";
 
 interface ProjectClientLayoutProps {
     projectId: string;
@@ -84,7 +84,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             setNodes((currentNodes) => {
                 let newSelectedId: string | null = selectedElementId;
                 const updatedNodes = applyNodeChanges(changes, currentNodes).map(n => {
-                    // If a node is being selected by React Flow, update our central selection
                     const selectChange = changes.find(c => c.type === 'select' && c.id === n.id);
                     if (selectChange && selectChange.type === 'select') {
                         if (selectChange.selected) {
@@ -95,17 +94,22 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                             return { ...n, selected: false };
                         }
                     }
-                    // If a node is removed, clear selection if it was the selected one
                     const removeChange = changes.find(c => c.type === 'remove' && c.id === n.id);
                     if (removeChange && newSelectedId === n.id) {
                         newSelectedId = null;
                     }
-                    return { ...n, selected: n.id === newSelectedId }; // Ensure consistency
+                     // If a dimensions change occurred for the selected node, ensure it remains selected
+                    const dimensionsChange = changes.find(c => c.type === 'dimensions' && c.id === n.id && c.id === newSelectedId);
+                    if (dimensionsChange) {
+                        return { ...n, selected: true };
+                    }
+
+                    return { ...n, selected: n.id === newSelectedId }; 
                 });
 
                 if (newSelectedId !== selectedElementId) {
                     setSelectedElementId(newSelectedId);
-                    if (newSelectedId !== null) { // If a node was selected, deselect all edges
+                    if (newSelectedId !== null) { 
                         setEdges(eds => eds.map(e => ({ ...e, selected: false })));
                     }
                 }
@@ -139,7 +143,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
                 if (newSelectedId !== selectedElementId) {
                     setSelectedElementId(newSelectedId);
-                    if (newSelectedId !== null) { // If an edge was selected, deselect all nodes
+                    if (newSelectedId !== null) { 
                         setNodes(nds => nds.map(n => ({ ...n, selected: false })));
                     }
                 }
@@ -256,87 +260,92 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     }, []);
 
     const onPaneClickOverride = useCallback(
-        (event: globalThis.MouseEvent | globalThis.TouchEvent) => { // Allow TouchEvent
+        (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+            // This function is called when the pane is clicked (empty canvas space).
+            // It should deselect any currently selected node or edge.
+            // The DiagramCanvas's onNodeClick and onEdgeClick will handle specific element selections.
+            // If a click occurs and neither onNodeClick nor onEdgeClick is triggered (or stops propagation),
+            // this implies a click on the pane.
+            // We also check if reactFlowInstance is available, as getTopmostNodeAtClick might use it.
             if (!reactFlowInstance) return;
     
             const { getNodes, screenToFlowPosition, viewport: currentViewport } = reactFlowInstance;
-            // Determine if it's a MouseEvent or TouchEvent and get clientX/Y
             const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
             const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
             const flowPosition = screenToFlowPosition({ x: clientX, y: clientY });
-            
-            const allNodes = getNodes();
+            const allNodes = getNodes(); // Get current nodes from RF instance
             const currentZoom = currentViewport?.zoom || 1;
     
+            // Check if the click was on any node using our utility function
             const topmostNode = getTopmostNodeAtClick(allNodes, flowPosition, currentZoom, selectedElementId);
     
-            if (topmostNode) {
-                // If a node is found at the click position (respecting z-index and type priority)
-                setNodes(nds => nds.map(n => ({ ...n, selected: n.id === topmostNode.id })));
-                setEdges(eds => eds.map(e => ({ ...e, selected: false })));
-                setSelectedElementId(topmostNode.id);
-            } else {
-                // Clicked on empty canvas space
+            // If the click was NOT on any node (according to our logic), then deselect everything.
+            // Edge clicks are handled by onEdgeClickOverride. If an edge was clicked, onEdgeClickOverride
+            // would have been called and potentially stopped propagation. If we reach here, and
+            // no node was clicked, it's a true pane click.
+            if (!topmostNode) {
                 setNodes(nds => nds.map(n => ({ ...n, selected: false })));
                 setEdges(eds => eds.map(e => ({ ...e, selected: false })));
                 setSelectedElementId(null);
             }
+            // If topmostNode exists, onNodeClickOverride should handle the selection.
         },
         [reactFlowInstance, setNodes, setEdges, setSelectedElementId, selectedElementId]
     );
 
     const onNodeClickOverride = useCallback(
         (event: React.MouseEvent, clickedNodeFromRF: Node) => {
-            event.stopPropagation(); 
+            event.stopPropagation(); // Prevent pane click from firing
             if (!reactFlowInstance) return;
     
             const { getNodes, screenToFlowPosition, viewport: currentViewport } = reactFlowInstance;
             const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-            const allNodes = getNodes();
+            const allNodes = getNodes(); // Use nodes from RF instance for current state
             const currentZoom = currentViewport?.zoom || 1;
     
-            const topmostNode = getTopmostNodeAtClick(allNodes, flowPosition, currentZoom, selectedElementId);
+            const topmostNodeToSelect = getTopmostNodeAtClick(allNodes, flowPosition, currentZoom, selectedElementId);
             
-            let nodeToSelectId: string | null = null;
+            let finalNodeIdToSelect: string | null = null;
 
-            if (topmostNode) {
-                nodeToSelectId = topmostNode.id;
+            if (topmostNodeToSelect) {
+                finalNodeIdToSelect = topmostNodeToSelect.id;
             } else {
-                 // Fallback if getTopmostNodeAtClick returns null (should ideally not happen if RF triggered onNodeClick)
-                 // This could happen if the click was on a part of the node that getTopmostNodeAtClick
-                 // somehow missed, or if the node was occluded by something React Flow itself doesn't count for onNodeClick.
-                 // Default to the node React Flow provided.
-                nodeToSelectId = clickedNodeFromRF.id;
+                // This case should ideally not be reached if RF triggered onNodeClick with clickedNodeFromRF.
+                // However, as a fallback, use the node RF provided.
+                finalNodeIdToSelect = clickedNodeFromRF.id;
             }
             
-            if (nodeToSelectId) {
-                setNodes(nds => nds.map(n => ({ ...n, selected: n.id === nodeToSelectId })));
-                setEdges(eds => eds.map(e => ({ ...e, selected: false })));
-                setSelectedElementId(nodeToSelectId);
+            if (finalNodeIdToSelect) {
+                if (finalNodeIdToSelect !== selectedElementId || !nodes.find(n => n.id === finalNodeIdToSelect && n.selected)) {
+                    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === finalNodeIdToSelect })));
+                    setEdges(eds => eds.map(e => ({ ...e, selected: false }))); // Deselect edges when a node is selected
+                    setSelectedElementId(finalNodeIdToSelect);
+                }
             } else {
-                 // If truly no node could be determined (very unlikely here), treat as pane click
+                // If somehow no node is determined (very unlikely here), treat as pane click to deselect.
                  onPaneClickOverride(event as unknown as globalThis.MouseEvent);
             }
         },
-        [reactFlowInstance, setNodes, setEdges, setSelectedElementId, onPaneClickOverride, selectedElementId]
+        [reactFlowInstance, setNodes, setEdges, setSelectedElementId, selectedElementId, onPaneClickOverride, nodes] 
     );
 
     const onEdgeClickOverride = useCallback(
         (event: React.MouseEvent, edge: Edge) => {
            event.stopPropagation(); // Prevent pane click
-           setEdges(eds => eds.map(e => ({ ...e, selected: e.id === edge.id })));
-           setNodes(nds => nds.map(n => ({ ...n, selected: false })));
-           setSelectedElementId(edge.id);
-        },  [setEdges, setNodes, setSelectedElementId]
+           if (edge.id !== selectedElementId || !edges.find(e => e.id === edge.id && e.selected)) {
+               setEdges(eds => eds.map(e => ({ ...e, selected: e.id === edge.id })));
+               setNodes(nds => nds.map(n => ({ ...n, selected: false }))); // Deselect nodes when an edge is selected
+               setSelectedElementId(edge.id);
+           }
+        },  [setEdges, setNodes, setSelectedElementId, selectedElementId, edges]
     );
     
     useEffect(() => {
-        // This effect ensures that the `selected` prop of nodes/edges in the ReactFlow state
-        // is always in sync with the `selectedElementId` state.
-        // This is crucial when selection changes programmatically (e.g., after adding a new node/edge).
-        setNodes(nds => nds.map(n => ({ ...n, selected: n.id === selectedElementId })));
-        setEdges(eds => eds.map(e => ({ ...e, selected: e.id === selectedElementId })));
-    }, [selectedElementId, setNodes, setEdges]);
+        // Centralized selection sync. Ensures React Flow's internal selection matches our state.
+        // This is important if selectedElementId changes programmatically.
+        setNodes(nds => nds.map(n => ({ ...n, selected: n.id === selectedElementId && !selectedEdge })));
+        setEdges(eds => eds.map(e => ({ ...e, selected: e.id === selectedElementId && !selectedNode })));
+    }, [selectedElementId, setNodes, setEdges, selectedNode, selectedEdge]);
 
 
     if (loading) {
@@ -366,7 +375,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         setEdges={setEdges} 
                         onMoveEnd={(e, vp) => setViewport(vp)}
                         viewport={viewport}
-                        // selectedElementId={selectedElementId} // Pass if DiagramCanvas directly uses it for styling
                         onNodeClickOverride={onNodeClickOverride}
                         onEdgeClickOverride={onEdgeClickOverride}
                         onPaneClickOverride={onPaneClickOverride}
@@ -405,4 +413,5 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         </>
     );
 }
+
 
