@@ -14,6 +14,7 @@ import {
   type OnNodesChange,
   type Viewport,
   type NodeMouseHandler,
+  type EdgeMouseHandler, // Added for edge click
   type FlowProps,
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
@@ -38,8 +39,9 @@ interface DiagramCanvasProps {
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onMoveEnd?: (event: MouseEvent | TouchEvent | undefined, viewport: Viewport) => void;
   viewport?: Viewport;
-  selectedNodeId?: string | null; 
+  selectedElementId?: string | null; // Changed from selectedNodeId
   onNodeClickOverride?: NodeMouseHandler;
+  onEdgeClickOverride?: EdgeMouseHandler; // Added for edge click
   onPaneClickOverride?: FlowProps['onPaneClick'];
 }
 
@@ -50,10 +52,12 @@ export function DiagramCanvas({
   onEdgesChange,
   onConnect,
   setNodes,
+  setEdges, // Make sure setEdges is passed and used
   onMoveEnd,
   viewport,
-  selectedNodeId, 
+  selectedElementId, 
   onNodeClickOverride,
+  onEdgeClickOverride, // Added
   onPaneClickOverride,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -85,10 +89,11 @@ export function DiagramCanvas({
 
 
       const isBoundary = type === 'boundary';
-      const defaultWidth = isBoundary ? 300 : 150;
-      const defaultHeight = isBoundary ? 350 : 80;
-      const minWidth = isBoundary ? 200 : 100;
-      const minHeight = isBoundary ? 250 : 50;
+      // Use smaller default for boundaries to encourage manual resizing for "infinite" feel.
+      const defaultWidth = isBoundary ? 250 : 150; 
+      const defaultHeight = isBoundary ? 250 : 80;
+      const minWidth = isBoundary ? 100 : 100; 
+      const minHeight = isBoundary ? 100 : 50;
 
 
       const newNodeId = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -102,48 +107,56 @@ export function DiagramCanvas({
           label: nodeLabel,
           properties: { name: nodeLabel, type: type }, 
           type: type, 
-          resizable: !isBoundary, // Non-boundary nodes are resizable
+          resizable: true, // All nodes are resizable
           minWidth: minWidth,
           minHeight: minHeight,
         },
-        style: { width: defaultWidth, height: defaultHeight, zIndex: isBoundary ? 0 : 1 },
-        // Removed explicit dragHandle here: ...(!isBoundary && { dragHandle: '.drag-handle' }),
-        // Nodes are draggable by body by default unless dragHandle is specified.
+        style: { width: defaultWidth, height: defaultHeight },
         ...(parentNode && {
             parentNode: parentNode.id,
-            extent: 'parent',
+            extent: 'parent', // Children constrained to parent boundary if parentNode is set
         }),
         ...(isBoundary && { 
             selectable: true, 
-            connectable: false, 
+            connectable: false,
+            // Do not set extent for boundary nodes themselves, allowing them to be "infinite"
         }),
-        selected: true, // Select the new node by default
+        selected: true, 
       };
 
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
-      // Trigger onNodesChange to update selectedNodeId in parent via the select change
-      if (onNodesChange) {
+      setEdges((eds) => eds.map(e => ({...e, selected: false}))); // Deselect edges
+      
+      if (onNodesChange) { // This will trigger selectedElementId update in parent
           onNodesChange([{ type: 'select', id: newNodeId, selected: true }]);
       }
       toast({ title: 'Component Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, toast, getIntersectingNodes, onNodesChange]
+    [screenToFlowPosition, setNodes, setEdges, toast, getIntersectingNodes, onNodesChange]
   );
 
-  // Ensure nodes passed to ReactFlow have the correct 'selected' status for CustomNode
-  const processedNodes = nodes.map(n => ({ ...n, selected: n.id === selectedNodeId }));
+  const processedNodes = nodes.map(n => ({ ...n, selected: n.id === selectedElementId }));
+  const processedEdges = edges.map(e => ({
+    ...e,
+    selected: e.id === selectedElementId,
+    // Example: Style selected edges differently or use a custom edge component
+    // style: e.id === selectedElementId ? { stroke: '#00ACC1', strokeWidth: 3 } : undefined,
+    // className: e.id === selectedElementId ? 'selected-edge' : '', // For CSS targeting
+  }));
+
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={processedNodes} 
-        edges={edges}
+        edges={processedEdges} // Pass processedEdges
         onNodesChange={onNodesChange} 
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
+        // edgeTypes={edgeTypes} // If you define custom edges
         onMoveEnd={onMoveEnd}
         defaultViewport={viewport}
         className="bg-background"
@@ -156,13 +169,14 @@ export function DiagramCanvas({
         nodeDragThreshold={1}
         fitView 
         fitViewOptions={{ padding: 0.1 }} 
-        onNodeClick={onNodeClickOverride} // Pass through custom click handler
-        onPaneClick={onPaneClickOverride} // Pass through custom pane click handler
+        onNodeClick={onNodeClickOverride}
+        onEdgeClick={onEdgeClickOverride} // Pass through custom edge click handler
+        onPaneClick={onPaneClickOverride}
       >
         <Controls />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-background/80 rounded">
-          Drag components to add. Click to select. Drag to move. Press Backspace/Delete to remove.
+          Drag components. Click to select. Drag to move. Press Backspace/Delete. Connect handles.
         </Panel>
       </ReactFlow>
     </div>

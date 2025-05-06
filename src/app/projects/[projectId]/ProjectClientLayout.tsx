@@ -5,10 +5,10 @@ import { useNodesState, useEdgesState, type Node, type Edge, type NodeChange, ty
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent } from '@/services/diagram';
+import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent, type Connection as DiagramConnection } from '@/services/diagram';
 import { useToast } from '@/hooks/use-toast';
-import { componentToNode, nodeToComponent } from '@/lib/diagram-utils';
-import { DiagramHeader } from '@/components/layout/DiagramHeader'; // Import DiagramHeader
+import { componentToNode, nodeToComponent, connectionToEdge, edgeToConnection } from '@/lib/diagram-utils';
+import { DiagramHeader } from '@/components/layout/DiagramHeader';
 
 interface ProjectClientLayoutProps {
     projectId: string;
@@ -18,7 +18,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const [nodes, setNodes, onNodesChangeInternal] = useNodesState<Node[]>([]);
     const [edges, setEdges, onEdgesChangeInternal] = useEdgesState<Edge[]>([]);
     const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
-    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [diagramName, setDiagramName] = useState<string>('Loading...');
     const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(null);
     const [loading, setLoading] = useState(true);
@@ -32,12 +32,19 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             try {
                 const diagramData = await getDiagram(projectId);
                 setDiagramDataForAI(diagramData);
+                
                 const flowNodes = diagramData.components.map(c => componentToNode(c, nodes.find(n => n.id === c.id)?.selected));
                 setNodes(flowNodes);
+
+                const flowEdges = diagramData.connections?.map(connectionToEdge) || [];
+                setEdges(flowEdges);
+                
                 setDiagramName(diagramData.name);
-                // Determine selected node based on loaded data
+
+                // Determine selected element based on loaded data
                 const initiallySelectedNode = flowNodes.find(n => n.selected);
-                setSelectedNodeId(initiallySelectedNode ? initiallySelectedNode.id : null);
+                const initiallySelectedEdge = flowEdges.find(e => e.selected);
+                setSelectedElementId(initiallySelectedNode?.id || initiallySelectedEdge?.id || null);
 
             } catch (err) {
                 setError('Failed to load diagram.');
@@ -48,100 +55,144 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             }
         }
         loadDiagram();
-    }, [projectId, toast]); // Removed setNodes from dependencies as it caused infinite loops in some scenarios
+    }, [projectId, toast]);
 
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
             setNodes((currentNodes) => {
                 const updatedNodes = applyNodeChanges(changes, currentNodes);
-                
                 for (const change of changes) {
                     if (change.type === 'select') {
-                         if (change.selected) {
-                            setSelectedNodeId(change.id);
-                        } else if (selectedNodeId === change.id && !updatedNodes.find(n => n.selected)) {
-                            // If the deselected node was the selected one, and no other node is now selected (e.g., canvas click)
-                            setSelectedNodeId(null);
-                        } else if (!updatedNodes.find(n => n.selected)) {
-                            // If no nodes are selected after changes (e.g., multi-deselect or canvas click)
-                            setSelectedNodeId(null);
+                        if (change.selected) {
+                            setSelectedElementId(change.id);
+                            setEdges(eds => eds.map(e => ({ ...e, selected: false }))); // Deselect edges
+                        } else if (selectedElementId === change.id && !updatedNodes.find(n => n.selected) && !edges.find(e => e.selected)) {
+                            setSelectedElementId(null);
                         }
                     } else if (change.type === 'remove') {
-                        if (change.id === selectedNodeId) {
-                            setSelectedNodeId(null);
+                        if (change.id === selectedElementId) {
+                            setSelectedElementId(null);
                         }
-                    } else if (change.type === 'dimensions' || change.type === 'position') {
-                        // Persist changes immediately for dimensions and position for smoother UX
-                        // This might be too frequent for some backends, consider debouncing or save on button click
-                        // For now, we update local state and rely on explicit save button
                     }
                 }
                 return updatedNodes;
             });
         },
-        [setNodes, selectedNodeId] 
+        [setNodes, selectedElementId, setEdges, edges] 
     );
 
-
     const onEdgesChange = useCallback(
-        (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
-        [setEdges]
+        (changes: EdgeChange[]) => {
+            setEdges((currentEdges) => {
+                const updatedEdges = applyEdgeChanges(changes, currentEdges);
+                for (const change of changes) {
+                    if (change.type === 'select') {
+                        if (change.selected) {
+                            setSelectedElementId(change.id);
+                            setNodes(nds => nds.map(n => ({ ...n, selected: false }))); // Deselect nodes
+                        } else if (selectedElementId === change.id && !updatedEdges.find(e => e.selected) && !nodes.find(n => n.selected)) {
+                           setSelectedElementId(null);
+                        }
+                    } else if (change.type === 'remove') {
+                        if (change.id === selectedElementId) {
+                            setSelectedElementId(null);
+                        }
+                    }
+                }
+                return updatedEdges;
+            });
+        },
+        [setEdges, selectedElementId, setNodes, nodes]
     );
 
     const onConnect = useCallback(
         (connection: Connection) => {
-          setEdges((eds) => addEdge({ ...connection, animated: true, type: 'smoothstep' }, eds));
+          const newEdge: Edge = {
+            ...connection,
+            id: `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            animated: true,
+            type: 'smoothstep',
+            data: {
+              label: 'Data Flow',
+              properties: {
+                name: 'Data Flow',
+                description: 'A new data flow connection.',
+                dataType: 'Generic',
+                protocol: 'TCP/IP',
+                securityConsiderations: 'Needs review',
+              },
+            },
+            selected: true, // Select the new edge
+          };
+          setEdges((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
+          setNodes(nds => nds.map(n => ({...n, selected: false}))); // Deselect nodes
+          setSelectedElementId(newEdge.id); // Set as selected
+          toast({ title: 'Connection Added', description: 'Data flow created and selected.' });
         },
-        [setEdges]
+        [setEdges, setNodes, toast]
     );
     
-    const selectedNode = nodes.find(node => node.id === selectedNodeId) ?? null;
-
-    const updateNodeProperties = useCallback((nodeId: string, newProperties: Record<string, any>) => {
-        setNodes((nds) =>
-            nds.map((node) => {
-                if (node.id === nodeId) {
-                    const updatedDataProperties = {
-                        ...node.data.properties,
-                        ...newProperties,
-                    };
-                    // Ensure the node's label reflects the 'name' property
-                    const label = newProperties.name !== undefined ? newProperties.name : (updatedDataProperties.name || node.data.label);
-                    
-                    const updatedData = {
-                        ...node.data,
-                        properties: updatedDataProperties,
-                        label: label,
-                    };
-                    return { ...node, data: updatedData };
-                }
-                return node;
-            })
-        );
-    }, [setNodes]);
+    const selectedNode = nodes.find(node => node.id === selectedElementId) ?? null;
+    const selectedEdge = edges.find(edge => edge.id === selectedElementId) ?? null;
+    const selectedElement = selectedNode || selectedEdge;
 
 
-    const deleteNode = useCallback((nodeId: string) => {
-        setNodes((nds) => nds.filter((node) => node.id !== nodeId));
-        setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
-        if (selectedNodeId === nodeId) {
-            setSelectedNodeId(null); 
+    const updateElementProperties = useCallback((elementId: string, newProperties: Record<string, any>, isNode: boolean) => {
+        if (isNode) {
+             setNodes((nds) =>
+                nds.map((node) => {
+                    if (node.id === elementId) {
+                        const updatedDataProperties = { ...node.data.properties, ...newProperties };
+                        const label = newProperties.name !== undefined ? newProperties.name : (updatedDataProperties.name || node.data.label);
+                        return { ...node, data: { ...node.data, properties: updatedDataProperties, label: label } };
+                    }
+                    return node;
+                })
+            );
+        } else { 
+            setEdges((eds) =>
+                eds.map((edge) => {
+                    if (edge.id === elementId) {
+                        const updatedDataProperties = { ...(edge.data?.properties || {}), ...newProperties };
+                        const label = newProperties.name !== undefined ? newProperties.name : (updatedDataProperties.name || edge.data?.label);
+                         return { ...edge, data: { ...(edge.data || {}), properties: updatedDataProperties, label: label }, label: label };
+                    }
+                    return edge;
+                })
+            );
         }
-        toast({ title: 'Component Deleted', description: `Component removed from the diagram.` });
-    }, [setNodes, setEdges, toast, selectedNodeId]);
+    }, [setNodes, setEdges]);
+
+    const deleteElement = useCallback((elementId: string, isNode: boolean) => {
+        if (isNode) {
+            setNodes((nds) => nds.filter((node) => node.id !== elementId));
+            setEdges((eds) => eds.filter((edge) => edge.source !== elementId && edge.target !== elementId));
+        } else {
+            setEdges((eds) => eds.filter((edge) => edge.id !== elementId));
+        }
+        if (selectedElementId === elementId) {
+            setSelectedElementId(null); 
+        }
+        toast({ title: `${isNode ? 'Component' : 'Connection'} Deleted`, description: `${isNode ? 'Component' : 'Connection'} removed from the diagram.` });
+    }, [setNodes, setEdges, toast, selectedElementId]);
 
 
     const handleSave = useCallback(async () => {
         const nodesToSave = nodes.map(n => ({
             ...n,
-            selected: n.id === selectedNodeId, 
+            selected: n.id === selectedElementId, 
+        }));
+        const edgesToSave = edges.map(e => ({
+            ...e,
+            selected: e.id === selectedElementId,
         }));
 
         const diagramToSave: Diagram = {
             id: projectId,
-            name: diagramName, // Use the state variable for diagram name
+            name: diagramName, 
             components: nodesToSave.map(nodeToComponent),
+            connections: edgesToSave.map(edgeToConnection),
         };
 
         try {
@@ -153,7 +204,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const errorMessage = err instanceof Error ? err.message : 'Could not save diagram.';
             toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
         }
-    }, [projectId, diagramName, nodes, selectedNodeId, toast]);
+    }, [projectId, diagramName, nodes, edges, selectedElementId, toast]);
 
     const handleDiagramNameChange = useCallback((newName: string) => {
         setDiagramName(newName);
@@ -170,11 +221,10 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
     return (
         <>
-            {/* DiagramHeader moved here, passing necessary props */}
             <DiagramHeader 
                 projectId={projectId}
                 initialDiagramName={diagramName}
-                onNameChange={handleDiagramNameChange} // Pass the callback
+                onNameChange={handleDiagramNameChange}
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -188,15 +238,21 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         setEdges={setEdges} 
                         onMoveEnd={(e, vp) => setViewport(vp)}
                         viewport={viewport}
-                        selectedNodeId={selectedNodeId} 
+                        selectedElementId={selectedElementId} 
                         onNodeClickOverride={(event, node) => {
-                           // Explicitly set selected node id and ensure others are deselected
                            setNodes(nds => nds.map(n => ({ ...n, selected: n.id === node.id })));
-                           setSelectedNodeId(node.id);
+                           setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+                           setSelectedElementId(node.id);
+                        }}
+                        onEdgeClickOverride={(event, edge) => {
+                           setEdges(eds => eds.map(e => ({ ...e, selected: e.id === edge.id })));
+                           setNodes(nds => nds.map(n => ({ ...n, selected: false })));
+                           setSelectedElementId(edge.id);
                         }}
                         onPaneClickOverride={() => {
                             setNodes(nds => nds.map(n => ({ ...n, selected: false })));
-                            setSelectedNodeId(null);
+                            setEdges(eds => eds.map(e => ({ ...e, selected: false })));
+                            setSelectedElementId(null);
                         }}
                     />
                 </main>
@@ -209,9 +265,9 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         </TabsList>
                         <TabsContent value="properties" className="flex-1 overflow-auto p-4 mt-0">
                             <SidebarPropertiesPanel
-                                selectedNode={selectedNode}
-                                onUpdateProperties={updateNodeProperties}
-                                onDeleteNode={deleteNode} 
+                                selectedElement={selectedElement}
+                                onUpdateProperties={updateElementProperties}
+                                onDeleteElement={deleteElement} 
                                 diagramDescription={diagramDataForAI?.name || diagramName} 
                             />
                         </TabsContent>

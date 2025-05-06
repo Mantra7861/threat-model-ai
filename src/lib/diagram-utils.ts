@@ -1,5 +1,5 @@
-import type { Node, XYPosition } from '@xyflow/react';
-import type { Component as DiagramComponent } from '@/services/diagram';
+import type { Node, Edge, XYPosition } from '@xyflow/react';
+import type { Component as DiagramComponent, Connection as DiagramConnection } from '@/services/diagram';
 
 /**
  * Converts a DiagramComponent to a ReactFlow Node.
@@ -12,13 +12,11 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
   const type = component.type || 'default';
   const isBoundary = type === 'boundary';
 
-  // Default dimensions - boundaries are typically larger
-  const defaultWidth = isBoundary ? 350 : 150;
-  const defaultHeight = isBoundary ? 400 : 80;
+  const defaultWidth = isBoundary ? 300 : 150; // Keep original default for boundaries
+  const defaultHeight = isBoundary ? 350 : 80; // Keep original default for boundaries
   
-  // Minimum dimensions for resizing
-  const minWidth = isBoundary ? 200 : 100; 
-  const minHeight = isBoundary ? 250 : 50;
+  const minWidth = isBoundary ? 100 : 100; // Smaller min for more flexible boundaries
+  const minHeight = isBoundary ? 100 : 50; // Smaller min for more flexible boundaries
 
   const width = component.properties?.width ?? defaultWidth;
   const height = component.properties?.height ?? defaultHeight;
@@ -27,28 +25,26 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
 
   return {
     id: component.id,
-    type: type, // This will be used by React Flow to determine which custom node component to render
+    type: type,
     position: position,
     data: {
       label: component.properties?.name || component.id,
-      properties: { ...component.properties }, // Store all original properties
-      type: type, // Store the structural type in data as well, for easier access in property panel & AI
-      resizable: !isBoundary, // Only non-boundary nodes are resizable by default
+      properties: { ...component.properties }, 
+      type: type, 
+      resizable: true, // All nodes are resizable when selected. Boundary resizing handled in CustomNode.
       minWidth: minWidth, 
       minHeight: minHeight, 
     },
     style: {
         width: width,
         height: height,
-        zIndex: isBoundary ? 0 : 1, // Ensure boundaries are visually behind other elements
+        // zIndex handled by CustomNode based on type and selected state
     },
-    // Removed explicit dragHandle assignment: ...(!isBoundary && { dragHandle: '.drag-handle' }),
-    // Nodes are draggable by body by default.
-    // Configuration specific to boundary nodes
     ...(isBoundary && {
-        selectable: true, // Boundaries should be selectable
-        connectable: false, // Boundaries usually don't have connection handles
-        // dragHandle: undefined, // Not needed, boundaries are dragged by body by default
+        selectable: true, 
+        connectable: false, 
+        // For boundaries, allow them to expand by not setting extent: 'parent' here by default.
+        // If a boundary should contain children strictly, parentNode + extent:'parent' would be set on children.
     }),
     ...(component.properties?.parentNode && { parentNode: component.properties.parentNode }),
     selected: selected,
@@ -62,36 +58,79 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
   const propertiesToSave: Record<string, any> = { ...(node.data.properties || {}) };
 
   propertiesToSave.position = node.position;
-  // Persist width and height if they exist (e.g., from resizing)
   if (node.width) propertiesToSave.width = node.width;
   if (node.height) propertiesToSave.height = node.height;
   
-  // 'name' is the source of truth for the label, ensure it's in properties
   propertiesToSave.name = node.data.label || node.data.properties?.name || node.id;
 
   if (node.parentNode) {
     propertiesToSave.parentNode = node.parentNode;
   } else {
-    delete propertiesToSave.parentNode; // Ensure parentNode is removed if not present
+    delete propertiesToSave.parentNode; 
   }
 
-  // Persist selected state
   propertiesToSave.selected = !!node.selected;
 
-
-  // Remove React Flow specific or derived data properties that are not part of the core component model
-  // 'type' in node.data.type is the structural type we want to persist. node.type is for React Flow rendering.
-  // 'resizable', 'minWidth', 'minHeight' are for UI control, not typically part of the persistent model directly,
-  // but width/height are.
-  delete propertiesToSave.label; // 'name' is the source of truth
-  delete propertiesToSave.resizable;
-  delete propertiesToSave.minWidth;
-  delete propertiesToSave.minHeight;
-  // Keep data.type as it was intentionally stored there.
+  delete propertiesToSave.label; 
+  // 'resizable' is a UI concern, not typically part of the core model unless explicitly needed.
+  // minWidth/minHeight are also primarily UI hints.
+  // delete propertiesToSave.resizable; // We can keep it if it's useful for the model
+  // delete propertiesToSave.minWidth;
+  // delete propertiesToSave.minHeight;
 
   return {
     id: node.id,
-    type: node.data?.type || node.type || 'default', // Fallback to node.type if data.type isn't there
+    type: node.data?.type || node.type || 'default', 
     properties: propertiesToSave,
+  };
+};
+
+
+/**
+ * Converts a DiagramConnection to a ReactFlow Edge.
+ */
+export const connectionToEdge = (connection: DiagramConnection): Edge => {
+  return {
+    id: connection.id,
+    source: connection.source,
+    target: connection.target,
+    sourceHandle: connection.sourceHandle || undefined,
+    targetHandle: connection.targetHandle || undefined,
+    label: connection.label || connection.properties?.name,
+    type: 'smoothstep', // Default edge type
+    animated: true,
+    data: {
+      label: connection.label || connection.properties?.name,
+      properties: connection.properties || {
+        name: 'Data Flow',
+        description: '',
+        dataType: '',
+        protocol: '',
+        securityConsiderations: '',
+      },
+    },
+    selected: connection.selected || false,
+    // Add zIndex if you want selected edges to be on top of non-selected nodes
+    // style: { zIndex: connection.selected ? 20 : 2 }, // Example
+  };
+};
+
+/**
+ * Converts a ReactFlow Edge back to a DiagramConnection.
+ */
+export const edgeToConnection = (edge: Edge): DiagramConnection => {
+  const propertiesToSave = { ...(edge.data?.properties || {}) };
+  // Ensure name property is consistent with label
+  propertiesToSave.name = edge.data?.label || edge.label || edge.id;
+
+  return {
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle,
+    targetHandle: edge.targetHandle,
+    label: edge.data?.label || edge.label,
+    properties: propertiesToSave,
+    selected: !!edge.selected,
   };
 };

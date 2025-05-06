@@ -97,23 +97,19 @@ body {
   }
 }
 
-/* Custom styles for react-flow nodes */
+/* Custom styles for react-flow nodes and edges */
 @layer components {
   .react-flow__node {
     @apply rounded-lg border shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    z-index: 1; /* Default z-index for nodes */
+    /* z-index handled by CustomNode style prop for better control */
   }
 
-  /* Styles for selected nodes, ensuring they are visually distinct and above others */
   .react-flow__node.selected, .react-flow__node:focus, .react-flow__node:focus-within {
-    @apply ring-2 ring-offset-2; /* Default ring for most selected nodes */
-    z-index: 10 !important; /* Higher z-index for selected/focused nodes */
+    @apply ring-offset-2; 
+    /* Default ring for most selected nodes, color defined by specific type or CustomNode */
   }
-  .react-flow__node.selected.react-flow__node-boundary {
-     @apply ring-red-500 ring-offset-1; /* Specific ring for selected boundaries */
-     z-index: 5 !important; /* Boundaries selected are above non-selected, but below other selected nodes */
-  }
-
+  /* Specific ring for selected boundaries is handled in CustomNode's inline style or class */
+  
 
   .react-flow__node-server {
     @apply bg-blue-100 border-blue-300 text-blue-800;
@@ -129,11 +125,9 @@ body {
   }
   .react-flow__node-boundary {
      @apply border-2 border-dashed border-red-400 bg-red-500/5 text-red-600 cursor-default;
-     z-index: 0 !important; /* Boundaries should always be behind other nodes unless selected */
+     /* z-index for boundaries handled in CustomNode */
    }
   
-
-   /* Default/fallback style for un-typed nodes */
    .react-flow__node-default {
      @apply bg-gray-100 border-gray-300 text-gray-800;
    }
@@ -145,40 +139,53 @@ body {
    .react-flow__handle-connecting {
      @apply bg-primary;
    }
+
+   /* Default edge path style */
    .react-flow__edge-path {
      @apply stroke-gray-500 stroke-2;
+     marker-end: url(#arrowclosed); /* Example for default arrow */
    }
+
+    /* Style for selected edges */
+   .react-flow__edge.selected .react-flow__edge-path,
+   .react-flow__edge:focus .react-flow__edge-path,
+   .react-flow__edge:focus-within .react-flow__edge-path {
+       @apply stroke-primary stroke-[3px]; /* Teal accent color, thicker */
+       marker-end: url(#arrowclosed-selected); /* Different arrow for selected state */
+   }
+    .react-flow__edge.selected .react-flow__edge-text,
+    .react-flow__edge:focus .react-flow__edge-text,
+    .react-flow__edge:focus-within .react-flow__edge-text {
+        @apply fill-primary font-semibold;
+    }
+
 
    /* Style for the resizable node wrapper if using node-resizer */
    .react-flow__node-resizer {
-      z-index: 20 !important; /* Ensure resizer handles are on top of everything, even selected nodes */
+      z-index: 20 !important; /* Ensure resizer handles are on top of everything */
    }
    .react-flow__resize-control {
-      @apply !border-primary; /* Override default border color */
+      @apply !border-primary;
    }
    .react-flow__resize-control line {
       @apply !border-primary;
    }
-    .react-flow__resize-handle { /* General style for all resizer handles */
+    .react-flow__resize-handle {
         @apply bg-background border-2 border-primary rounded-sm;
         width: 10px;
         height: 10px;
     }
 
-
-   /* Ensure sidebar doesn't overlap react-flow controls */
    .react-flow__controls {
-      z-index: 25 !important; /* Ensure controls are above everything else in the flow area */
+      z-index: 25 !important; 
    }
 
-    /* Adjustments for sidebar inset mode */
     main.peer-data-\[variant=inset\] {
-        margin-left: 0 !important; /* Override sidebar inset margin */
+        margin-left: 0 !important; 
     }
-    /* Ensure react-flow takes full height within its container */
     .react-flow {
         height: 100%;
         width: 100%;
-        position: relative; /* Needed for absolute positioning of children like Panel */
+        position: relative; 
     }
 }

@@ -2,7 +2,7 @@
 
 import type { FC } from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import { Server, Database, Cloud, Router, ShieldCheck, HelpCircle } from 'lucide-react'; // Removed GripVertical
+import { Server, Database, Cloud, Router, ShieldCheck, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const componentIcons: Record<string, React.ElementType> = {
@@ -17,8 +17,9 @@ const componentIcons: Record<string, React.ElementType> = {
 export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos, isConnectable, zIndex }) => {
   const Icon = componentIcons[type] || componentIcons.default;
   const isBoundary = type === 'boundary';
-  // Resizable only if selected AND data.resizable is true (which is set to !isBoundary in utils/canvas)
-  const isResizable = selected && data?.resizable === true; 
+  // Boundaries are now always resizable when selected.
+  // data.resizable is set for non-boundary nodes in diagram-utils/DiagramCanvas.
+  const isResizable = selected && (isBoundary || data?.resizable === true);
 
   if (!data) {
     console.error(`CustomNode (id: ${id}): Missing data prop.`);
@@ -33,11 +34,12 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
     <>
       {isResizable && ( 
         <NodeResizer
-          minWidth={data.minWidth || 80} 
-          minHeight={data.minHeight || 40} 
+          minWidth={data.minWidth || (isBoundary ? 100 : 80)}  // Smaller min for boundaries to allow more flexibility
+          minHeight={data.minHeight || (isBoundary ? 100 : 40)}
           isVisible={selected} 
           lineClassName="border-primary"
           handleClassName="h-3 w-3 bg-background border-2 border-primary rounded-sm"
+          // keepAspectRatio={false} // Allow free resizing for all, including boundaries
         />
       )}
 
@@ -46,19 +48,19 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
           "flex flex-col items-center justify-center p-3 w-full h-full relative shadow-md rounded-lg border",
           `react-flow__node-${type}`, 
           selected && !isBoundary && "ring-2 ring-primary ring-offset-2", 
-          selected && isBoundary && "ring-2 ring-red-500 ring-offset-1", // Specific ring for selected boundaries
-          isBoundary && 'border-border' 
+          selected && isBoundary && "ring-2 ring-red-500 ring-offset-1",
+          isBoundary && 'border-border'
         )}
-        style={{ zIndex: isBoundary ? 0 : (selected ? 10 : 1) }} // Boundaries behind, selected nodes on top
+        // Boundaries are always behind other nodes, selected nodes are above non-selected.
+        // Selected boundaries are above non-selected nodes but below other selected non-boundary nodes.
+        style={{ zIndex: isBoundary ? (selected ? 5 : 0) : (selected ? 10 : 1) }}
       >
-        {/* Drag handle was removed to make the whole node draggable */}
-
-        {!isBoundary && <Icon className="w-8 h-8 mb-1" />} {/* Removed nodrag */}
-        <span className="text-xs font-medium truncate max-w-[90%]"> {/* Removed nodrag */}
+        
+        {!isBoundary && <Icon className="w-8 h-8 mb-1" />}
+        <span className="text-xs font-medium truncate max-w-[90%]">
           {data.label || 'Unnamed Component'}
         </span>
 
-        {/* Standard Handles for non-boundary nodes */}
         {!isBoundary && (
           <>
             <Handle type="target" position={Position.Top} id="top" className="!bg-slate-400 w-3 h-3" isConnectable={isConnectable} />
@@ -67,10 +69,6 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
             <Handle type="source" position={Position.Right} id="right" className="!bg-slate-400 w-3 h-3" isConnectable={isConnectable} />
           </>
         )}
-        
-        {/* Boundary nodes don't have explicit handles here; they act as parents. */}
-        {/* Connectable is typically false for boundaries in diagram-utils and canvas drop logic. */}
-
       </div>
     </>
   );

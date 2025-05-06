@@ -1,4 +1,5 @@
 
+
 /**
  * Represents a component in the diagram.
  */
@@ -31,6 +32,45 @@ properties: Record<string, any> & {
 }
 
 /**
+ * Represents a connection (edge) between components in the diagram.
+ */
+export interface Connection {
+  /**
+   * The unique identifier of the connection.
+   */
+  id: string;
+  /**
+   * The ID of the source component.
+   */
+  source: string;
+  /**
+   * The ID of the target component.
+   */
+  target: string;
+  /**
+   * Optional: The ID of the source handle.
+   */
+  sourceHandle?: string | null;
+  /**
+   * Optional: The ID of the target handle.
+   */
+  targetHandle?: string | null;
+  /**
+   * Optional: A visual label for the connection.
+   */
+  label?: string;
+  /**
+   * Custom properties of the connection (e.g., data type, protocol).
+   */
+  properties?: Record<string, any>;
+  /**
+   * Optional selected state for the connection.
+   */
+  selected?: boolean;
+}
+
+
+/**
  * Represents a diagram.
  */
 export interface Diagram {
@@ -47,9 +87,9 @@ name: string;
    */
 components: Component[];
   /**
-   * Optional: Add connections/edges if needed
+   * The connections (edges) in the diagram.
    */
-  // connections?: Array<{ source: string; target: string; sourceHandle?: string; targetHandle?: string }>;
+  connections?: Connection[];
 }
 
 /**
@@ -77,7 +117,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
           os: 'Ubuntu 22.04',
           ipAddress: '10.0.0.5',
           description: 'Handles incoming HTTP requests.',
-          position: { x: 250, y: 50 },
+          position: { x: 250, y: 100 }, // Adjusted y
           width: 150,
           height: 80,
           selected: false,
@@ -91,7 +131,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
           engine: 'PostgreSQL 14',
           storageGB: 512,
           description: 'Stores customer information.',
-          position: { x: 250, y: 250 },
+          position: { x: 250, y: 300 }, // Adjusted y
           width: 150,
           height: 80,
           selected: false,
@@ -99,12 +139,12 @@ export async function getDiagram(id: string): Promise<Diagram> {
       },
       {
         id: 'api-gw-1',
-        type: 'service', // Using 'service' for cloud-like components
+        type: 'service', 
         properties: {
             name: 'API Gateway',
             provider: 'Cloud Provider',
             description: 'Manages API access.',
-            position: { x: 50, y: 150},
+            position: { x: 50, y: 200}, // Adjusted y
             width: 150,
             height: 80,
             selected: false,
@@ -116,18 +156,31 @@ export async function getDiagram(id: string): Promise<Diagram> {
         properties: {
             name: 'Internal Network',
             description: 'Internal trusted network zone.',
-            position: { x: 180, y: 20 },
-            width: 300,
-            height: 350,
+            position: { x: 180, y: 50 }, // Adjusted y
+            width: 300, // Initial size
+            height: 350, // Initial size
             selected: false,
         }
       }
     ],
-    // Add mock connections if your model supports them
-    // connections: [
-    //   { source: 'api-gw-1', target: 'web-server-1', sourceHandle: 'right', targetHandle: 'left' },
-    //   { source: 'web-server-1', target: 'db-1', sourceHandle: 'bottom', targetHandle: 'top' },
-    // ],
+    connections: [
+      { 
+        id: 'edge-api-web', 
+        source: 'api-gw-1', target: 'web-server-1', 
+        sourceHandle: 'right', targetHandle: 'left', 
+        label: 'HTTPS Traffic', 
+        properties: { name: 'HTTPS Traffic', protocol: 'HTTPS/TLS', dataType: 'JSON API Calls', securityConsiderations: 'Input validation, WAF' },
+        selected: false,
+      },
+      { 
+        id: 'edge-web-db', 
+        source: 'web-server-1', target: 'db-1', 
+        sourceHandle: 'bottom', targetHandle: 'top',
+        label: 'DB Queries',
+        properties: { name: 'DB Queries', protocol: 'TCP/IP (PostgreSQL)', dataType: 'SQL', securityConsiderations: 'Parameterized queries, network segmentation' },
+        selected: false,
+      },
+    ],
   };
 }
 
@@ -139,10 +192,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
  * @returns A promise that resolves when the diagram is saved.
  */
 export async function saveDiagram(diagram: Diagram): Promise<void> {
-  console.log('Saving diagram:', JSON.stringify(diagram, null, 2)); // Pretty print the diagram object
-  // Simulate API call delay
+  console.log('Saving diagram:', JSON.stringify(diagram, null, 2)); 
   await new Promise(resolve => setTimeout(resolve, 500));
-  // In a real app, you would send this data to your backend API
-  // e.g., fetch('/api/diagrams', { method: 'POST', body: JSON.stringify(diagram) });
   console.log(`Diagram ${diagram.id} simulated save complete.`);
 }

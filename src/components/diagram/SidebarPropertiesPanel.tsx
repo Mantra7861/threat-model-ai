@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Node } from '@xyflow/react';
+import type { Node, Edge } from '@xyflow/react'; // Import Edge type
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,39 +24,44 @@ import {
 } from "@/components/ui/alert-dialog"
 
 interface SidebarPropertiesPanelProps {
-  selectedNode: Node | null;
-  onUpdateProperties: (nodeId: string, newProperties: Record<string, any>) => void;
+  selectedElement: Node | Edge | null; // Changed from selectedNode
+  onUpdateProperties: (elementId: string, newProperties: Record<string, any>, isNode: boolean) => void;
   diagramDescription?: string;
-  onDeleteNode: (nodeId: string) => void;
+  onDeleteElement: (elementId: string, isNode: boolean) => void; // Changed from onDeleteNode
 }
 
 export function SidebarPropertiesPanel({
-  selectedNode,
+  selectedElement,
   onUpdateProperties,
   diagramDescription,
-  onDeleteNode,
+  onDeleteElement,
 }: SidebarPropertiesPanelProps) {
   const [localProperties, setLocalProperties] = useState<Record<string, any>>({});
   const [isSuggesting, setIsSuggesting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (selectedNode && selectedNode.data && selectedNode.data.properties) {
-      setLocalProperties({ ...selectedNode.data.properties }); 
-    } else {
+    if (selectedElement && selectedElement.data && selectedElement.data.properties) {
+      setLocalProperties({ ...selectedElement.data.properties }); 
+    } else if (selectedElement && selectedElement.data && !selectedElement.data.properties) {
+      // Handle case where data exists but properties might be missing (e.g. new edge)
+      setLocalProperties(selectedElement.data.label ? { name: selectedElement.data.label } : {});
+    }
+    else {
       setLocalProperties({});
     }
-  }, [selectedNode]);
+  }, [selectedElement]);
 
   const debouncedUpdate = useCallback(
-    debounce((nodeId: string, props: Record<string, any>) => {
-      onUpdateProperties(nodeId, props);
+    debounce((elementId: string, props: Record<string, any>, isNodeElement: boolean) => {
+      onUpdateProperties(elementId, props, isNodeElement);
     }, 300),
     [onUpdateProperties]
   );
 
   const handleInputChange = (propName: string, value: any) => {
-    if (!selectedNode) return;
+    if (!selectedElement) return;
+    const isNodeElement = 'position' in selectedElement; // Check if it's a Node
 
     const newProps = {
       ...localProperties,
@@ -64,16 +69,19 @@ export function SidebarPropertiesPanel({
     };
     setLocalProperties(newProps);
 
-    // For 'name', update immediately to reflect on node label and pass all properties
     if (propName === 'name') {
-      onUpdateProperties(selectedNode.id, { ...newProps }); 
+      onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement); 
     } else {
-      debouncedUpdate(selectedNode.id, newProps);
+      debouncedUpdate(selectedElement.id, newProps, isNodeElement);
     }
   };
 
   const handleSuggestProperties = async () => {
-    if (!selectedNode || !selectedNode.data) return;
+    if (!selectedElement || !selectedElement.data || !('position' in selectedElement)) { // Ensure it's a Node
+        toast({ title: "Info", description: "AI property suggestion is only available for components.", variant: "default"});
+        return;
+    }
+    const nodeElement = selectedElement as Node; // Type assertion
 
     setIsSuggesting(true);
     toast({
@@ -82,8 +90,7 @@ export function SidebarPropertiesPanel({
     });
 
     try {
-      // Use selectedNode.data.type (set during node creation/conversion) or fallback to selectedNode.type
-      const componentType = selectedNode.data.type || selectedNode.type; 
+      const componentType = nodeElement.data.type || nodeElement.type; 
       if (!componentType) {
           toast({ title: "Error", description: "Component type is missing for AI suggestion.", variant: "destructive"});
           setIsSuggesting(false);
@@ -92,7 +99,7 @@ export function SidebarPropertiesPanel({
 
       const suggestedProps = await suggestComponentProperties({
         component: {
-            id: selectedNode.id,
+            id: nodeElement.id,
             type: componentType, 
             properties: localProperties,
         },
@@ -110,7 +117,7 @@ export function SidebarPropertiesPanel({
       
       if (newPropsCount > 0) {
           setLocalProperties(mergedProps);
-          onUpdateProperties(selectedNode.id, mergedProps); // Pass all merged props
+          onUpdateProperties(nodeElement.id, mergedProps, true); 
            toast({
             title: "Properties Suggested",
             description: `AI suggested ${newPropsCount} new properties.`,
@@ -134,40 +141,50 @@ export function SidebarPropertiesPanel({
     }
   };
 
-  const confirmDeleteNode = () => {
-      if (!selectedNode) return;
-      onDeleteNode(selectedNode.id);
+  const confirmDeleteElement = () => {
+      if (!selectedElement) return;
+      const isNodeElement = 'position' in selectedElement;
+      onDeleteElement(selectedElement.id, isNodeElement);
   }
 
-  if (!selectedNode) {
+  if (!selectedElement) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground p-4 text-center">
-        Select a component on the canvas to view and edit its properties.
+        Select a component or connection on the canvas to view and edit its properties.
       </div>
     );
   }
 
-  const nodeData = selectedNode.data || {};
-  // Prefer data.type (structural type of node for rendering/AI), then node.type (React Flow's node type), then default
-  const structuralType = nodeData.type || selectedNode.type || 'default';
-  const nodeName = localProperties.name || nodeData.label || structuralType;
+  const isNode = 'position' in selectedElement; // True if Node, false if Edge
+  const elementData = selectedElement.data || {};
+  // Determine type and name based on whether it's a node or edge
+  const elementType = isNode 
+    ? ((selectedElement as Node).data?.type || (selectedElement as Node).type || 'default') 
+    : 'Data Flow';
+  const elementName = localProperties.name || elementData.label || elementType;
 
 
   return (
     <ScrollArea className="h-full">
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold mb-1">Component Properties</h3>
-          <p className="text-sm text-muted-foreground">Edit details for '{nodeName}' ({structuralType})</p>
+          <h3 className="text-lg font-semibold mb-1">{isNode ? 'Component' : 'Connection'} Properties</h3>
+          <p className="text-sm text-muted-foreground">Edit details for '{elementName}' ({elementType})</p>
         </div>
 
         <div className="space-y-4">
           {Object.entries(localProperties).map(([key, value]) => {
-            // Filter out internal React Flow properties, derived ones, and structural properties like 'type' and 'label'
-            // Also 'position', 'width', 'height' are handled by direct manipulation on canvas.
-            // 'parentNode', 'selected' are internal states.
-            const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent'];
-            if (internalOrStructuralProps.includes(key)) return null; 
+            const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 
+            // Edge specific internal properties if any, e.g. source, target, sourceHandle, targetHandle are not typically user-edited here
+            'source', 'target', 'sourceHandle', 'targetHandle' 
+            ];
+            if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { // Allow editing name/description even if they overlap
+                 // Allow 'name' and 'description' to be editable regardless
+                 if (key === 'name' && value === elementName) { /* Default name, show input */ }
+                 else if (key === 'description') { /* Allow editing description */ }
+                 else return null;
+            }
+
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
 
@@ -202,7 +219,6 @@ export function SidebarPropertiesPanel({
                       value={String(value ?? '')}
                       onChange={(e) => {
                           const val = e.target.value;
-                          // Try to maintain number type if original was number and new value is numeric
                           if (typeof localProperties[key] === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
                               handleInputChange(key, Number(val));
                           } else {
@@ -217,34 +233,36 @@ export function SidebarPropertiesPanel({
                 </div>
             );
           })}
-           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent'].includes(k)).length === 0 && (
-               <p className="text-sm text-muted-foreground">No editable properties for this component, or click AI Suggest.</p>
+           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description').length === 0 && (
+               <p className="text-sm text-muted-foreground">No editable properties for this element, or click AI Suggest (for components).</p>
             )}
         </div>
-
-         <Button onClick={handleSuggestProperties} disabled={isSuggesting || !selectedNode.data?.type} variant="outline" size="sm" className="w-full">
-             <Sparkles className="mr-2 h-4 w-4" />
-             {isSuggesting ? "Suggesting..." : "AI Suggest Properties"}
-        </Button>
+         
+         {isNode && ( // Only show AI suggest for Nodes (Components)
+             <Button onClick={handleSuggestProperties} disabled={isSuggesting || !selectedElement.data?.type} variant="outline" size="sm" className="w-full">
+                 <Sparkles className="mr-2 h-4 w-4" />
+                 {isSuggesting ? "Suggesting..." : "AI Suggest Properties"}
+            </Button>
+         )}
 
          <AlertDialog>
              <AlertDialogTrigger asChild>
                  <Button variant="destructive" size="sm" className="w-full mt-2">
                      <Trash2 className="mr-2 h-4 w-4" />
-                     Delete Component
+                     Delete {isNode ? 'Component' : 'Connection'}
                  </Button>
              </AlertDialogTrigger>
              <AlertDialogContent>
                  <AlertDialogHeader>
                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                  <AlertDialogDescription>
-                     This action cannot be undone. This will permanently delete the component '{nodeName}'
+                     This action cannot be undone. This will permanently delete the {isNode ? 'component' : 'connection'} '{elementName}'
                      and remove its data from the diagram.
                  </AlertDialogDescription>
                  </AlertDialogHeader>
                  <AlertDialogFooter>
                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                 <AlertDialogAction onClick={confirmDeleteNode} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                 <AlertDialogAction onClick={confirmDeleteElement} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
                  </AlertDialogFooter>
              </AlertDialogContent>
          </AlertDialog>
