@@ -64,10 +64,9 @@ export function SidebarPropertiesPanel({
     };
     setLocalProperties(newProps);
 
-    // For 'name', update immediately to reflect on node label
-    // Also pass all newProps to ensure other potentially changed values are sent
+    // For 'name', update immediately to reflect on node label and pass all properties
     if (propName === 'name') {
-      onUpdateProperties(selectedNode.id, { ...newProps, label: value }); 
+      onUpdateProperties(selectedNode.id, { ...newProps }); 
     } else {
       debouncedUpdate(selectedNode.id, newProps);
     }
@@ -83,7 +82,8 @@ export function SidebarPropertiesPanel({
     });
 
     try {
-      const componentType = selectedNode.data.type || selectedNode.type; // Prefer data.type, fallback to node.type
+      // Use selectedNode.data.type (set during node creation/conversion) or fallback to selectedNode.type
+      const componentType = selectedNode.data.type || selectedNode.type; 
       if (!componentType) {
           toast({ title: "Error", description: "Component type is missing for AI suggestion.", variant: "destructive"});
           setIsSuggesting(false);
@@ -148,8 +148,9 @@ export function SidebarPropertiesPanel({
   }
 
   const nodeData = selectedNode.data || {};
-  const nodeType = nodeData.type || selectedNode.type || 'default';
-  const nodeName = localProperties.name || nodeData.label || nodeType;
+  // Prefer data.type (structural type of node for rendering/AI), then node.type (React Flow's node type), then default
+  const structuralType = nodeData.type || selectedNode.type || 'default';
+  const nodeName = localProperties.name || nodeData.label || structuralType;
 
 
   return (
@@ -157,13 +158,16 @@ export function SidebarPropertiesPanel({
       <div className="space-y-6">
         <div>
           <h3 className="text-lg font-semibold mb-1">Component Properties</h3>
-          <p className="text-sm text-muted-foreground">Edit details for '{nodeName}' ({nodeType})</p>
+          <p className="text-sm text-muted-foreground">Edit details for '{nodeName}' ({structuralType})</p>
         </div>
 
         <div className="space-y-4">
           {Object.entries(localProperties).map(([key, value]) => {
-            // Filter out internal React Flow properties and derived ones, plus 'type' as it's structural
-            if (['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected'].includes(key)) return null; 
+            // Filter out internal React Flow properties, derived ones, and structural properties like 'type' and 'label'
+            // Also 'position', 'width', 'height' are handled by direct manipulation on canvas.
+            // 'parentNode', 'selected' are internal states.
+            const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent'];
+            if (internalOrStructuralProps.includes(key)) return null; 
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
 
@@ -198,7 +202,12 @@ export function SidebarPropertiesPanel({
                       value={String(value ?? '')}
                       onChange={(e) => {
                           const val = e.target.value;
-                          handleInputChange(key, typeof localProperties[key] === 'number' && !isNaN(Number(val)) ? Number(val) : val);
+                          // Try to maintain number type if original was number and new value is numeric
+                          if (typeof localProperties[key] === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
+                              handleInputChange(key, Number(val));
+                          } else {
+                              handleInputChange(key, val);
+                          }
                       }}
                       className="text-sm"
                       type={typeof value === 'number' ? 'number' : 'text'}
@@ -208,7 +217,7 @@ export function SidebarPropertiesPanel({
                 </div>
             );
           })}
-           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected'].includes(k)).length === 0 && (
+           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent'].includes(k)).length === 0 && (
                <p className="text-sm text-muted-foreground">No editable properties for this component, or click AI Suggest.</p>
             )}
         </div>

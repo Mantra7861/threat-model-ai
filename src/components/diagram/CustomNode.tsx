@@ -1,7 +1,7 @@
 "use client";
 
 import type { FC } from 'react';
-import { Handle, Position, NodeResizer, NodeToolbar, type NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { Server, Database, Cloud, Router, ShieldCheck, HelpCircle, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,8 +16,9 @@ const componentIcons: Record<string, React.ElementType> = {
 
 export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos, isConnectable, zIndex }) => {
   const Icon = componentIcons[type] || componentIcons.default;
-  const isResizable = data?.resizable === true && selected; 
   const isBoundary = type === 'boundary';
+  // Resizable only if selected AND data.resizable is true (which is set to !isBoundary in utils/canvas)
+  const isResizable = selected && data?.resizable === true; 
 
   if (!data) {
     console.error(`CustomNode (id: ${id}): Missing data prop.`);
@@ -45,12 +46,13 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
           "flex flex-col items-center justify-center p-3 w-full h-full relative shadow-md rounded-lg border",
           `react-flow__node-${type}`, 
           selected && !isBoundary && "ring-2 ring-primary ring-offset-2", 
-          selected && isBoundary && "ring-2 ring-red-500 ring-offset-1",
+          selected && isBoundary && "ring-2 ring-red-500 ring-offset-1", // Specific ring for selected boundaries
           isBoundary && 'border-border' 
         )}
         style={{ zIndex: isBoundary ? 0 : (selected ? 10 : 1) }} // Boundaries behind, selected nodes on top
       >
-        {!isBoundary && ( // Only show drag handle for non-boundary nodes
+        {/* Drag handle for non-boundary nodes */}
+        {!isBoundary && (
           <div className="drag-handle absolute top-1 right-1 cursor-move text-muted-foreground/50 hover:text-muted-foreground nodrag">
             <GripVertical size={16} />
           </div>
@@ -71,9 +73,8 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
           </>
         )}
         
-        {/* Boundary nodes typically don't have explicit handles for connection in this setup, but can act as parents. */}
-        {/* If connectable boundaries are needed, specific handles could be added. */}
-        {/* For this iteration, connectable is false for boundaries in diagram-utils */}
+        {/* Boundary nodes don't have explicit handles here; they act as parents. */}
+        {/* Connectable is typically false for boundaries in diagram-utils and canvas drop logic. */}
 
       </div>
     </>

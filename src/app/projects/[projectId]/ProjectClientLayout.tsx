@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent } from '@/services/diagram';
 import { useToast } from '@/hooks/use-toast';
 import { componentToNode, nodeToComponent } from '@/lib/diagram-utils';
+import { DiagramHeader } from '@/components/layout/DiagramHeader'; // Import DiagramHeader
 
 interface ProjectClientLayoutProps {
     projectId: string;
@@ -31,15 +32,12 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             try {
                 const diagramData = await getDiagram(projectId);
                 setDiagramDataForAI(diagramData);
-                const flowNodes = diagramData.components.map(componentToNode);
-                setNodes(flowNodes); 
+                const flowNodes = diagramData.components.map(c => componentToNode(c, nodes.find(n => n.id === c.id)?.selected));
+                setNodes(flowNodes);
                 setDiagramName(diagramData.name);
-                const initiallySelected = flowNodes.find(n => n.selected);
-                if (initiallySelected) {
-                    setSelectedNodeId(initiallySelected.id);
-                } else {
-                    setSelectedNodeId(null); // Ensure no selection if no node is marked selected
-                }
+                // Determine selected node based on loaded data
+                const initiallySelectedNode = flowNodes.find(n => n.selected);
+                setSelectedNodeId(initiallySelectedNode ? initiallySelectedNode.id : null);
 
             } catch (err) {
                 setError('Failed to load diagram.');
@@ -50,7 +48,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             }
         }
         loadDiagram();
-    }, [projectId, setNodes, toast]);
+    }, [projectId, toast]); // Removed setNodes from dependencies as it caused infinite loops in some scenarios
 
 
     const onNodesChange = useCallback(
@@ -60,19 +58,23 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 
                 for (const change of changes) {
                     if (change.type === 'select') {
-                        if (change.selected) {
+                         if (change.selected) {
                             setSelectedNodeId(change.id);
-                        } else {
-                            // If a node is deselected, check if it was the currently selected one.
-                            // Or, if multiple nodes were selected and now none are (pane click), clear selection.
-                            if (selectedNodeId === change.id || !updatedNodes.find(n => n.selected)) {
-                                setSelectedNodeId(null);
-                            }
+                        } else if (selectedNodeId === change.id && !updatedNodes.find(n => n.selected)) {
+                            // If the deselected node was the selected one, and no other node is now selected (e.g., canvas click)
+                            setSelectedNodeId(null);
+                        } else if (!updatedNodes.find(n => n.selected)) {
+                            // If no nodes are selected after changes (e.g., multi-deselect or canvas click)
+                            setSelectedNodeId(null);
                         }
                     } else if (change.type === 'remove') {
                         if (change.id === selectedNodeId) {
                             setSelectedNodeId(null);
                         }
+                    } else if (change.type === 'dimensions' || change.type === 'position') {
+                        // Persist changes immediately for dimensions and position for smoother UX
+                        // This might be too frequent for some backends, consider debouncing or save on button click
+                        // For now, we update local state and rely on explicit save button
                     }
                 }
                 return updatedNodes;
@@ -93,8 +95,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         },
         [setEdges]
     );
-
-    const selectedNodeData = nodes.find(node => node.id === selectedNodeId) ?? null;
+    
+    const selectedNode = nodes.find(node => node.id === selectedNodeId) ?? null;
 
     const updateNodeProperties = useCallback((nodeId: string, newProperties: Record<string, any>) => {
         setNodes((nds) =>
@@ -124,22 +126,21 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setNodes((nds) => nds.filter((node) => node.id !== nodeId));
         setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
         if (selectedNodeId === nodeId) {
-            setSelectedNodeId(null); // Clear selection if the deleted node was selected
+            setSelectedNodeId(null); 
         }
         toast({ title: 'Component Deleted', description: `Component removed from the diagram.` });
     }, [setNodes, setEdges, toast, selectedNodeId]);
 
 
     const handleSave = useCallback(async () => {
-        // Ensure all nodes have up-to-date selected status before saving
         const nodesToSave = nodes.map(n => ({
             ...n,
-            selected: n.id === selectedNodeId, // Explicitly set selected status
+            selected: n.id === selectedNodeId, 
         }));
 
         const diagramToSave: Diagram = {
             id: projectId,
-            name: diagramName,
+            name: diagramName, // Use the state variable for diagram name
             components: nodesToSave.map(nodeToComponent),
         };
 
@@ -147,11 +148,16 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             await saveDiagram(diagramToSave);
             setDiagramDataForAI(diagramToSave); 
             toast({ title: 'Saved', description: 'Diagram saved successfully.' });
-        } catch (error) {
-            console.error('Failed to save diagram:', error);
-            toast({ title: 'Error', description: 'Could not save diagram.', variant: 'destructive' });
+        } catch (err) {
+            console.error('Failed to save diagram:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Could not save diagram.';
+            toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
         }
     }, [projectId, diagramName, nodes, selectedNodeId, toast]);
+
+    const handleDiagramNameChange = useCallback((newName: string) => {
+        setDiagramName(newName);
+    }, []);
 
 
     if (loading) {
@@ -163,51 +169,68 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     }
 
     return (
-        <div className="flex flex-1 overflow-hidden">
-            <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
-                <DiagramCanvas
-                    nodes={nodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    setNodes={setNodes} 
-                    setEdges={setEdges} 
-                    onMoveEnd={(e, vp) => setViewport(vp)}
-                    viewport={viewport}
-                    selectedNodeId={selectedNodeId} 
-                />
-            </main>
+        <>
+            {/* DiagramHeader moved here, passing necessary props */}
+            <DiagramHeader 
+                projectId={projectId}
+                initialDiagramName={diagramName}
+                onNameChange={handleDiagramNameChange} // Pass the callback
+            />
+            <div className="flex flex-1 overflow-hidden">
+                <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
+                    <DiagramCanvas
+                        nodes={nodes}
+                        edges={edges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        setNodes={setNodes} 
+                        setEdges={setEdges} 
+                        onMoveEnd={(e, vp) => setViewport(vp)}
+                        viewport={viewport}
+                        selectedNodeId={selectedNodeId} 
+                        onNodeClickOverride={(event, node) => {
+                           // Explicitly set selected node id and ensure others are deselected
+                           setNodes(nds => nds.map(n => ({ ...n, selected: n.id === node.id })));
+                           setSelectedNodeId(node.id);
+                        }}
+                        onPaneClickOverride={() => {
+                            setNodes(nds => nds.map(n => ({ ...n, selected: false })));
+                            setSelectedNodeId(null);
+                        }}
+                    />
+                </main>
 
-            <aside className="w-80 border-l bg-card flex flex-col">
-                <Tabs defaultValue="properties" className="flex flex-col flex-1 overflow-hidden">
-                    <TabsList className="grid w-full grid-cols-2 rounded-none">
-                        <TabsTrigger value="properties">Properties</TabsTrigger>
-                        <TabsTrigger value="report">Report</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="properties" className="flex-1 overflow-auto p-4 mt-0">
-                        <SidebarPropertiesPanel
-                            selectedNode={selectedNodeData}
-                            onUpdateProperties={updateNodeProperties}
-                            onDeleteNode={deleteNode} 
-                            diagramDescription={diagramDataForAI?.name || diagramName} 
-                        />
-                    </TabsContent>
-                    <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
-                        <h3 className="text-lg font-semibold mb-4">Threat Report</h3>
-                        <p className="text-sm text-muted-foreground">Generate a report after completing your diagram.</p>
-                        {/* Report content will be loaded here */}
-                    </TabsContent>
-                </Tabs>
-                 <div className="p-4 border-t">
-                    <button
-                        onClick={handleSave}
-                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium"
-                    >
-                        Save Diagram
-                    </button>
-                </div>
-            </aside>
-        </div>
+                <aside className="w-80 border-l bg-card flex flex-col">
+                    <Tabs defaultValue="properties" className="flex flex-col flex-1 overflow-hidden">
+                        <TabsList className="grid w-full grid-cols-2 rounded-none">
+                            <TabsTrigger value="properties">Properties</TabsTrigger>
+                            <TabsTrigger value="report">Report</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="properties" className="flex-1 overflow-auto p-4 mt-0">
+                            <SidebarPropertiesPanel
+                                selectedNode={selectedNode}
+                                onUpdateProperties={updateNodeProperties}
+                                onDeleteNode={deleteNode} 
+                                diagramDescription={diagramDataForAI?.name || diagramName} 
+                            />
+                        </TabsContent>
+                        <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
+                            <h3 className="text-lg font-semibold mb-4">Threat Report</h3>
+                            <p className="text-sm text-muted-foreground">Generate a report after completing your diagram.</p>
+                            {/* Report content will be loaded here */}
+                        </TabsContent>
+                    </Tabs>
+                    <div className="p-4 border-t">
+                        <button
+                            onClick={handleSave}
+                            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium"
+                        >
+                            Save Diagram
+                        </button>
+                    </div>
+                </aside>
+            </div>
+        </>
     );
 }

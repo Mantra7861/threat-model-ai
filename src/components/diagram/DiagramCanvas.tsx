@@ -13,6 +13,8 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
+  type NodeMouseHandler,
+  type FlowProps,
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -37,6 +39,8 @@ interface DiagramCanvasProps {
   onMoveEnd?: (event: MouseEvent | TouchEvent | undefined, viewport: Viewport) => void;
   viewport?: Viewport;
   selectedNodeId?: string | null; 
+  onNodeClickOverride?: NodeMouseHandler;
+  onPaneClickOverride?: FlowProps['onPaneClick'];
 }
 
 export function DiagramCanvas({
@@ -49,6 +53,8 @@ export function DiagramCanvas({
   onMoveEnd,
   viewport,
   selectedNodeId, 
+  onNodeClickOverride,
+  onPaneClickOverride,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
@@ -94,35 +100,43 @@ export function DiagramCanvas({
         position: flowPosition,
         data: {
           label: nodeLabel,
-          properties: { name: nodeLabel, type: type }, // Ensure 'type' property is set for AI suggestions
+          properties: { name: nodeLabel, type: type }, 
           type: type, 
-          resizable: !isBoundary,
+          resizable: !isBoundary, // Non-boundary nodes are resizable
           minWidth: minWidth,
           minHeight: minHeight,
         },
         style: { width: defaultWidth, height: defaultHeight, zIndex: isBoundary ? 0 : 1 },
-        ...(type !== 'boundary' && { dragHandle: '.drag-handle' }),
+        ...(!isBoundary && { dragHandle: '.drag-handle' }), // Drag handle for non-boundary nodes
         ...(parentNode && {
             parentNode: parentNode.id,
             extent: 'parent',
         }),
-        ...(isBoundary && { selectable: true, connectable: false, dragHandle: undefined }),
+        ...(isBoundary && { 
+            selectable: true, 
+            connectable: false, 
+            dragHandle: undefined, // Boundaries dragged by body
+        }),
         selected: true, // Select the new node by default
       };
 
-      setNodes((nds) => nds.concat(newNode));
-      // Trigger onNodesChange to update selectedNodeId in parent
-      onNodesChange([{ type: 'select', id: newNodeId, selected: true }]);
+      setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
+      // Trigger onNodesChange to update selectedNodeId in parent via the select change
+      if (onNodesChange) {
+          onNodesChange([{ type: 'select', id: newNodeId, selected: true }]);
+      }
       toast({ title: 'Component Added', description: `${newNode.data.label} added to the diagram.` });
     },
     [screenToFlowPosition, setNodes, toast, getIntersectingNodes, onNodesChange]
   );
 
+  // Ensure nodes passed to ReactFlow have the correct 'selected' status for CustomNode
+  const processedNodes = nodes.map(n => ({ ...n, selected: n.id === selectedNodeId }));
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={nodes.map(n => ({...n, selected: n.id === selectedNodeId}))} // Ensure selected prop is correctly passed to CustomNode
+        nodes={processedNodes} 
         edges={edges}
         onNodesChange={onNodesChange} 
         onEdgesChange={onEdgesChange}
@@ -142,6 +156,8 @@ export function DiagramCanvas({
         nodeDragThreshold={1}
         fitView 
         fitViewOptions={{ padding: 0.1 }} 
+        onNodeClick={onNodeClickOverride} // Pass through custom click handler
+        onPaneClick={onPaneClickOverride} // Pass through custom pane click handler
       >
         <Controls />
         <Background gap={16} />

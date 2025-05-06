@@ -23,6 +23,10 @@ properties: Record<string, any> & {
     height?: number;
     /** Name property is commonly used */
     name?: string;
+    /** Optional parent node ID for nesting */
+    parentNode?: string;
+    /** Optional selected state */
+    selected?: boolean;
   };
 }
 
@@ -76,6 +80,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
           position: { x: 250, y: 50 },
           width: 150,
           height: 80,
+          selected: false,
         },
       },
       {
@@ -89,6 +94,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
           position: { x: 250, y: 250 },
           width: 150,
           height: 80,
+          selected: false,
         },
       },
       {
@@ -101,6 +107,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
             position: { x: 50, y: 150},
             width: 150,
             height: 80,
+            selected: false,
         }
       },
       {
@@ -112,6 +119,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
             position: { x: 180, y: 20 },
             width: 300,
             height: 350,
+            selected: false,
         }
       }
     ],

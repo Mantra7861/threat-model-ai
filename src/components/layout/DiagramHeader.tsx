@@ -7,45 +7,32 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Save, FileText, Share2, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
-import { getDiagram } from '@/services/diagram'; // Assuming getDiagram returns name
+// Removed getDiagram import as name is now passed via props
 
 interface DiagramHeaderProps {
   projectId: string;
+  initialDiagramName: string; // Receive initial name as prop
+  onNameChange: (newName: string) => void; // Callback for name changes
 }
 
-export function DiagramHeader({ projectId }: DiagramHeaderProps) {
+export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: DiagramHeaderProps) {
   const { toast } = useToast();
-  const [diagramName, setDiagramName] = useState<string>('Loading...');
+  const [localDiagramName, setLocalDiagramName] = useState<string>(initialDiagramName);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [localDiagramName, setLocalDiagramName] = useState('');
-
 
   useEffect(() => {
-    async function fetchDiagramName() {
-      try {
-        const diagram = await getDiagram(projectId);
-        setDiagramName(diagram.name);
-        setLocalDiagramName(diagram.name); // Initialize local state
-      } catch (error) {
-        console.error("Failed to fetch diagram:", error);
-        setDiagramName("Untitled Project");
-        setLocalDiagramName("Untitled Project");
-        toast({
-          title: "Error",
-          description: "Could not load diagram name.",
-          variant: "destructive",
-        });
-      }
+    setLocalDiagramName(initialDiagramName);
+  }, [initialDiagramName]);
+
+  const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalDiagramName(e.target.value);
+  };
+
+  const handleNameInputBlur = () => {
+    if (localDiagramName !== initialDiagramName) {
+      onNameChange(localDiagramName); // Call parent's update function
     }
-    fetchDiagramName();
-  }, [projectId, toast]);
-
-
-  // The actual save logic is now in ProjectClientLayout.
-  // This header's name input could potentially update a context/global state
-  // or be passed up if it's meant to change the *actual* diagram name for saving.
-  // For now, it just updates local display state.
-  // If DiagramHeader needs to trigger a save, the save function must be passed down or through context.
+  };
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
@@ -55,11 +42,12 @@ export function DiagramHeader({ projectId }: DiagramHeaderProps) {
     });
     try {
       const result = await generateThreatReport({ diagramId: projectId });
-      console.log("Generated Report:", result.report);
-      // TODO: Display the report in the report panel (e.g., via state/context update)
+      // TODO: Display the report. This might involve lifting state or using a global state solution.
+      // For now, log to console and show toast.
+      console.log("Generated Report:", result.report); 
       toast({
         title: "Report Generated",
-        description: "Threat report generated successfully.",
+        description: "Threat report generated successfully. (View console for details)", // Placeholder
       });
     } catch (error) {
       console.error("Error generating report:", error);
@@ -85,20 +73,15 @@ export function DiagramHeader({ projectId }: DiagramHeaderProps) {
   return (
     <header className="flex h-16 items-center justify-between border-b bg-background px-4 shrink-0">
       <div className="flex items-center gap-4">
-         {/* Mobile Sidebar Trigger */}
-        <div className="md:hidden">
-             {/* Placeholder for mobile sidebar trigger if needed */}
-         </div>
         <Input
-          value={localDiagramName} // Use local state for input
-          onChange={(e) => setLocalDiagramName(e.target.value)} // Update local state
-          // onBlur could trigger an update to a context/global state if needed for saving
+          value={localDiagramName}
+          onChange={handleNameInputChange}
+          onBlur={handleNameInputBlur} // Update on blur
           className="text-lg font-semibold w-auto border-none shadow-none focus-visible:ring-0 px-1 py-0 h-auto"
           aria-label="Diagram Name"
         />
       </div>
       <div className="flex items-center gap-2">
-        {/* Save button is removed from here, handled in ProjectClientLayout's right sidebar */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="icon" onClick={handleShare}>
