@@ -12,11 +12,11 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
   const type = component.type || 'default';
   const isBoundary = type === 'boundary';
 
-  const defaultWidth = isBoundary ? 300 : 150; // Keep original default for boundaries
-  const defaultHeight = isBoundary ? 350 : 80; // Keep original default for boundaries
+  const defaultWidth = isBoundary ? 300 : 150; 
+  const defaultHeight = isBoundary ? 350 : 80; 
   
-  const minWidth = isBoundary ? 100 : 100; // Smaller min for more flexible boundaries
-  const minHeight = isBoundary ? 100 : 50; // Smaller min for more flexible boundaries
+  const minWidth = isBoundary ? 100 : 100; 
+  const minHeight = isBoundary ? 100 : 50;
 
   const width = component.properties?.width ?? defaultWidth;
   const height = component.properties?.height ?? defaultHeight;
@@ -31,20 +31,17 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
       label: component.properties?.name || component.id,
       properties: { ...component.properties }, 
       type: type, 
-      resizable: true, // All nodes are resizable when selected. Boundary resizing handled in CustomNode.
+      resizable: true, 
       minWidth: minWidth, 
       minHeight: minHeight, 
     },
     style: {
         width: width,
         height: height,
-        // zIndex handled by CustomNode based on type and selected state
     },
     ...(isBoundary && {
         selectable: true, 
         connectable: false, 
-        // For boundaries, allow them to expand by not setting extent: 'parent' here by default.
-        // If a boundary should contain children strictly, parentNode + extent:'parent' would be set on children.
     }),
     ...(component.properties?.parentNode && { parentNode: component.properties.parentNode }),
     selected: selected,
@@ -72,11 +69,6 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
   propertiesToSave.selected = !!node.selected;
 
   delete propertiesToSave.label; 
-  // 'resizable' is a UI concern, not typically part of the core model unless explicitly needed.
-  // minWidth/minHeight are also primarily UI hints.
-  // delete propertiesToSave.resizable; // We can keep it if it's useful for the model
-  // delete propertiesToSave.minWidth;
-  // delete propertiesToSave.minHeight;
 
   return {
     id: node.id,
@@ -88,8 +80,11 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
 
 /**
  * Converts a DiagramConnection to a ReactFlow Edge.
+ * @param connection The diagram connection to convert.
+ * @param isSelectedOverride Optional boolean to override the selected state from connection properties.
  */
-export const connectionToEdge = (connection: DiagramConnection): Edge => {
+export const connectionToEdge = (connection: DiagramConnection, isSelectedOverride?: boolean): Edge => {
+  const selected = typeof isSelectedOverride === 'boolean' ? isSelectedOverride : (connection.selected || false);
   return {
     id: connection.id,
     source: connection.source,
@@ -97,7 +92,7 @@ export const connectionToEdge = (connection: DiagramConnection): Edge => {
     sourceHandle: connection.sourceHandle || undefined,
     targetHandle: connection.targetHandle || undefined,
     label: connection.label || connection.properties?.name,
-    type: 'smoothstep', // Default edge type
+    type: 'smoothstep', 
     animated: true,
     data: {
       label: connection.label || connection.properties?.name,
@@ -109,9 +104,7 @@ export const connectionToEdge = (connection: DiagramConnection): Edge => {
         securityConsiderations: '',
       },
     },
-    selected: connection.selected || false,
-    // Add zIndex if you want selected edges to be on top of non-selected nodes
-    // style: { zIndex: connection.selected ? 20 : 2 }, // Example
+    selected: selected,
   };
 };
 
@@ -120,7 +113,6 @@ export const connectionToEdge = (connection: DiagramConnection): Edge => {
  */
 export const edgeToConnection = (edge: Edge): DiagramConnection => {
   const propertiesToSave = { ...(edge.data?.properties || {}) };
-  // Ensure name property is consistent with label
   propertiesToSave.name = edge.data?.label || edge.label || edge.id;
 
   return {
@@ -134,3 +126,4 @@ export const edgeToConnection = (edge: Edge): DiagramConnection => {
     selected: !!edge.selected,
   };
 };
+
