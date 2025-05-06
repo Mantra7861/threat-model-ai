@@ -2,10 +2,10 @@ import type { Node, Edge, XYPosition } from '@xyflow/react';
 import type { Component as DiagramComponent, Connection as DiagramConnection } from '@/services/diagram';
 
 // Z-index constants for different node states and types
-const BOUNDARY_DEFAULT_Z_INDEX = 0;
-const BOUNDARY_SELECTED_Z_INDEX = 1; // Must be lower than non-boundary nodes unless it's the only thing selected
-const NODE_DEFAULT_Z_INDEX = 2;
-const NODE_SELECTED_Z_INDEX = 3; // Selected non-boundary nodes on top
+const BOUNDARY_DEFAULT_Z_INDEX = 0; // Boundaries are at the bottom
+const BOUNDARY_SELECTED_Z_INDEX = 1; // Selected boundaries slightly above default boundaries, but still below other nodes
+const NODE_DEFAULT_Z_INDEX = 10;    // Non-boundary nodes start higher
+const NODE_SELECTED_Z_INDEX = 11;   // Selected non-boundary nodes are on top of other non-boundary nodes
 const HANDLE_Z_INCREMENT = 1; // Handles should be above their parent node
 const RESIZER_Z_INCREMENT = 5; // Resizer should be on top of everything related to the node
 
@@ -25,9 +25,9 @@ export const calculateEffectiveZIndex = (
     rfProvidedZIndex: number | undefined,
     selectedElementIdGlobal: string | null // ID of the element selected in the wider application state
 ): number => {
-    // If ReactFlow provides a zIndex (e.g. during drag), respect it
+    // If ReactFlow provides a zIndex (e.g. during drag), respect it, but ensure it's above our base for non-boundaries
     if (rfProvidedZIndex !== undefined && rfProvidedZIndex !== null) {
-        return rfProvidedZIndex;
+        return nodeType === 'boundary' ? Math.max(rfProvidedZIndex, BOUNDARY_DEFAULT_Z_INDEX) : Math.max(rfProvidedZIndex, NODE_DEFAULT_Z_INDEX);
     }
 
     const isBoundaryType = nodeType === 'boundary';
@@ -35,8 +35,7 @@ export const calculateEffectiveZIndex = (
     const isEffectivelySelected = nodeSelected || (selectedElementIdGlobal === nodeId);
 
     if (isBoundaryType) {
-        // Boundaries generally sit behind other nodes unless they are the specific item selected.
-        // If a boundary is selected, it might come forward slightly, but still generally behind active non-boundary nodes.
+        // Boundaries always stay behind non-boundary nodes.
         return isEffectivelySelected ? BOUNDARY_SELECTED_Z_INDEX : BOUNDARY_DEFAULT_Z_INDEX;
     }
     // Non-boundary nodes
@@ -53,11 +52,11 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
   const type = component.type || 'default';
   const isBoundary = type === 'boundary';
 
-  const defaultWidth = isBoundary ? 300 : 150; 
-  const defaultHeight = isBoundary ? 350 : 80; 
+  const defaultWidth = isBoundary ? 400 : 150; // Boundary wider by default
+  const defaultHeight = isBoundary ? 400 : 80; // Boundary taller by default
   
-  const minWidth = isBoundary ? 100 : 100; 
-  const minHeight = isBoundary ? 100 : 50;
+  const minWidth = isBoundary ? 200 : 100; // Min width for boundary
+  const minHeight = isBoundary ? 200 : 50; // Min height for boundary
 
   const width = component.properties?.width ?? defaultWidth;
   const height = component.properties?.height ?? defaultHeight;
@@ -71,28 +70,25 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
     data: {
       label: component.properties?.name || component.id,
       properties: { ...component.properties }, 
-      type: type, // Ensure data.type is also set for CustomNode
-      resizable: true, // All nodes are resizable by default, CustomNode can override for non-boundaries
+      type: type, 
+      resizable: true, // All nodes can be resizable; CustomNode manages visibility of resizer
       minWidth: minWidth, 
       minHeight: minHeight, 
     },
-    style: { // Initial style, CustomNode might override or add to this
+    style: { 
         width: width,
         height: height,
     },
-    // Specific properties for boundary nodes
     ...(isBoundary && {
-        selectable: true, // Boundaries are selectable
-        connectable: false, // Boundaries usually don't have connection handles
-        // zIndex: selected ? BOUNDARY_SELECTED_Z_INDEX : BOUNDARY_DEFAULT_Z_INDEX, // Initial z-index, can be dynamic
+        selectable: true, 
+        connectable: false, 
+        // zIndex explicitly set via calculateEffectiveZIndex in CustomNode
     }),
-    // Specific properties for non-boundary nodes
     ...(!isBoundary && {
-        // zIndex: selected ? NODE_SELECTED_Z_INDEX : NODE_DEFAULT_Z_INDEX, // Initial z-index
+        // zIndex explicitly set via calculateEffectiveZIndex in CustomNode
     }),
     ...(component.properties?.parentNode && { parentNode: component.properties.parentNode }),
     selected: selected,
-    // Let calculateEffectiveZIndex handle dynamic zIndex in CustomNode or layout
   };
 };
 
@@ -102,27 +98,24 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
 export const nodeToComponent = (node: Node): DiagramComponent => {
   const propertiesToSave: Record<string, any> = { ...(node.data.properties || {}) };
 
-  propertiesToSave.position = node.position; // Current position
-  if (node.measured?.width) propertiesToSave.width = node.measured.width; // Use measured if available
-  else if (node.width) propertiesToSave.width = node.width; // Fallback to node.width (from style or initial)
+  propertiesToSave.position = node.position; 
   
-  if (node.measured?.height) propertiesToSave.height = node.measured.height;
-  else if (node.height) propertiesToSave.height = node.height;
+  // Use measured dimensions if available, otherwise current style/node dimensions
+  if (node.measured?.width && node.measured.width > 0) propertiesToSave.width = node.measured.width;
+  else if (node.width && node.width > 0) propertiesToSave.width = node.width;
+  
+  if (node.measured?.height && node.measured.height > 0) propertiesToSave.height = node.measured.height;
+  else if (node.height && node.height > 0) propertiesToSave.height = node.height;
   
   propertiesToSave.name = node.data.label || node.data.properties?.name || node.id;
 
   if (node.parentNode) {
     propertiesToSave.parentNode = node.parentNode;
   } else {
-    // Ensure parentNode is explicitly removed if no longer parented
-    // This prevents stale parentNode IDs if a node is dragged out of a parent.
     delete propertiesToSave.parentNode; 
   }
 
-  propertiesToSave.selected = !!node.selected; // Capture current selection state
-
-  // Don't save 'label' in properties if it's derived from 'name' or 'id'
-  // Keep if 'label' is a distinct editable field, but usually it's for display.
+  propertiesToSave.selected = !!node.selected; 
   delete propertiesToSave.label; 
 
   return {
@@ -147,9 +140,9 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
     label: connection.label || connection.properties?.name,
     type: 'smoothstep', 
     animated: true,
-    data: { // Ensure data object exists for properties and label
-      label: connection.label || connection.properties?.name, // Duplicate label in data for consistency if needed
-      properties: connection.properties || { // Default properties if none exist
+    data: { 
+      label: connection.label || connection.properties?.name, 
+      properties: connection.properties || { 
         name: 'Data Flow',
         description: 'A data flow connection.',
         dataType: 'Generic',
@@ -165,13 +158,12 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
  * Converts a ReactFlow Edge back to a DiagramConnection.
  */
 export const edgeToConnection = (edge: Edge): DiagramConnection => {
-  // Ensure properties exist, defaulting if necessary
   const edgeProperties = edge.data?.properties || {};
   const edgeLabel = edge.data?.label || edge.label || edge.id;
 
   const propertiesToSave = { 
     ...edgeProperties,
-    name: edgeLabel, // Ensure name is captured, typically from the label
+    name: edgeLabel, 
   };
 
   return {
@@ -182,29 +174,25 @@ export const edgeToConnection = (edge: Edge): DiagramConnection => {
     targetHandle: edge.targetHandle,
     label: edgeLabel,
     properties: propertiesToSave,
-    selected: !!edge.selected, // Capture current selection state
+    selected: !!edge.selected, 
   };
 };
 
 
 /**
  * Checks if a click position is within the bounds of a node.
- * @param node The node to check.
- * @param clickPos The click position in flow coordinates.
- * @param zoom The current zoom level (can be used for fine-tuning, but typically not for basic hit-testing in flow coords).
  */
 export const isClickOnNode = (
     node: Node,
     clickPos: XYPosition,
-    zoom: number 
+    zoom: number // zoom is not used here, but kept for signature consistency if needed later
 ): boolean => {
-    if (!node.positionAbsolute || typeof node.width !== 'number' || typeof node.height !== 'number') {
-        // Node doesn't have necessary layout information yet
+    if (!node.positionAbsolute || typeof node.width !== 'number' || typeof node.height !== 'number' || node.width <= 0 || node.height <= 0) {
         return false;
     }
 
     const { x, y } = node.positionAbsolute;
-    const { width, height } = node; // Use node.width/height which should be up-to-date
+    const { width, height } = node;
 
     return (
         clickPos.x >= x &&
@@ -215,7 +203,11 @@ export const isClickOnNode = (
 };
 
 /**
- * Gets the topmost interactive node at a click position, prioritizing non-boundaries.
+ * Gets the topmost interactive node at a click position.
+ * Prioritizes non-boundary nodes over boundary nodes if they occupy the same space.
+ * If multiple non-boundary nodes overlap, the one with the highest z-index is chosen.
+ * If z-indexes are equal for non-boundary nodes, the smallest area node is chosen.
+ * If a boundary node is clicked and no non-boundary node is at that exact point, the boundary is chosen.
  * @param nodes Array of all nodes.
  * @param clickPos Click position in flow coordinates.
  * @param zoom Current zoom level.
@@ -227,39 +219,56 @@ export const getTopmostNodeAtClick = (
     zoom: number,
     selectedElementIdGlobally: string | null
 ): Node | null => {
-    const clickedNodes = nodes
-        .filter(node => isClickOnNode(node, clickPos, zoom)) // Find all nodes at click position
-        .sort((a, b) => {
-            // Calculate effective z-index for both nodes
+    const clickedInteractiveNodes: Node[] = [];
+    const clickedBoundaryNodes: Node[] = [];
+
+    for (const node of nodes) {
+        if (isClickOnNode(node, clickPos, zoom)) {
+            if (node.type === 'boundary') {
+                clickedBoundaryNodes.push(node);
+            } else {
+                clickedInteractiveNodes.push(node);
+            }
+        }
+    }
+
+    // If any non-boundary (interactive) nodes are clicked, prioritize them
+    if (clickedInteractiveNodes.length > 0) {
+        return clickedInteractiveNodes.sort((a, b) => {
             const zIndexA = calculateEffectiveZIndex(a.id, a.type as string, a.selected, a.zIndex, selectedElementIdGlobally);
             const zIndexB = calculateEffectiveZIndex(b.id, b.type as string, b.selected, b.zIndex, selectedElementIdGlobally);
             
-            // 1. Primary sort: Higher z-index on top
-            if (zIndexA !== zIndexB) {
-                return zIndexB - zIndexA;
-            }
+            if (zIndexA !== zIndexB) return zIndexB - zIndexA; // Higher z-index first
 
-            // 2. Secondary sort (if z-indexes are equal): Prioritize non-boundary nodes
-            const aIsBoundary = a.type === 'boundary';
-            const bIsBoundary = b.type === 'boundary';
-            if (aIsBoundary && !bIsBoundary) return 1;  // b (non-boundary) comes before a (boundary)
-            if (!aIsBoundary && bIsBoundary) return -1; // a (non-boundary) comes before b (boundary)
-
-            // 3. Tertiary sort (if z-indexes and boundary status are same): Smaller area nodes on top
-            // This helps select more specific, smaller nodes if they overlap with larger ones of same type/z-index
             const areaA = (a.width || 0) * (a.height || 0);
             const areaB = (b.width || 0) * (b.height || 0);
-            if (areaA !== areaB) {
-                return areaA - areaB;
-            }
-            
-            // 4. Fallback (e.g. if nodes are identical in z, type, and area - unlikely but possible):
-            // Could sort by node ID or keep original order, but usually not critical.
-            return 0; 
-        });
+            if (areaA !== areaB) return areaA - areaB; // Smaller area first
 
-    return clickedNodes[0] || null; // Return the first node after sorting (topmost and highest priority)
+            return 0;
+        })[0];
+    }
+
+    // If no interactive nodes are clicked, but boundary nodes are, select the topmost boundary
+    if (clickedBoundaryNodes.length > 0) {
+        return clickedBoundaryNodes.sort((a, b) => {
+            const zIndexA = calculateEffectiveZIndex(a.id, a.type as string, a.selected, a.zIndex, selectedElementIdGlobally);
+            const zIndexB = calculateEffectiveZIndex(b.id, b.type as string, b.selected, b.zIndex, selectedElementIdGlobally);
+            
+            if (zIndexA !== zIndexB) return zIndexB - zIndexA; // Higher z-index first
+            
+            // For boundaries, if z-index is same, larger one (parent) might be preferred if click is ambiguous
+            // but for now, smaller area (more specific boundary) might be better. Let's test with smaller.
+            const areaA = (a.width || 0) * (a.height || 0);
+            const areaB = (b.width || 0) * (b.height || 0);
+            if (areaA !== areaB) return areaA - areaB;
+
+            return 0;
+        })[0];
+    }
+    
+    return null; // No node found at click position
 };
+
 
 // Debounce function
 export function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {

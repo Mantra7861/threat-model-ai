@@ -100,38 +100,38 @@ body {
 /* Custom styles for react-flow nodes and edges */
 @layer components {
   .react-flow__node {
-    @apply rounded-lg border shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
+    @apply rounded-lg shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
     /* z-index is handled by calculateEffectiveZIndex in diagram-utils and applied in CustomNode.tsx */
   }
-
-  /* Selection ring for non-boundary nodes is applied in CustomNode.tsx */
-  /* Boundary selection ring is applied in CustomNode.tsx */
   
+  /* Type-specific styles. These mainly define border and text color. Background is transparent for boundaries. */
   .react-flow__node-server {
-    @apply bg-blue-100 border-blue-300 text-blue-800;
+    @apply border-blue-400 text-blue-800; /* bg-card is default, can be overridden if needed */
   }
   .react-flow__node-database {
-    @apply bg-green-100 border-green-300 text-green-800;
+    @apply border-green-400 text-green-800;
   }
   .react-flow__node-service {
-    @apply bg-purple-100 border-purple-300 text-purple-800;
+    @apply border-purple-400 text-purple-800;
   }
   .react-flow__node-router {
-    @apply bg-yellow-100 border-yellow-300 text-yellow-800;
+    @apply border-yellow-500 text-yellow-800;
   }
   .react-flow__node-boundary {
-     /* Boundary nodes: dashed border, specific border color, transparent background. */
+     /* Boundary nodes: dashed border, specific border color, TRANSPARENT background. */
      /* Selection ring is applied conditionally in CustomNode.tsx. */
      /* z-index is handled by calculateEffectiveZIndex and applied in CustomNode.tsx. */
-     @apply border-2 border-dashed border-red-400 bg-transparent text-red-600 cursor-default;
+     @apply border-2 border-dashed border-red-500 bg-transparent !important; /* Ensure background is transparent */
+     @apply text-red-600; /* Text color for the label */
+     @apply cursor-default; /* Boundaries are not typically grabbed and moved like other nodes */
    }
   
    .react-flow__node-default {
-     @apply bg-gray-100 border-gray-300 text-gray-800;
+     @apply border-gray-400 text-gray-800;
    }
 
   .react-flow__handle {
-    @apply w-3 h-3 bg-gray-400 border-2 border-background rounded-full;
+    @apply w-3 h-3 bg-gray-500 border-2 border-background rounded-full;
     /* Handles z-index is set inline in CustomNode.tsx to be relative to their node's effective z-index. */
    }
    .react-flow__handle-connecting {
@@ -159,25 +159,24 @@ body {
 
 
    /* Style for the resizable node wrapper if using node-resizer */
-   /* NodeResizer handles z-index internally, typically very high */
    .react-flow__node-resizer {
       /* z-index is managed by the NodeResizer component itself to be on top */
    }
    .react-flow__resize-control {
-      @apply !border-primary;
+      /* @apply !border-primary; This was ! causing issues, use inline style or direct class on NodeResizer props */
    }
    .react-flow__resize-control line {
-      @apply !border-primary;
+      /* @apply !border-primary; Same as above */
    }
     .react-flow__resize-handle {
-        @apply bg-background border-2 border-primary rounded-sm;
+        /* Default style for handles, can be overridden by NodeResizer handleClassName prop */
+        /* @apply bg-background border-2 border-primary rounded-sm; */
         width: 10px;
         height: 10px;
-        /* z-index is managed by NodeResizer and applied in CustomNode.tsx for NodeResizer wrapper */
     }
 
    .react-flow__controls {
-      z-index: 25 !important; /* Ensure controls are on top of most elements */
+      z-index: 200 !important; /* Ensure controls are on top of most elements, including resizers */
    }
 
     main.peer-data-\[variant=inset\] {
@@ -189,4 +188,3 @@ body {
         position: relative; 
     }
 }
-
