@@ -101,16 +101,14 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg border shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    /* z-index handled by CustomNode style prop for better control */
+    /* z-index is now handled dynamically in CustomNode.tsx to ensure correct layering */
   }
 
   .react-flow__node.selected, .react-flow__node:focus, .react-flow__node:focus-within {
-    @apply ring-offset-2; 
-    /* Default ring for most selected nodes, color defined by specific type or CustomNode */
+    /* General selection ring for non-boundary nodes is handled in CustomNode.tsx */
+    /* Boundary selection ring (e.g., ring-red-500) is also handled in CustomNode.tsx */
   }
-  /* Specific ring for selected boundaries is handled in CustomNode's inline style or class */
   
-
   .react-flow__node-server {
     @apply bg-blue-100 border-blue-300 text-blue-800;
   }
@@ -124,8 +122,11 @@ body {
     @apply bg-yellow-100 border-yellow-300 text-yellow-800;
   }
   .react-flow__node-boundary {
+     /* Distinct styling for boundary nodes, border color and background opacity set here. */
+     /* Specific selection ring (e.g., ring-red-500) is applied in CustomNode.tsx */
+     /* Dashed border applied via class for visual distinction */
      @apply border-2 border-dashed border-red-400 bg-red-500/5 text-red-600 cursor-default;
-     /* z-index for boundaries handled in CustomNode */
+     /* z-index for boundaries is handled dynamically in CustomNode.tsx to be lower than other nodes. */
    }
   
    .react-flow__node-default {
@@ -134,7 +135,7 @@ body {
 
   .react-flow__handle {
     @apply w-3 h-3 bg-gray-400 border-2 border-background rounded-full;
-    z-index: 15; /* Handles on top of their node */
+    /* Handles z-index is now set inline in CustomNode.tsx to be relative to their node's z-index. */
    }
    .react-flow__handle-connecting {
      @apply bg-primary;
@@ -161,8 +162,9 @@ body {
 
 
    /* Style for the resizable node wrapper if using node-resizer */
+   /* NodeResizer handles z-index internally, typically very high */
    .react-flow__node-resizer {
-      z-index: 20 !important; /* Ensure resizer handles are on top of everything */
+      /* z-index is managed by the NodeResizer component itself to be on top */
    }
    .react-flow__resize-control {
       @apply !border-primary;
@@ -177,7 +179,7 @@ body {
     }
 
    .react-flow__controls {
-      z-index: 25 !important; 
+      z-index: 25 !important; /* Ensure controls are on top of most elements */
    }
 
     main.peer-data-\[variant=inset\] {
@@ -189,3 +191,4 @@ body {
         position: relative; 
     }
 }
+
