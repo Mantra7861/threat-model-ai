@@ -13,9 +13,9 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
-  type NodeMouseHandler,
-  type EdgeMouseHandler, 
-  type FlowProps,
+  // NodeMouseHandler, // Not directly used if overridden
+  // EdgeMouseHandler, // Not directly used if overridden
+  // FlowProps, // Not directly used
   type ReactFlowInstance, 
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
@@ -38,12 +38,12 @@ interface DiagramCanvasProps {
   onConnect: OnConnect;
   setNodes: Dispatch<SetStateAction<Node[]>>; 
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
-  onMoveEnd?: (event: globalThis.MouseEvent | TouchEvent | undefined, viewport: Viewport) => void;
+  onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
   viewport?: Viewport;
-  selectedElementId?: string | null; 
+  // selectedElementId?: string | null; // Managed by parent, nodes/edges array will reflect selection
   onNodeClickOverride?: (event: ReactMouseEvent, node: Node) => void; 
-  onEdgeClickOverride?: (event: ReactMouseEvent, edge: Edge) => void; // Updated to ReactMouseEvent
-  onPaneClickOverride?: (event: globalThis.MouseEvent) => void; 
+  onEdgeClickOverride?: (event: ReactMouseEvent, edge: Edge) => void;
+  onPaneClickOverride?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; // Allow TouchEvent
   onRfLoad?: (instance: ReactFlowInstance) => void; 
 }
 
@@ -57,7 +57,7 @@ export function DiagramCanvas({
   setEdges, 
   onMoveEnd,
   viewport,
-  selectedElementId, 
+  // selectedElementId, // Removed, selection is reflected in nodes/edges arrays
   onNodeClickOverride,
   onEdgeClickOverride, 
   onPaneClickOverride,
@@ -85,16 +85,14 @@ export function DiagramCanvas({
         y: event.clientY,
       });
       
-      // Check for boundaries at the drop position to assign parentNode
       const parentBoundary = getIntersectingNodes({
-        x: flowPosition.x, y: flowPosition.y, width: 1, height: 1, // Small rect to check point
-      }).find((n) => n.type === 'boundary' && n.width && n.height && n.positionAbsolute && // Ensure boundary has dimensions
+        x: flowPosition.x, y: flowPosition.y, width: 1, height: 1,
+      }).find((n) => n.type === 'boundary' && n.width && n.height && n.positionAbsolute &&
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
-
 
       const isBoundary = type === 'boundary';
       const defaultWidth = isBoundary ? 300 : 150; 
@@ -102,14 +100,13 @@ export function DiagramCanvas({
       const minWidth = isBoundary ? 100 : 100; 
       const minHeight = isBoundary ? 100 : 50;
 
-
       const newNodeId = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const nodeLabel = `${type.charAt(0).toUpperCase() + type.slice(1)} Component`; // Changed "Node" to "Component"
+      const nodeLabel = `${type.charAt(0).toUpperCase() + type.slice(1)} Component`;
 
       const newNode: Node = {
         id: newNodeId,
         type,
-        position: flowPosition, // Position relative to parent if parentNode is set, otherwise relative to pane
+        position: flowPosition,
         data: {
           label: nodeLabel,
           properties: { name: nodeLabel, type: type }, 
@@ -119,52 +116,42 @@ export function DiagramCanvas({
           minHeight: minHeight,
         },
         style: { width: defaultWidth, height: defaultHeight },
-        // Assign parentNode if a boundary is found and the new node is NOT a boundary itself
         ...(parentBoundary && !isBoundary && { 
             parentNode: parentBoundary.id,
-            extent: 'parent', // Constrain to parent
+            extent: 'parent',
         }),
         ...(isBoundary && { 
             selectable: true, 
             connectable: false,
         }),
-        selected: true, // Select the new node
+        selected: true, // Initially select the new node
       };
 
+      // Update nodes state, ensuring other nodes are deselected
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
+      // Deselect all edges
       setEdges((eds) => eds.map(e => ({...e, selected: false}))); 
       
-      // Trigger selection logic for the newly added node
-      // This is important for selectedElementId to be updated correctly in the parent.
-      // A direct call to onNodeClickOverride is problematic as it expects a MouseEvent.
-      // Instead, we can directly inform the parent or rely on the parent to observe `nodes` change.
-      // For now, the selection will happen if the user clicks. To auto-select, parent needs to handle.
-      // One way: call a specific "selectNode" function passed from parent if needed.
-      // Or, ProjectClientLayout's useEffect for selectedElementId can react to new node with selected=true.
-      // The onNodesChange will eventually call setSelectedElementId if a node has selected=true.
-      // This might be enough.
+      // Inform parent layout about the new node and that it should be selected
+      // ProjectClientLayout's onNodesChange will handle setting selectedElementId
       if (onNodesChange) {
          onNodesChange([{type: 'add', item: newNode}, {type: 'select', id: newNode.id, selected: true}]);
       }
-
 
       toast({ title: 'Component Added', description: `${newNode.data.label} added to the diagram.` });
     },
     [screenToFlowPosition, setNodes, setEdges, toast, getIntersectingNodes, onNodesChange]
   );
 
-  const processedNodes = nodes.map(n => ({ ...n, selected: n.id === selectedElementId }));
-  const processedEdges = edges.map(e => ({
-    ...e,
-    selected: e.id === selectedElementId,
-  }));
-
+  // The `nodes` and `edges` props received here should already have their `selected` status
+  // correctly set by ProjectClientLayout's useEffect that watches `selectedElementId`.
+  // So, no need for `processedNodes` or `processedEdges` here if parent handles it.
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={processedNodes} 
-        edges={processedEdges} 
+        nodes={nodes} // Use nodes directly from props
+        edges={edges} // Use edges directly from props
         onNodesChange={onNodesChange} 
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -172,13 +159,13 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onMoveEnd={onMoveEnd}
-        defaultViewport={viewport}
+        defaultViewport={viewport} // Use viewport for initial, onMoveEnd updates it
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={true} 
+        selectNodesOnDrag={true} // Can be true, custom click logic handles fine-grained selection
         multiSelectionKeyCode={['Meta', 'Control']}
         nodeDragThreshold={1}
         fitView 
