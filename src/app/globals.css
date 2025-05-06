@@ -1,3 +1,4 @@
+@import '@xyflow/react/dist/style.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -100,14 +101,19 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg border shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    /* Ensure nodes are above background but below controls/panels */
-    z-index: 1; 
+    z-index: 1; /* Default z-index for nodes */
   }
+
+  /* Styles for selected nodes, ensuring they are visually distinct and above others */
   .react-flow__node.selected, .react-flow__node:focus, .react-flow__node:focus-within {
-     /* Higher z-index for selected/focused nodes */
-    @apply ring-2 ring-primary ring-offset-2; /* Ensure ring is applied by Tailwind */
-    z-index: 10;
+    @apply ring-2 ring-offset-2; /* Default ring for most selected nodes */
+    z-index: 10 !important; /* Higher z-index for selected/focused nodes */
   }
+  .react-flow__node.selected.react-flow__node-boundary {
+     @apply ring-red-500 ring-offset-1; /* Specific ring for selected boundaries */
+     z-index: 5 !important; /* Boundaries selected are above non-selected, but below other selected nodes */
+  }
+
 
   .react-flow__node-server {
     @apply bg-blue-100 border-blue-300 text-blue-800;
@@ -122,15 +128,10 @@ body {
     @apply bg-yellow-100 border-yellow-300 text-yellow-800;
   }
   .react-flow__node-boundary {
-     /* Boundaries should be styled to look like containers */
      @apply border-2 border-dashed border-red-400 bg-red-500/5 text-red-600 cursor-default;
-     /* Boundaries should typically be behind other nodes */
-     z-index: 0 !important; 
+     z-index: 0 !important; /* Boundaries should always be behind other nodes unless selected */
    }
-   .react-flow__node-boundary.selected {
-      @apply ring-2 ring-red-500 ring-offset-1; /* Custom selection for boundaries */
-      z-index: 5 !important; /* Still behind regular selected nodes but above non-selected */
-   }
+  
 
    /* Default/fallback style for un-typed nodes */
    .react-flow__node-default {
@@ -150,7 +151,7 @@ body {
 
    /* Style for the resizable node wrapper if using node-resizer */
    .react-flow__node-resizer {
-      z-index: 20; /* Ensure resizer handles are on top */
+      z-index: 20 !important; /* Ensure resizer handles are on top of everything, even selected nodes */
    }
    .react-flow__resize-control {
       @apply !border-primary; /* Override default border color */
@@ -167,7 +168,7 @@ body {
 
    /* Ensure sidebar doesn't overlap react-flow controls */
    .react-flow__controls {
-      z-index: 25; /* Ensure controls are above everything else in the flow area */
+      z-index: 25 !important; /* Ensure controls are above everything else in the flow area */
    }
 
     /* Adjustments for sidebar inset mode */

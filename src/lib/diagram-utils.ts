@@ -10,12 +10,9 @@ export const componentToNode = (component: DiagramComponent): Node => {
   const type = component.type || 'default';
   const isBoundary = type === 'boundary';
 
-  // Default dimensions - boundaries are larger
   const defaultWidth = isBoundary ? 350 : 150;
   const defaultHeight = isBoundary ? 400 : 80;
-
-  // Min dimensions for resizable nodes
-  const minWidth = isBoundary ? 200 : 100;
+  const minWidth = isBoundary ? 200 : 100; 
   const minHeight = isBoundary ? 250 : 50;
 
   const width = component.properties?.width ?? defaultWidth;
@@ -27,28 +24,25 @@ export const componentToNode = (component: DiagramComponent): Node => {
     position: position,
     data: {
       label: component.properties?.name || component.id,
-      properties: component.properties || {},
-      type: type, // Pass type to data for CustomNode logic and property panel
-      resizable: !isBoundary, // Boundaries are typically not resizable by corner handles
-      minWidth: minWidth, // Pass minWidth for NodeResizer
-      minHeight: minHeight, // Pass minHeight for NodeResizer
+      properties: { ...component.properties }, // Make a copy of properties
+      type: type, 
+      resizable: !isBoundary, 
+      minWidth: minWidth, 
+      minHeight: minHeight, 
     },
     style: {
         width: width,
         height: height,
-        zIndex: isBoundary ? 0 : 1, // Keep boundaries behind other elements
+        zIndex: isBoundary ? 0 : 1, // Boundaries behind other elements
     },
-    // Specify drag handle for non-boundary nodes
     ...(!isBoundary && { dragHandle: '.drag-handle' }),
-    // Boundaries properties
     ...(isBoundary && {
-        selectable: true, // Boundaries can be selected
-        connectable: false, // Boundaries usually don't have connection handles
-        dragHandle: undefined, // Boundaries are dragged by their body
+        selectable: true, 
+        connectable: false, 
+        dragHandle: undefined, // Boundaries dragged by body
     }),
-    // Parent node information for nesting
     ...(component.properties?.parentNode && { parentNode: component.properties.parentNode }),
-    selected: component.properties?.selected || false, // Persist selection state if available
+    selected: component.properties?.selected || false,
   };
 };
 
@@ -56,46 +50,37 @@ export const componentToNode = (component: DiagramComponent): Node => {
  * Converts a ReactFlow Node back to a DiagramComponent.
  */
 export const nodeToComponent = (node: Node): DiagramComponent => {
-  // Create a mutable copy of node.data.properties to avoid modifying the original node's data directly
-  const propertiesToSave = { ...(node.data.properties || {}) };
+  const propertiesToSave: Record<string, any> = { ...(node.data.properties || {}) };
 
-  // Update/add position from the node itself
   propertiesToSave.position = node.position;
-
-  // Update/add dimensions from node.width/height (set by resizer) or node.style
   if (node.width) propertiesToSave.width = node.width;
-  else if (node.style?.width) propertiesToSave.width = Number(node.style.width);
-
   if (node.height) propertiesToSave.height = node.height;
-  else if (node.style?.height) propertiesToSave.height = Number(node.style.height);
   
-  // Ensure name is saved from label (which might have been edited)
+  // 'name' is the source of truth for the label, ensure it's in properties
   propertiesToSave.name = node.data.label || node.id;
 
-  // Persist parentNode if it exists
   if (node.parentNode) {
     propertiesToSave.parentNode = node.parentNode;
   } else {
-    // If node.parentNode is null/undefined, ensure it's removed from properties if it was there
     delete propertiesToSave.parentNode;
   }
 
-  // Persist selection state
   propertiesToSave.selected = !!node.selected;
 
 
-  // Remove internal/derived data properties that shouldn't be saved in 'properties' blob directly
-  // (like 'type' if it's already top-level, 'resizable', 'minWidth', 'minHeight', 'label')
-  delete propertiesToSave.type; // 'type' is a top-level field in DiagramComponent
+  // Remove React Flow specific or derived data properties that are not part of the core component model
+  // but keep essential ones like 'name', 'type' (if it was in original properties for some reason)
+  // 'type' is primary on DiagramComponent, 'label' is derived from 'name'
+  // 'resizable', 'minWidth', 'minHeight' are for UI control, not persistent model data typically.
+  delete propertiesToSave.label; 
   delete propertiesToSave.resizable;
   delete propertiesToSave.minWidth;
   delete propertiesToSave.minHeight;
-  delete propertiesToSave.label; // 'label' is derived from 'name'
-
+  // 'type' from node.data.type is structural, already handled by node.type -> component.type
 
   return {
     id: node.id,
-    type: node.data?.type || node.type || 'default', // Ensure type is correctly sourced
+    type: node.data?.type || node.type || 'default',
     properties: propertiesToSave,
   };
 };

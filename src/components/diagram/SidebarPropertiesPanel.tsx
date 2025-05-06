@@ -42,7 +42,7 @@ export function SidebarPropertiesPanel({
 
   useEffect(() => {
     if (selectedNode && selectedNode.data && selectedNode.data.properties) {
-      setLocalProperties({ ...selectedNode.data.properties }); // Create a copy to avoid direct mutation
+      setLocalProperties({ ...selectedNode.data.properties }); 
     } else {
       setLocalProperties({});
     }
@@ -65,11 +65,11 @@ export function SidebarPropertiesPanel({
     setLocalProperties(newProps);
 
     // For 'name', update immediately to reflect on node label
-    // For other properties, debounce to avoid too many updates if user types quickly
+    // Also pass all newProps to ensure other potentially changed values are sent
     if (propName === 'name') {
-      onUpdateProperties(selectedNode.id, { [propName]: value, label: value }); // also update label
+      onUpdateProperties(selectedNode.id, { ...newProps, label: value }); 
     } else {
-      debouncedUpdate(selectedNode.id, { [propName]: value });
+      debouncedUpdate(selectedNode.id, newProps);
     }
   };
 
@@ -83,16 +83,17 @@ export function SidebarPropertiesPanel({
     });
 
     try {
-      // Ensure component.type is passed correctly
-      const componentType = selectedNode.data.type || selectedNode.type;
+      const componentType = selectedNode.data.type || selectedNode.type; // Prefer data.type, fallback to node.type
       if (!componentType) {
-          throw new Error("Component type is missing for AI suggestion.");
+          toast({ title: "Error", description: "Component type is missing for AI suggestion.", variant: "destructive"});
+          setIsSuggesting(false);
+          return;
       }
 
       const suggestedProps = await suggestComponentProperties({
         component: {
             id: selectedNode.id,
-            type: componentType,
+            type: componentType, 
             properties: localProperties,
         },
         diagramDescription: diagramDescription,
@@ -109,7 +110,7 @@ export function SidebarPropertiesPanel({
       
       if (newPropsCount > 0) {
           setLocalProperties(mergedProps);
-          onUpdateProperties(selectedNode.id, mergedProps);
+          onUpdateProperties(selectedNode.id, mergedProps); // Pass all merged props
            toast({
             title: "Properties Suggested",
             description: `AI suggested ${newPropsCount} new properties.`,
@@ -136,7 +137,6 @@ export function SidebarPropertiesPanel({
   const confirmDeleteNode = () => {
       if (!selectedNode) return;
       onDeleteNode(selectedNode.id);
-      // Toast is handled by parent (ProjectClientLayout) upon successful deletion
   }
 
   if (!selectedNode) {
@@ -148,8 +148,7 @@ export function SidebarPropertiesPanel({
   }
 
   const nodeData = selectedNode.data || {};
-  // Use localProperties for rendering editable fields
-  const nodeType = nodeData.type || selectedNode.type || 'default'; // Fallback for type
+  const nodeType = nodeData.type || selectedNode.type || 'default';
   const nodeName = localProperties.name || nodeData.label || nodeType;
 
 
@@ -163,7 +162,8 @@ export function SidebarPropertiesPanel({
 
         <div className="space-y-4">
           {Object.entries(localProperties).map(([key, value]) => {
-            if (['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode'].includes(key)) return null; // Filter out non-editable/internal props
+            // Filter out internal React Flow properties and derived ones, plus 'type' as it's structural
+            if (['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected'].includes(key)) return null; 
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
 
@@ -198,7 +198,6 @@ export function SidebarPropertiesPanel({
                       value={String(value ?? '')}
                       onChange={(e) => {
                           const val = e.target.value;
-                          // Attempt to parse as number if original was number, otherwise string
                           handleInputChange(key, typeof localProperties[key] === 'number' && !isNaN(Number(val)) ? Number(val) : val);
                       }}
                       className="text-sm"
@@ -209,7 +208,7 @@ export function SidebarPropertiesPanel({
                 </div>
             );
           })}
-           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode'].includes(k)).length === 0 && (
+           {Object.keys(localProperties).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected'].includes(k)).length === 0 && (
                <p className="text-sm text-muted-foreground">No editable properties for this component, or click AI Suggest.</p>
             )}
         </div>
@@ -236,7 +235,7 @@ export function SidebarPropertiesPanel({
                  </AlertDialogHeader>
                  <AlertDialogFooter>
                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                 <AlertDialogAction onClick={confirmDeleteNode} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                 <AlertDialogAction onClick={confirmDeleteNode} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
                  </AlertDialogFooter>
              </AlertDialogContent>
          </AlertDialog>

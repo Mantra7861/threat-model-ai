@@ -17,16 +17,19 @@ export function DiagramHeader({ projectId }: DiagramHeaderProps) {
   const { toast } = useToast();
   const [diagramName, setDiagramName] = useState<string>('Loading...');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [localDiagramName, setLocalDiagramName] = useState('');
+
 
   useEffect(() => {
     async function fetchDiagramName() {
       try {
-        // In a real app, fetch the diagram details
         const diagram = await getDiagram(projectId);
         setDiagramName(diagram.name);
+        setLocalDiagramName(diagram.name); // Initialize local state
       } catch (error) {
         console.error("Failed to fetch diagram:", error);
         setDiagramName("Untitled Project");
+        setLocalDiagramName("Untitled Project");
         toast({
           title: "Error",
           description: "Could not load diagram name.",
@@ -38,14 +41,11 @@ export function DiagramHeader({ projectId }: DiagramHeaderProps) {
   }, [projectId, toast]);
 
 
-  const handleSave = () => {
-    // TODO: Implement save functionality
-    console.log("Saving diagram...");
-    toast({
-      title: "Saved",
-      description: "Diagram saved successfully.",
-    });
-  };
+  // The actual save logic is now in ProjectClientLayout.
+  // This header's name input could potentially update a context/global state
+  // or be passed up if it's meant to change the *actual* diagram name for saving.
+  // For now, it just updates local display state.
+  // If DiagramHeader needs to trigger a save, the save function must be passed down or through context.
 
   const handleGenerateReport = async () => {
     setIsGenerating(true);
@@ -56,7 +56,7 @@ export function DiagramHeader({ projectId }: DiagramHeaderProps) {
     try {
       const result = await generateThreatReport({ diagramId: projectId });
       console.log("Generated Report:", result.report);
-      // TODO: Display the report in the report panel
+      // TODO: Display the report in the report panel (e.g., via state/context update)
       toast({
         title: "Report Generated",
         description: "Threat report generated successfully.",
@@ -90,22 +90,15 @@ export function DiagramHeader({ projectId }: DiagramHeaderProps) {
              {/* Placeholder for mobile sidebar trigger if needed */}
          </div>
         <Input
-          value={diagramName}
-          onChange={(e) => setDiagramName(e.target.value)} // Basic name editing
+          value={localDiagramName} // Use local state for input
+          onChange={(e) => setLocalDiagramName(e.target.value)} // Update local state
+          // onBlur could trigger an update to a context/global state if needed for saving
           className="text-lg font-semibold w-auto border-none shadow-none focus-visible:ring-0 px-1 py-0 h-auto"
           aria-label="Diagram Name"
         />
       </div>
       <div className="flex items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="icon" onClick={handleSave}>
-              <Save className="h-4 w-4" />
-              <span className="sr-only">Save Diagram</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Save Diagram</TooltipContent>
-        </Tooltip>
+        {/* Save button is removed from here, handled in ProjectClientLayout's right sidebar */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="icon" onClick={handleShare}>
