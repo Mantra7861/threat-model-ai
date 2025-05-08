@@ -5,23 +5,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Save, FileText, Share2, Play, PlusCircle } from "lucide-react";
+import { Share2, PlusCircle } from "lucide-react"; // Removed Save, FileText, Play
 import { useToast } from "@/hooks/use-toast";
-import { generateThreatReport } from '@/ai/flows/generate-threat-report';
+// generateThreatReport is no longer called from here
 import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface DiagramHeaderProps {
-  projectId: string; // Retained for context, though name comes from project context
-  onNewModelClick: () => void; // Callback to open new model dialog
-  // initialDiagramName is removed, will use modelName from context
-  // onNameChange is removed, will use setModelName from context
+  projectId: string; 
+  onNewModelClick: () => void; 
+  // Removed isGeneratingReport and setIsGeneratingReport as they were for the local button
 }
 
 export function DiagramHeader({ projectId, onNewModelClick }: DiagramHeaderProps) {
   const { toast } = useToast();
   const { modelName, setModelName } = useProjectContext();
   const [localDiagramName, setLocalDiagramName] = useState<string>(modelName);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Removed local isGenerating state
 
   useEffect(() => {
     setLocalDiagramName(modelName);
@@ -33,46 +32,20 @@ export function DiagramHeader({ projectId, onNewModelClick }: DiagramHeaderProps
 
   const handleNameInputBlur = () => {
     if (localDiagramName !== modelName) {
-      setModelName(localDiagramName); // Update context
+      setModelName(localDiagramName); 
     }
   };
   
-  // Pressing Enter in the input field should also save the name
   const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
         if (localDiagramName !== modelName) {
            setModelName(localDiagramName);
         }
-        e.currentTarget.blur(); // Remove focus from input
+        e.currentTarget.blur(); 
     }
   };
 
-
-  const handleGenerateReport = useCallback(async () => {
-    setIsGenerating(true);
-    toast({
-      title: "Generating Report",
-      description: "AI is analyzing your diagram...",
-    });
-    try {
-      // Ensure projectId from context or props is used if needed by generateThreatReport
-      const result = await generateThreatReport({ diagramId: projectId });
-      console.log("Generated Report:", result.report); 
-      toast({
-        title: "Report Generated",
-        description: "Threat report generated successfully. (View console for details)",
-      });
-    } catch (error) {
-      console.error("Error generating report:", error);
-      toast({
-        title: "Error Generating Report",
-        description: error instanceof Error ? error.message : "Could not generate the threat report.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [projectId, toast]);
+  // Removed handleGenerateReport function
 
   const handleShare = () => {
     console.log("Sharing diagram...");
@@ -113,21 +86,9 @@ export function DiagramHeader({ projectId, onNewModelClick }: DiagramHeaderProps
           </TooltipTrigger>
           <TooltipContent>Share</TooltipContent>
         </Tooltip>
-         <Tooltip>
-          <TooltipTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleGenerateReport}
-                disabled={isGenerating}
-              >
-                <Play className="mr-2 h-4 w-4" />
-                {isGenerating ? "Generating..." : "Generate Report"}
-              </Button>
-          </TooltipTrigger>
-          <TooltipContent>Generate AI Threat Report</TooltipContent>
-        </Tooltip>
+        {/* Removed Generate Report Button and its Tooltip */}
       </div>
     </header>
   );
 }
+
