@@ -124,7 +124,11 @@ body {
 
   /* Boundary Box Specific Styling */
   .react-flow__node-boundary {
-     @apply border-2 border-dashed border-[hsl(var(--destructive))] !important; /* Ensure border is always visible and prioritized */
+     /* Ensure border is always visible and prioritized */
+     border-width: 2px !important;
+     border-style: dashed !important;
+     border-color: hsl(var(--destructive)) !important;
+     
      @apply bg-transparent !important; /* Ensure background is transparent and prioritized */
      @apply text-[hsl(var(--destructive))]; /* Label color matches border */
      @apply cursor-default; 
@@ -193,3 +197,4 @@ body {
         position: relative; 
     }
 }
+
