@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,10 +22,10 @@ const DraggableComponent = ({ type, label, icon: Icon }: DraggableComponentProps
       className="flex flex-col items-center p-3 border rounded-lg shadow-sm cursor-grab bg-card hover:shadow-md transition-shadow active:cursor-grabbing group-data-[collapsible=icon]:p-2"
       draggable
       onDragStart={handleDragStart}
-      title={label}
+      title={label} // Keep title for hover tooltip as a backup or for collapsed mode if desired
     >
       <Icon className="w-6 h-6 mb-1 text-muted-foreground group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:mb-0" />
-       <span className="text-xs font-medium truncate max-w-[80px] group-data-[collapsible=icon]:hidden">
+       <span className="text-xs font-medium text-card-foreground text-center w-full truncate px-1 group-data-[collapsible=icon]:hidden">
         {label}
       </span>
     </div>
@@ -39,8 +40,10 @@ export function SidebarComponentLibrary() {
     { type: "service", label: "Cloud Service", icon: Cloud },
     { type: "router", label: "Router", icon: Router },
     { type: "boundary", label: "Trust Boundary", icon: ShieldCheck },
-    { type: "flow", label: "Data Flow", icon: ArrowRight }, // Flow might be handled differently
-     // Add more components as needed
+    // "flow" type is not typically a draggable component, but an edge created by connecting nodes.
+    // If it's meant to be a draggable node representing a conceptual flow, it can stay.
+    // Removing it for now as flows are usually edges.
+    // { type: "flow", label: "Data Flow", icon: ArrowRight }, 
   ];
 
   return (
@@ -63,3 +66,4 @@ export function SidebarComponentLibrary() {
     </ScrollArea>
   );
 }
+

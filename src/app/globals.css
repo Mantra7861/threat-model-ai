@@ -146,7 +146,7 @@ body {
        No additional ring or border style is needed here for selection,
        as the permanent border itself is the primary visual indicator.
        Setting ring to 0 ensures no default selection ring is applied. */
-    @apply ring-0 ring-offset-0;
+    @apply ring-2 ring-offset-0;
   }
 
 
