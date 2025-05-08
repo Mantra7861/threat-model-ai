@@ -106,24 +106,24 @@ body {
   
   /* Type-specific styles for standard components. These define border and text color. */
   /* Ensure borders are always visible for these standard types */
-  .react-flow__node-server {
+  div.react-flow__node.react-flow__node-server { /* Increased specificity */
     @apply border border-blue-400 text-blue-800; 
   }
-  .react-flow__node-database {
+  div.react-flow__node.react-flow__node-database { /* Increased specificity */
     @apply border border-green-400 text-green-800; 
   }
-  .react-flow__node-service {
+  div.react-flow__node.react-flow__node-service { /* Increased specificity */
     @apply border border-purple-400 text-purple-800; 
   }
-  .react-flow__node-router {
+  div.react-flow__node.react-flow__node-router { /* Increased specificity */
     @apply border border-yellow-500 text-yellow-800; 
   }
-  .react-flow__node-default { /* Default for any unspecified node type */
+  div.react-flow__node.react-flow__node-default { /* Increased specificity */
      @apply border border-gray-400 text-gray-800; 
   }
 
   /* Boundary Box Specific Styling */
-  .react-flow__node-boundary {
+ div.react-flow__node.react-flow__node-boundary { /* Increased specificity */
      /* Ensure border is always visible and prioritized */
      border-width: 2px !important;
      border-style: dashed !important;
@@ -197,4 +197,3 @@ body {
         position: relative; 
     }
 }
-
