@@ -47,6 +47,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const { toast } = useToast();
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false); // Added for DiagramHeader
 
 
     useEffect(() => {
@@ -123,14 +124,14 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                     if (change && change.type === 'select') {
                         newSelectedStatus = change.selected;
                     }
-                     if (change && (change.type === 'select' || change.type === 'add')) {
+                     if (change && (change.type === 'select' || change.type === 'add' || change.type === 'reset')) {
                         return {
                             ...node,
                             selected: newSelectedStatus,
                             zIndex: calculateEffectiveZIndex(node.id, node.type as string, newSelectedStatus, node.zIndex, selectedElementId)
                         };
                     }
-                    if (change && change.type === 'dimensions') {
+                    if (change && (change.type === 'dimensions' || change.type === 'position')) {
                          return {
                             ...node,
                             zIndex: calculateEffectiveZIndex(node.id, node.type as string, node.id === selectedElementId, node.zIndex, selectedElementId)
@@ -292,7 +293,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 targetHandle: e.targetHandle,
                 label: e.label,
                 properties: e.properties,
-                selected: e.properties.selected || false,
+                selected: e.properties?.selected || false, // Ensure selected is always boolean
             })),
         };
 
@@ -368,6 +369,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             <DiagramHeader 
                 projectId={projectId}
                 onNewModelClick={() => setIsNewModelDialogOpen(true)}
+                isGeneratingReport={isGeneratingReport} 
+                setIsGeneratingReport={setIsGeneratingReport}
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -382,7 +385,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         onMoveEnd={(e, vp) => setViewport(vp)}
                         viewport={viewport}
                         onNodeClick={onElementClick} 
-                        onEdgeClick={onEdgeClick} 
+                        onEdgeClick={onElementClick} 
                         onPaneClick={onPaneClick}
                         onRfLoad={setReactFlowInstance} 
                         selectedElementId={selectedElementId} 
@@ -404,14 +407,14 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                             />
                         </TabsContent>
                         <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
-                           <ThreatReportPanel diagramId={projectId} />
+                           <ThreatReportPanel diagramId={projectId} setIsGenerating={setIsGeneratingReport} />
                         </TabsContent>
                     </Tabs>
                     <div className="p-4 border-t">
                         <Button
                             onClick={handleSave}
                             className="w-full"
-                            disabled={loading || isGenerating } 
+                            disabled={loading || isGeneratingReport } 
                         >
                             Save Diagram
                         </Button>
@@ -426,3 +429,4 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         </>
     );
 }
+
