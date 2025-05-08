@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useRef, type DragEvent, type MouseEvent as ReactMouseEvent, type Dispatch, type SetStateAction } from 'react';
@@ -14,17 +15,26 @@ import {
   type OnNodesChange,
   type Viewport,
   type ReactFlowInstance, 
-  type ElementClick, // Explicitly import if needed for handler types
+  type NodeChange, // Added NodeChange
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
 
 const nodeTypes = {
+  // Infrastructure
   server: CustomNode,
   database: CustomNode,
   service: CustomNode,
   router: CustomNode,
   boundary: CustomNode, 
+  // Process
+  step: CustomNode,
+  'start-end': CustomNode,
+  decision: CustomNode,
+  'input-output': CustomNode,
+  document: CustomNode,
+  'manual-input': CustomNode,
+  // Default
   default: CustomNode, 
 };
 
@@ -38,9 +48,9 @@ interface DiagramCanvasProps {
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
   viewport?: Viewport;
-  selectedElementId?: string | null; // This prop is for custom logic, not directly for RF
-  onNodeClick?: ElementClick<Node>; 
-  onEdgeClick?: ElementClick<Edge>; 
+  selectedElementId?: string | null; 
+  onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
+  onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void; 
   onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; 
   onRfLoad?: (instance: ReactFlowInstance) => void; 
 }
@@ -55,8 +65,6 @@ export function DiagramCanvas({
   setEdges, 
   onMoveEnd,
   viewport,
-  // selectedElementId prop is not directly used by ReactFlow component itself for selection highlighting,
-  // but can be used by parent for managing selection state and passing to CustomNode if needed.
   selectedElementId, 
   onNodeClick,
   onEdgeClick, 
@@ -95,13 +103,28 @@ export function DiagramCanvas({
       );
 
       const isBoundaryBox = type === 'boundary';
-      const defaultWidth = isBoundaryBox ? 400 : 150; 
-      const defaultHeight = isBoundaryBox ? 300 : 80;
-      const minWidth = isBoundaryBox ? 200 : 100; 
-      const minHeight = isBoundaryBox ? 150 : 50;
+      let defaultWidth = isBoundaryBox ? 400 : 150; 
+      let defaultHeight = isBoundaryBox ? 300 : 80;
+      let minWidth = isBoundaryBox ? 200 : 100; 
+      let minHeight = isBoundaryBox ? 150 : 50;
+      let nodeLabelPrefix = type.charAt(0).toUpperCase() + type.slice(1);
+      let nodeLabelSuffix = isBoundaryBox ? 'Box' : 'Component';
+      
+      // Adjust for process types
+      if (type === 'start-end' || type === 'decision') {
+        defaultWidth = 100; defaultHeight = 100; minWidth = 60; minHeight = 60;
+        nodeLabelSuffix = type === 'start-end' ? 'Event' : 'Point';
+      } else if (type === 'step') {
+        defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
+        nodeLabelSuffix = 'Action';
+      } else if (type === 'input-output' || type === 'document' || type === 'manual-input') {
+        defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
+        nodeLabelSuffix = type === 'input-output' ? 'Data' : (type === 'document' ? 'Item' : 'Step');
+      }
+
 
       const newNodeId = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const nodeLabel = `${type.charAt(0).toUpperCase() + type.slice(1)} ${isBoundaryBox ? 'Box' : 'Component'}`;
+      const nodeLabel = `${nodeLabelPrefix} ${nodeLabelSuffix}`;
 
       const newNode: Node = {
         id: newNodeId,
@@ -109,7 +132,7 @@ export function DiagramCanvas({
         position: flowPosition,
         data: {
           label: nodeLabel,
-          properties: { name: nodeLabel, type: type }, 
+          properties: { name: nodeLabel, type: type, description: `A new ${type} element.` }, 
           type: type, 
           resizable: true, 
           minWidth: minWidth,
@@ -124,25 +147,19 @@ export function DiagramCanvas({
             selectable: true, 
             connectable: false, 
         }),
-        selected: true, // New node is initially selected
+        selected: true, 
       };
 
-      // Deselect all other elements and add the new node
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
       setEdges((eds) => eds.map(e => ({...e, selected: false}))); 
       
-      // Directly inform RF about selection if onNodesChange is robust
       if (onNodesChange) {
          onNodesChange([
           {type: 'add', item: newNode}, 
-          // The selection part for the new node should ideally be handled by the parent's setSelectedElementId
-          // and the useEffect that maps selectedElementId to node.selected.
-          // However, to ensure RF's internal selection state is also updated immediately:
           ...currentNodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false } as NodeChange)),
           {type: 'select', id: newNode.id, selected: true} as NodeChange
         ]);
       }
-
 
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
@@ -168,7 +185,7 @@ export function DiagramCanvas({
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={true} // Allow selecting nodes by dragging over them if desired (can be true or false based on preference)
+        selectNodesOnDrag={true}
         multiSelectionKeyCode={['Meta', 'Control']}
         nodeDragThreshold={1}
         fitView 
@@ -177,7 +194,7 @@ export function DiagramCanvas({
         onEdgeClick={onEdgeClick} 
         onPaneClick={onPaneClick} 
         onLoad={onRfLoad} 
-        elevateNodesOnSelect={false} // Custom z-index handling should manage this
+        elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
       >
         <Controls />

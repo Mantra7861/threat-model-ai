@@ -1,37 +1,52 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Save, FileText, Share2, Play } from "lucide-react";
+import { Save, FileText, Share2, Play, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
+import { useProjectContext } from '@/contexts/ProjectContext';
 
 interface DiagramHeaderProps {
-  projectId: string;
-  initialDiagramName: string;
-  onNameChange: (newName: string) => void;
+  projectId: string; // Retained for context, though name comes from project context
+  onNewModelClick: () => void; // Callback to open new model dialog
+  // initialDiagramName is removed, will use modelName from context
+  // onNameChange is removed, will use setModelName from context
 }
 
-export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: DiagramHeaderProps) {
+export function DiagramHeader({ projectId, onNewModelClick }: DiagramHeaderProps) {
   const { toast } = useToast();
-  const [localDiagramName, setLocalDiagramName] = useState<string>(initialDiagramName);
+  const { modelName, setModelName } = useProjectContext();
+  const [localDiagramName, setLocalDiagramName] = useState<string>(modelName);
   const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
-    setLocalDiagramName(initialDiagramName);
-  }, [initialDiagramName]);
+    setLocalDiagramName(modelName);
+  }, [modelName]);
 
   const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalDiagramName(e.target.value);
   };
 
   const handleNameInputBlur = () => {
-    if (localDiagramName !== initialDiagramName) {
-      onNameChange(localDiagramName);
+    if (localDiagramName !== modelName) {
+      setModelName(localDiagramName); // Update context
     }
   };
+  
+  // Pressing Enter in the input field should also save the name
+  const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+        if (localDiagramName !== modelName) {
+           setModelName(localDiagramName);
+        }
+        e.currentTarget.blur(); // Remove focus from input
+    }
+  };
+
 
   const handleGenerateReport = useCallback(async () => {
     setIsGenerating(true);
@@ -40,6 +55,7 @@ export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: D
       description: "AI is analyzing your diagram...",
     });
     try {
+      // Ensure projectId from context or props is used if needed by generateThreatReport
       const result = await generateThreatReport({ diagramId: projectId });
       console.log("Generated Report:", result.report); 
       toast({
@@ -73,11 +89,21 @@ export function DiagramHeader({ projectId, initialDiagramName, onNameChange }: D
           value={localDiagramName}
           onChange={handleNameInputChange}
           onBlur={handleNameInputBlur}
+          onKeyDown={handleNameInputKeyDown}
           className="text-lg font-semibold w-auto border-none shadow-none focus-visible:ring-0 px-1 py-0 h-auto"
           aria-label="Diagram Name"
         />
       </div>
       <div className="flex items-center gap-2">
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={onNewModelClick}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    New Model
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent>Create a new threat model</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="icon" onClick={handleShare}>

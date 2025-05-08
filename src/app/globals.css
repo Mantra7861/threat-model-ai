@@ -1,3 +1,4 @@
+
 @import '@xyflow/react/dist/style.css';
 @tailwind base;
 @tailwind components;
@@ -101,38 +102,58 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    /* z-index is handled by calculateEffectiveZIndex in diagram-utils and applied in CustomNode.tsx */
   }
   
-  /* Type-specific styles for standard components. These define border and text color. */
-  /* Ensure borders are always visible for these standard types */
-  div.react-flow__node.react-flow__node-server { /* Increased specificity */
+  /* Infrastructure Component Type-specific styles */
+  div.react-flow__node.react-flow__node-server { 
     @apply border border-blue-400 text-blue-800; 
   }
-  div.react-flow__node.react-flow__node-database { /* Increased specificity */
+  div.react-flow__node.react-flow__node-database { 
     @apply border border-green-400 text-green-800; 
   }
-  div.react-flow__node.react-flow__node-service { /* Increased specificity */
+  div.react-flow__node.react-flow__node-service { 
     @apply border border-purple-400 text-purple-800; 
   }
-  div.react-flow__node.react-flow__node-router { /* Increased specificity */
+  div.react-flow__node.react-flow__node-router { 
     @apply border border-yellow-500 text-yellow-800; 
   }
-  div.react-flow__node.react-flow__node-default { /* Increased specificity */
+  div.react-flow__node.react-flow__node-default {
      @apply border border-gray-400 text-gray-800; 
   }
 
+  /* Process Component Type-specific styles */
+  div.react-flow__node.react-flow__node-step { /* Rectangle */
+    @apply border border-sky-500 text-sky-800;
+  }
+  div.react-flow__node.react-flow__node-start-end { /* Circle/Oval */
+    @apply border border-lime-500 text-lime-800 !rounded-full; /* Ensure it's circular */
+  }
+  div.react-flow__node.react-flow__node-decision { /* Diamond */
+    @apply border border-fuchsia-500 text-fuchsia-800; /* Container can be rect, icon is diamond */
+     /* No specific border-radius for the container, the icon dictates shape visually */
+  }
+  div.react-flow__node.react-flow__node-input-output { /* Parallelogram */
+    @apply border border-orange-500 text-orange-800;
+    /* transform: skewX(-15deg); */ /* Can apply skew to the node itself if not using SVG for shape */
+  }
+  div.react-flow__node.react-flow__node-document {
+    @apply border border-indigo-500 text-indigo-800;
+  }
+  div.react-flow__node.react-flow__node-manual-input { /* Trapezoid */
+    @apply border border-amber-500 text-amber-800;
+  }
+
+
   /* Boundary Box Specific Styling */
- div.react-flow__node.react-flow__node-boundary { /* Increased specificity */
-     /* Ensure border is always visible and prioritized */
+ div.react-flow__node.react-flow__node-boundary {
      border-width: 2px !important;
      border-style: dashed !important;
      border-color: hsl(var(--destructive)) !important;
      
-     @apply bg-transparent !important; /* Ensure background is transparent and prioritized */
-     @apply text-[hsl(var(--destructive))]; /* Label color matches border */
+     @apply bg-transparent !important; 
+     @apply text-[hsl(var(--destructive))]; 
      @apply cursor-default; 
-     @apply shadow-none hover:shadow-none; /* No shadow for boundary */
+     @apply shadow-none hover:shadow-none;
   }
   
   /* General selection outline for non-boundary nodes */
@@ -140,13 +161,8 @@ body {
     @apply ring-2 ring-primary ring-offset-2;
   }
   
-  /* Selection outline for boundary nodes - ensure it doesn't interfere with the permanent border */
   .react-flow__node-boundary.selected {
-    /* The dashed border from .react-flow__node-boundary is permanent.
-       No additional ring or border style is needed here for selection,
-       as the permanent border itself is the primary visual indicator.
-       Setting ring to 0 ensures no default selection ring is applied. */
-    @apply ring-2 ring-offset-0;
+    @apply ring-2 ring-[hsl(var(--destructive))] ring-offset-0;
   }
 
 
@@ -157,13 +173,11 @@ body {
      @apply !bg-primary !opacity-100;
    }
 
-   /* Default edge path style */
    .react-flow__edge-path {
      @apply stroke-gray-500 stroke-2;
      marker-end: url(#arrowclosed); 
    }
 
-    /* Style for selected edges */
    .react-flow__edge.selected .react-flow__edge-path,
    .react-flow__edge:focus .react-flow__edge-path,
    .react-flow__edge:focus-within .react-flow__edge-path {

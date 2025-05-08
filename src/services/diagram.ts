@@ -1,5 +1,4 @@
 
-
 /**
  * Represents a component in the diagram.
  */
@@ -69,6 +68,7 @@ export interface Connection {
   selected?: boolean;
 }
 
+export type ModelType = 'infrastructure' | 'process';
 
 /**
  * Represents a diagram.
@@ -82,6 +82,10 @@ id: string;
    * The name of the diagram.
    */
 name: string;
+  /**
+   * The type of the model.
+   */
+  modelType?: ModelType;
   /**
    * The components in the diagram.
    */
@@ -108,6 +112,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
   return {
     id: '1',
     name: 'Sample E-commerce Architecture',
+    modelType: 'infrastructure', // Default to infrastructure for existing mock
     components: [
       {
         id: 'web-server-1',
@@ -117,7 +122,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
           os: 'Ubuntu 22.04',
           ipAddress: '10.0.0.5',
           description: 'Handles incoming HTTP requests.',
-          position: { x: 250, y: 100 }, // Adjusted y
+          position: { x: 250, y: 100 }, 
           width: 150,
           height: 80,
           selected: false,
@@ -131,7 +136,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
           engine: 'PostgreSQL 14',
           storageGB: 512,
           description: 'Stores customer information.',
-          position: { x: 250, y: 300 }, // Adjusted y
+          position: { x: 250, y: 300 }, 
           width: 150,
           height: 80,
           selected: false,
@@ -144,7 +149,7 @@ export async function getDiagram(id: string): Promise<Diagram> {
             name: 'API Gateway',
             provider: 'Cloud Provider',
             description: 'Manages API access.',
-            position: { x: 50, y: 200}, // Adjusted y
+            position: { x: 50, y: 200}, 
             width: 150,
             height: 80,
             selected: false,
@@ -156,9 +161,9 @@ export async function getDiagram(id: string): Promise<Diagram> {
         properties: {
             name: 'Internal Network',
             description: 'Internal trusted network zone.',
-            position: { x: 180, y: 50 }, // Adjusted y
-            width: 300, // Initial size
-            height: 350, // Initial size
+            position: { x: 180, y: 50 }, 
+            width: 300, 
+            height: 350, 
             selected: false,
         }
       }
@@ -194,5 +199,14 @@ export async function getDiagram(id: string): Promise<Diagram> {
 export async function saveDiagram(diagram: Diagram): Promise<void> {
   console.log('Saving diagram:', JSON.stringify(diagram, null, 2)); 
   await new Promise(resolve => setTimeout(resolve, 500));
-  console.log(`Diagram ${diagram.id} simulated save complete.`);
+  console.log(`Diagram ${diagram.id} (type: ${diagram.modelType || 'unknown'}) simulated save complete.`);
 }
+
+// Default empty diagram structure
+export const getDefaultDiagram = (id: string, name: string, type: ModelType): Diagram => ({
+  id,
+  name,
+  modelType: type,
+  components: [],
+  connections: [],
+});

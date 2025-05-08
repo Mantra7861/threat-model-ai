@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, type ReactNode } from 'react';
@@ -18,12 +19,14 @@ import {
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent, type Connection as DiagramConnection } from '@/services/diagram';
+import { getDiagram, saveDiagram, type Diagram, type Component as DiagramComponent, type Connection as DiagramConnection, getDefaultDiagram, type ModelType } from '@/services/diagram';
 import { useToast } from '@/hooks/use-toast';
 import { componentToNode, nodeToComponent, connectionToEdge, edgeToConnection, getTopmostElementAtClick, calculateEffectiveZIndex } from '@/lib/diagram-utils';
 import { DiagramHeader } from "@/components/layout/DiagramHeader";
 import { ThreatReportPanel } from "@/components/diagram/ThreatReportPanel";
 import { Button } from '@/components/ui/button';
+import { NewModelDialog } from '@/components/dialogs/NewModelDialog';
+import { useProjectContext } from '@/contexts/ProjectContext';
 
 
 interface ProjectClientLayoutProps {
@@ -31,34 +34,19 @@ interface ProjectClientLayoutProps {
 }
 
 export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
+    const { modelType, setModelType, modelName, setModelName } = useProjectContext();
+    
     const [nodes, setNodesInternal] = useNodesState<Node[]>([]);
     const [edges, setEdgesInternal] = useEdgesState<Edge[]>([]);
     const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-    const [diagramName, setDiagramName] = useState<string>('Loading...');
+    // diagramName is now modelName from context
     const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { toast } = useToast();
     const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
-
-    // Effect to set nodes and edges selected status based on selectedElementId
-    useEffect(() => {
-        setNodesInternal(prevNodes =>
-            prevNodes.map(n => ({
-                ...n,
-                selected: n.id === selectedElementId,
-                // Update zIndex when selection changes, ensuring CustomNode gets the right base
-                zIndex: calculateEffectiveZIndex(n.id, n.type as string, n.id === selectedElementId, n.zIndex, selectedElementId)
-            }))
-        );
-        setEdgesInternal(prevEdges =>
-            prevEdges.map(e => ({
-                ...e,
-                selected: e.id === selectedElementId
-            }))
-        );
-    }, [selectedElementId]); // Removed setNodesInternal, setEdgesInternal as they are stable
+    const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
 
 
     useEffect(() => {
@@ -67,6 +55,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             setError(null);
             try {
                 const diagramData = await getDiagram(projectId);
+                setModelName(diagramData.name);
+                setModelType(diagramData.modelType || 'infrastructure');
                 setDiagramDataForAI(diagramData);
                 
                 const initiallySelectedComponent = diagramData.components.find(c => c.properties?.selected);
@@ -91,9 +81,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 const flowEdges = diagramData.connections?.map(c => connectionToEdge(c, c.id === currentSelectedId)) || [];
                 setEdgesInternal(flowEdges);
                 
-                setDiagramName(diagramData.name);
                 setSelectedElementId(currentSelectedId);
-
 
             } catch (err) {
                 setError('Failed to load diagram.');
@@ -105,14 +93,30 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         }
         loadDiagram();
     // eslint-disable-next-line react-hooks/exhaustive-deps 
-    }, [projectId, toast]); 
+    }, [projectId, toast, setModelName, setModelType]); // setNodesInternal, setEdgesInternal removed from deps
+
+    // Effect to set nodes and edges selected status based on selectedElementId
+    useEffect(() => {
+        setNodesInternal(prevNodes =>
+            prevNodes.map(n => ({
+                ...n,
+                selected: n.id === selectedElementId,
+                zIndex: calculateEffectiveZIndex(n.id, n.type as string, n.id === selectedElementId, n.zIndex, selectedElementId)
+            }))
+        );
+        setEdgesInternal(prevEdges =>
+            prevEdges.map(e => ({
+                ...e,
+                selected: e.id === selectedElementId
+            }))
+        );
+    }, [selectedElementId, setNodesInternal, setEdgesInternal]);
 
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
             setNodesInternal((currentNodes) => {
                 const updatedNodes = applyNodeChanges(changes, currentNodes);
-                // Ensure zIndex is updated for selection changes or new nodes
                 return updatedNodes.map(node => {
                     const change = changes.find(c => c.id === node.id);
                     let newSelectedStatus = node.selected;
@@ -126,7 +130,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                             zIndex: calculateEffectiveZIndex(node.id, node.type as string, newSelectedStatus, node.zIndex, selectedElementId)
                         };
                     }
-                    // For dimension changes, ensure zIndex is maintained based on current selectedElementId
                     if (change && change.type === 'dimensions') {
                          return {
                             ...node,
@@ -180,12 +183,12 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         (connection: Connection) => {
           const newEdgeId = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           const newEdgeData = {
-            label: 'Data Flow',
+            label: 'Data Flow', // Default label, can be adapted for process flows
             properties: {
               name: 'Data Flow',
-              description: 'A new data flow connection.',
-              dataType: 'Generic',
-              protocol: 'TCP/IP',
+              description: 'A new data/process flow connection.',
+              dataType: modelType === 'process' ? 'Process Step' : 'Generic',
+              protocol: modelType === 'process' ? 'Sequence' : 'TCP/IP',
               securityConsiderations: 'Needs review',
             },
           };
@@ -199,17 +202,16 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
           };
           
           setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
-          // Deselect all nodes and update their zIndex accordingly
           setNodesInternal(nds => nds.map(n => ({ 
               ...n, 
               selected: false,
-              zIndex: calculateEffectiveZIndex(n.id, n.type as string, false, n.zIndex, newEdgeId) // Pass newEdgeId so nodes know they aren't selected
+              zIndex: calculateEffectiveZIndex(n.id, n.type as string, false, n.zIndex, newEdgeId)
             })
           ));
           setSelectedElementId(newEdgeId); 
-          toast({ title: 'Connection Added', description: 'Data flow created and selected.' });
+          toast({ title: 'Connection Added', description: `${modelType === 'process' ? 'Process flow' : 'Data flow'} created and selected.` });
         },
-        [setEdgesInternal, setNodesInternal, setSelectedElementId, toast]
+        [setEdgesInternal, setNodesInternal, setSelectedElementId, toast, modelType]
     );
     
     const selectedNode = useMemo(() => nodes.find(node => node.id === selectedElementId) ?? null, [nodes, selectedElementId]);
@@ -275,10 +277,11 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     
         const diagramToSave: Diagram = {
             id: projectId,
-            name: diagramName, 
+            name: modelName, 
+            modelType: modelType,
             components: nodesToSave.map(n => ({
                 id: n.id,
-                type: n.type as string, // Ensure type is string
+                type: n.type as string,
                 properties: n.properties,
             })),
             connections: edgesToSave.map(e => ({
@@ -289,7 +292,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 targetHandle: e.targetHandle,
                 label: e.label,
                 properties: e.properties,
-                selected: e.properties.selected,
+                selected: e.properties.selected || false,
             })),
         };
 
@@ -302,11 +305,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const errorMessage = err instanceof Error ? err.message : 'Could not save diagram.';
             toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
         }
-    }, [projectId, diagramName, nodes, edges, selectedElementId, toast]);
-
-    const handleDiagramNameChange = useCallback((newName: string) => {
-        setDiagramName(newName);
-    }, []);
+    }, [projectId, modelName, modelType, nodes, edges, selectedElementId, toast]);
 
     
    const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
@@ -314,7 +313,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             return; 
         }
         setSelectedElementId(element.id);
-    }, [selectedElementId, setSelectedElementId]); // Removed direct onNodesChange/onEdgesChange from deps, managed by selectedElementId effect
+    }, [selectedElementId, setSelectedElementId]); 
         
 
     const onPaneClick = useCallback(
@@ -327,12 +326,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const point = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
             const currentZoom = reactFlowInstance.getViewport().zoom;
             
-            // Use the latest nodes/edges from state for click detection, not from reactFlowInstance.getNodes()
-            // as reactFlowInstance might not be perfectly in sync if our state updates are complex.
-            // However, for positionAbsolute, getNodes() is usually reliable if nodes are passed correctly.
-            const currentNodesForHitTest = reactFlowInstance.getNodes(); // Nodes with up-to-date positions
+            const currentNodesForHitTest = reactFlowInstance.getNodes(); 
             const currentEdgesForHitTest = reactFlowInstance.getEdges();
-
 
             const elementToSelect = getTopmostElementAtClick(currentNodesForHitTest, currentEdgesForHitTest, point, currentZoom, selectedElementId);
             
@@ -342,12 +337,22 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 }
             } else {
                  if (selectedElementId) {
-                    setSelectedElementId(null); // This will trigger the useEffect to deselect
+                    setSelectedElementId(null); 
                  }
             }
         },
-        [reactFlowInstance, selectedElementId, setSelectedElementId, onElementClick, nodes, edges] 
+        [reactFlowInstance, selectedElementId, setSelectedElementId, onElementClick] 
     );
+
+    const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
+        setModelName(newModelName);
+        setModelType(newModelType);
+        setNodesInternal([]); // Clear canvas
+        setEdgesInternal([]);   // Clear canvas
+        setSelectedElementId(null);
+        setDiagramDataForAI(getDefaultDiagram(projectId, newModelName, newModelType)); // Update AI data
+        toast({ title: 'New Model Created', description: `Switched to new ${newModelType} model: ${newModelName}` });
+    };
 
 
     if (loading) {
@@ -362,8 +367,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         <>
             <DiagramHeader 
                 projectId={projectId}
-                initialDiagramName={diagramName}
-                onNameChange={handleDiagramNameChange}
+                onNewModelClick={() => setIsNewModelDialogOpen(true)}
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -378,7 +382,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         onMoveEnd={(e, vp) => setViewport(vp)}
                         viewport={viewport}
                         onNodeClick={onElementClick} 
-                        onEdgeClick={onElementClick} 
+                        onEdgeClick={onEdgeClick} 
                         onPaneClick={onPaneClick}
                         onRfLoad={setReactFlowInstance} 
                         selectedElementId={selectedElementId} 
@@ -396,7 +400,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                                 selectedElement={selectedElement}
                                 onUpdateProperties={updateElementProperties}
                                 onDeleteElement={deleteElement} 
-                                diagramDescription={diagramDataForAI?.name || diagramName} 
+                                diagramDescription={diagramDataForAI?.name || modelName} 
                             />
                         </TabsContent>
                         <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
@@ -407,13 +411,18 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         <Button
                             onClick={handleSave}
                             className="w-full"
-                            disabled={loading} 
+                            disabled={loading || isGenerating } 
                         >
                             Save Diagram
                         </Button>
                     </div>
                 </aside>
             </div>
+            <NewModelDialog 
+                isOpen={isNewModelDialogOpen}
+                onClose={() => setIsNewModelDialogOpen(false)}
+                onCreateModel={handleCreateNewModel}
+            />
         </>
     );
 }
