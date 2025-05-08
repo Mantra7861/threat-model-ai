@@ -104,8 +104,8 @@ body {
     /* z-index is handled by calculateEffectiveZIndex in diagram-utils and applied in CustomNode.tsx */
   }
   
-  /* Type-specific styles. These mainly define border and text color. Background is transparent for boundaries. */
-  /* Ensure borders are always visible */
+  /* Type-specific styles for standard components. These define border and text color. */
+  /* Ensure borders are always visible for these standard types */
   .react-flow__node-server {
     @apply border border-blue-400 text-blue-800; 
   }
@@ -118,29 +118,31 @@ body {
   .react-flow__node-router {
     @apply border border-yellow-500 text-yellow-800; 
   }
-   .react-flow__node-default {
+  .react-flow__node-default { /* Default for any unspecified node type */
      @apply border border-gray-400 text-gray-800; 
-   }
+  }
 
-  /* Boundary Box Specific Styling - ensure single dashed border and transparent background, always visible */
+  /* Boundary Box Specific Styling */
   .react-flow__node-boundary {
-     @apply border-2 border-dashed border-[hsl(var(--destructive))] bg-transparent !important; 
-     @apply text-[hsl(var(--destructive))]; /* Ensure label color matches border */
+     @apply border-2 border-dashed border-[hsl(var(--destructive))] !important; /* Ensure border is always visible and prioritized */
+     @apply bg-transparent !important; /* Ensure background is transparent and prioritized */
+     @apply text-[hsl(var(--destructive))]; /* Label color matches border */
      @apply cursor-default; 
      @apply shadow-none hover:shadow-none; /* No shadow for boundary */
-   }
+  }
   
   /* General selection outline for non-boundary nodes */
   .react-flow__node.selected:not(.react-flow__node-boundary) {
     @apply ring-2 ring-primary ring-offset-2;
   }
-  /* Selection outline for boundary nodes */
+  
+  /* Selection outline for boundary nodes - ensure it doesn't interfere with the permanent border */
   .react-flow__node-boundary.selected {
-    /* The border is permanent. Selection might add a subtle effect if desired, but not a ring to avoid double border. */
-    /* For example, slightly change border opacity or add a very subtle glow if needed */
-     /* @apply ring-1 ring-offset-0 ring-[hsl(var(--destructive))]; /* Example: subtle ring of same color */
-     /* Keeping it simple: the dashed border is the primary indicator. */
-      @apply ring-0 ring-offset-0;
+    /* The dashed border from .react-flow__node-boundary is permanent.
+       No additional ring or border style is needed here for selection,
+       as the permanent border itself is the primary visual indicator.
+       Setting ring to 0 ensures no default selection ring is applied. */
+    @apply ring-0 ring-offset-0;
   }
 
 
