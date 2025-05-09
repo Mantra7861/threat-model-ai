@@ -24,13 +24,15 @@ const SuggestComponentPropertiesInputSchema = z.object({
 export type SuggestComponentPropertiesInput = z.infer<typeof SuggestComponentPropertiesInputSchema>;
 
 // Schema for the actual properties object we want to return from the flow/function
+// This remains z.record(z.any()) because the function should return an object, even if empty.
 const ActualFlowOutputSchema = z.record(z.any()).describe('Suggested key-value pairs for the component properties.');
 export type SuggestComponentPropertiesOutput = z.infer<typeof ActualFlowOutputSchema>; // This is the function's actual return type
 
-// Schema for the structured output we ask the AI to produce via the prompt
+// Schema for the structured output we ask the AI to produce via the prompt.
+// suggestedProperties can now be null if AI has no suggestions.
 const PromptStructuredOutputSchema = z.object({
-  suggestedProperties: ActualFlowOutputSchema.describe("A JSON object containing the suggested additional properties. This 'suggestedProperties' object can be empty if no new properties are found."),
-}).describe("The overall JSON structure the AI should return. It must contain a 'suggestedProperties' key.");
+  suggestedProperties: z.record(z.any()).nullable().describe("A JSON object containing the suggested additional properties, or null if no new properties are found."),
+}).describe("The overall JSON structure the AI should return. It must contain a 'suggestedProperties' key, which can be null.");
 
 
 export async function suggestComponentProperties(
@@ -73,11 +75,11 @@ const prompt = ai.definePrompt({
   Ensure to include the proper formatting of the data, such as booleans are actually booleans and not strings.
   Be as extensive as possible, including anything that would be useful to know.
 
-  Example response format:
+  Example response format with properties:
   {"suggestedProperties": {"newKey": "newValue", "isEncrypted": true}}
 
-  If no new properties can be suggested, the "suggestedProperties" object should be empty:
-  {"suggestedProperties": {}}
+  If no new properties can be suggested, the value of "suggestedProperties" should be null:
+  {"suggestedProperties": null}
 
   Return only this JSON object structure, without any surrounding text or markdown formatting.
   `,
@@ -85,11 +87,11 @@ const prompt = ai.definePrompt({
 
 const suggestComponentPropertiesFlow = ai.defineFlow<
   typeof SuggestComponentPropertiesInputSchema,
-  typeof ActualFlowOutputSchema // Flow returns the inner properties object
+  typeof ActualFlowOutputSchema // Flow returns the inner properties object, which should be {} if AI suggested null.
 >({
   name: 'suggestComponentPropertiesFlow',
   inputSchema: SuggestComponentPropertiesInputSchema,
-  outputSchema: ActualFlowOutputSchema, // Flow's output schema matches the function's return type
+  outputSchema: ActualFlowOutputSchema, 
 },
 async input => {
   const propertiesJson = JSON.stringify(input.component.properties);
@@ -100,17 +102,17 @@ async input => {
     diagramDescription: input.diagramDescription,
   };
 
-  // The 'output' here will be of type z.infer<typeof PromptStructuredOutputSchema>
-  // Genkit handles parsing based on the prompt's output.schema.
   const { output: promptResponse } = await prompt(promptInput);
 
   if (promptResponse && typeof promptResponse.suggestedProperties === 'object' && promptResponse.suggestedProperties !== null) {
-    // The AI returned the expected structure, and suggestedProperties is an object (even if empty).
+    // AI returned an object for suggestedProperties
     return promptResponse.suggestedProperties;
+  } else if (promptResponse && promptResponse.suggestedProperties === null) {
+    // AI explicitly suggested no new properties by returning null
+    return {}; // Return an empty object for properties
   }
   
   // Fallback if the AI's response structure is not as expected.
   console.warn("AI output was not in the expected structured format or 'suggestedProperties' was missing/invalid:", promptResponse);
   return {}; // Return an empty object for properties
 });
-
