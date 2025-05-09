@@ -9,9 +9,7 @@
  */
 
 import {ai} from '@/ai/ai-instance';
-import {Component} from '@/services/diagram';
 import {z} from 'genkit';
-import { json } from 'stream/consumers';
 
 const SuggestComponentPropertiesInputSchema = z.object({
   component: z
@@ -25,8 +23,15 @@ const SuggestComponentPropertiesInputSchema = z.object({
 });
 export type SuggestComponentPropertiesInput = z.infer<typeof SuggestComponentPropertiesInputSchema>;
 
-const SuggestComponentPropertiesOutputSchema = z.record(z.any()).describe('Suggested properties for the component.');
-export type SuggestComponentPropertiesOutput = z.infer<typeof SuggestComponentPropertiesOutputSchema>;
+// Schema for the actual properties object we want to return from the flow/function
+const ActualFlowOutputSchema = z.record(z.any()).describe('Suggested key-value pairs for the component properties.');
+export type SuggestComponentPropertiesOutput = z.infer<typeof ActualFlowOutputSchema>; // This is the function's actual return type
+
+// Schema for the structured output we ask the AI to produce via the prompt
+const PromptStructuredOutputSchema = z.object({
+  suggestedProperties: ActualFlowOutputSchema.describe("A JSON object containing the suggested additional properties. This 'suggestedProperties' object can be empty if no new properties are found."),
+}).describe("The overall JSON structure the AI should return. It must contain a 'suggestedProperties' key.");
+
 
 export async function suggestComponentProperties(
   input: SuggestComponentPropertiesInput
@@ -45,14 +50,14 @@ const PromptInputSchema = z.object({
 const prompt = ai.definePrompt({
   name: 'suggestComponentPropertiesPrompt',
   input: {
-    schema: PromptInputSchema, // Use the new schema here
+    schema: PromptInputSchema, 
   },
   output: {
-    schema: SuggestComponentPropertiesOutputSchema, // Output schema remains the same
+    schema: PromptStructuredOutputSchema, // AI is asked to produce this specific structure
   },
   prompt: `You are an AI assistant that suggests properties for components in a threat model diagram.
 
-  Given the type of the component and any existing properties (as a JSON string), suggest additional properties that would be relevant for threat modeling.
+  Given the type of the component, its existing properties (as a JSON string), and optionally a diagram description, suggest additional properties relevant for threat modeling.
   Consider the STRIDE model when suggesting properties.
 
   Component Type: {{{componentType}}}
@@ -61,22 +66,32 @@ const prompt = ai.definePrompt({
   Diagram Description: {{{diagramDescription}}}
   {{/if}}
 
-  Suggest additional properties for the component, as a JSON object. Do not repeat existing properties mentioned in the JSON above.
+  Suggest additional properties for the component.
+  Return your answer as a JSON object with a single key "suggestedProperties".
+  The value of "suggestedProperties" should be another JSON object containing the suggested key-value pairs.
+  Do not repeat existing properties mentioned in the JSON above.
   Ensure to include the proper formatting of the data, such as booleans are actually booleans and not strings.
-  Be as extensive as possible, including anything that would be useful to know. Return only the JSON object of suggested properties, without any surrounding text or markdown formatting.
+  Be as extensive as possible, including anything that would be useful to know.
+
+  Example response format:
+  {"suggestedProperties": {"newKey": "newValue", "isEncrypted": true}}
+
+  If no new properties can be suggested, the "suggestedProperties" object should be empty:
+  {"suggestedProperties": {}}
+
+  Return only this JSON object structure, without any surrounding text or markdown formatting.
   `,
 });
 
 const suggestComponentPropertiesFlow = ai.defineFlow<
   typeof SuggestComponentPropertiesInputSchema,
-  typeof SuggestComponentPropertiesOutputSchema
+  typeof ActualFlowOutputSchema // Flow returns the inner properties object
 >({
   name: 'suggestComponentPropertiesFlow',
   inputSchema: SuggestComponentPropertiesInputSchema,
-  outputSchema: SuggestComponentPropertiesOutputSchema,
+  outputSchema: ActualFlowOutputSchema, // Flow's output schema matches the function's return type
 },
 async input => {
-  // Stringify the properties before calling the prompt
   const propertiesJson = JSON.stringify(input.component.properties);
 
   const promptInput: z.infer<typeof PromptInputSchema> = {
@@ -85,28 +100,17 @@ async input => {
     diagramDescription: input.diagramDescription,
   };
 
-  const {output} = await prompt(promptInput);
+  // The 'output' here will be of type z.infer<typeof PromptStructuredOutputSchema>
+  // Genkit handles parsing based on the prompt's output.schema.
+  const { output: promptResponse } = await prompt(promptInput);
 
-  // Attempt to parse the output, handle potential errors
-  try {
-    // The AI might return a stringified JSON or just the JSON object.
-    // Genkit often handles the parsing based on the output schema.
-    // If output is already an object matching the schema, return it.
-    if (typeof output === 'object' && output !== null) {
-      return output;
-    }
-    // If it's a string, try parsing it.
-    if (typeof output === 'string') {
-        // Remove potential markdown code block fences
-        const cleanedOutput = output.replace(/```json\n?|\n?```/g, '').trim();
-         return JSON.parse(cleanedOutput);
-    }
-     // If it's neither, return an empty object or throw an error
-    console.warn("AI output was not a valid JSON object or string:", output);
-    return {};
-  } catch (e) {
-      console.error("Failed to parse AI output as JSON:", e, "Raw output:", output);
-      // Handle the error appropriately, maybe return empty or re-throw
-      throw new Error("AI failed to return valid JSON for suggested properties.");
+  if (promptResponse && typeof promptResponse.suggestedProperties === 'object' && promptResponse.suggestedProperties !== null) {
+    // The AI returned the expected structure, and suggestedProperties is an object (even if empty).
+    return promptResponse.suggestedProperties;
   }
+  
+  // Fallback if the AI's response structure is not as expected.
+  console.warn("AI output was not in the expected structured format or 'suggestedProperties' was missing/invalid:", promptResponse);
+  return {}; // Return an empty object for properties
 });
+
