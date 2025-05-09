@@ -2,6 +2,7 @@
 "use client"; // Make this a client component to use useAuth hook
 
 import type { ReactNode } from "react";
+import { use } from 'react'; // Import use
 import {
   SidebarProvider,
   Sidebar,
@@ -26,11 +27,12 @@ import Link from "next/link";
 
 export default function ProjectLayout({
   children, 
-  params,
+  params: paramsPromise, // Renamed to indicate it's a promise
 }: {
   children: ReactNode; 
-  params: { projectId: string };
+  params: Promise<{ projectId: string }>; // Updated type to Promise
 }) {
+  const params = use(paramsPromise); // Unwrap the promise using React.use()
   const { currentUser, userProfile, isAdmin } = useAuth(); // Get user info
 
   return (
@@ -106,3 +108,4 @@ export default function ProjectLayout({
     </ProjectProvider>
   );
 }
+
