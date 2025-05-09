@@ -1,8 +1,8 @@
 
-"use client"; // Make this a client component to use useAuth hook
+"use client"; 
 
 import type { ReactNode } from "react";
-import { use } from 'react'; // Import use
+import { use } from 'react'; 
 import {
   SidebarProvider,
   Sidebar,
@@ -15,25 +15,24 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { FileText, Workflow, Settings, Users, ShieldAlert, HelpCircle, LayoutDashboard, LogOut, SigmaIcon, Circle, FileTextIcon, KeyboardIcon, UserCircle } from "lucide-react";
+import { Settings, ShieldAlert, HelpCircle, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarComponentLibrary } from "@/components/diagram/SidebarComponentLibrary";
 import { ProjectClientLayout } from "./ProjectClientLayout"; 
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
-import { auth } from "@/lib/firebase/firebase"; // Import auth for signOut
+import { useAuth } from "@/contexts/AuthContext"; 
 import Link from "next/link";
 
 
 export default function ProjectLayout({
   children, 
-  params: paramsPromise, // Renamed to indicate it's a promise
+  params: paramsPromise, 
 }: {
   children: ReactNode; 
-  params: Promise<{ projectId: string }>; // Updated type to Promise
+  params: Promise<{ projectId: string }>; 
 }) {
-  const params = use(paramsPromise); // Unwrap the promise using React.use()
-  const { currentUser, userProfile, isAdmin } = useAuth(); // Get user info
+  const params = use(paramsPromise); 
+  const { currentUser, userProfile, isAdmin, signOut } = useAuth(); 
 
   return (
     <ProjectProvider initialProjectId={params.projectId}>
@@ -42,10 +41,10 @@ export default function ProjectLayout({
         <Sidebar side="left" variant="sidebar" collapsible="icon">
           <SidebarHeader className="p-2">
             <div className="flex items-center gap-2 justify-between">
-              <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+              <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
                   <ShieldAlert className="text-primary-foreground size-6" />
                   <h1 className="text-xl font-semibold text-primary-foreground">ThreatMapperAI</h1>
-              </div>
+              </Link>
               <SidebarTrigger className="text-primary-foreground hover:bg-sidebar-accent" />
             </div>
           </SidebarHeader>
@@ -57,7 +56,7 @@ export default function ProjectLayout({
               {isAdmin && (
                 <SidebarMenuItem>
                   <Link href="/admin/users" legacyBehavior passHref>
-                    <SidebarMenuButton tooltip="Admin Panel" className="justify-center group-data-[collapsible=icon]:justify-center">
+                    <SidebarMenuButton tooltip="Admin Panel" className="justify-start group-data-[collapsible=icon]:justify-center">
                       <Settings />
                       <span className="group-data-[collapsible=icon]:hidden">Admin Panel</span>
                     </SidebarMenuButton>
@@ -65,32 +64,26 @@ export default function ProjectLayout({
                 </SidebarMenuItem>
               )}
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Help" className="justify-center group-data-[collapsible=icon]:justify-center">
+                <SidebarMenuButton tooltip="Help" className="justify-start group-data-[collapsible=icon]:justify-center">
                   <HelpCircle />
                   <span className="group-data-[collapsible=icon]:hidden">Help</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Account Settings" className="justify-center group-data-[collapsible=icon]:justify-center">
-                      <Avatar className="size-7 group-data-[collapsible=icon]:size-6">
-                          <AvatarImage src={userProfile?.photoURL || "https://picsum.photos/40/40"} data-ai-hint="user avatar" alt="User Avatar" />
-                          <AvatarFallback>{userProfile?.displayName?.charAt(0).toUpperCase() || currentUser?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
-                      </Avatar>
-                      <span className="group-data-[collapsible=icon]:hidden">{userProfile?.displayName || currentUser?.email}</span>
-                  </SidebarMenuButton>
+                {/* User Avatar and Name Display */}
+                 <div className="flex items-center gap-2 p-2 rounded-md group-data-[collapsible=icon]:justify-center text-sidebar-foreground">
+                    <Avatar className="size-7 group-data-[collapsible=icon]:size-6">
+                        <AvatarImage src={userProfile?.photoURL || undefined} data-ai-hint="user avatar" alt={userProfile?.displayName || currentUser?.email || 'User Avatar'} />
+                        <AvatarFallback>{userProfile?.displayName?.charAt(0).toUpperCase() || currentUser?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <span className="group-data-[collapsible=icon]:hidden text-sm truncate max-w-[100px]">{userProfile?.displayName || currentUser?.email}</span>
+                </div>
               </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     tooltip="Log Out" 
-                    className="justify-center group-data-[collapsible=icon]:justify-center"
-                    onClick={async () => {
-                        try {
-                            await auth.signOut();
-                            // Router redirect will be handled by AuthContext if needed
-                        } catch (error) {
-                            console.error("Error signing out: ", error);
-                        }
-                    }}
+                    className="justify-start group-data-[collapsible=icon]:justify-center"
+                    onClick={signOut}
                   >
                     <LogOut />
                     <span className="group-data-[collapsible=icon]:hidden">Log Out</span>

@@ -2,8 +2,8 @@
 "use client";
 
 import type { ReactNode, Dispatch, SetStateAction } from 'react';
-import { createContext, useContext, useEffect, useState} from 'react';
-import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { onAuthStateChanged, type User as FirebaseUser, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 import { getUserProfile, createUserProfile } from '@/services/userService';
 import type { UserProfile } from '@/types/user';
@@ -18,6 +18,7 @@ interface AuthContextType {
   isViewer: boolean;
   setCurrentUser: Dispatch<SetStateAction<FirebaseUser | null>>;
   setUserProfile: Dispatch<SetStateAction<UserProfile | null>>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,23 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser(user);
         let profile = await getUserProfile(user.uid);
         if (!profile) {
-          // If profile doesn't exist, create it with default 'editor' role
           profile = await createUserProfile(user.uid, user.email, user.displayName, user.photoURL);
         }
         setUserProfile(profile);
 
-        // Redirect if trying to access admin routes without admin role
         if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
-          router.replace('/'); // Or a specific access-denied page
+          router.replace('/'); 
         }
 
       } else {
         setCurrentUser(null);
         setUserProfile(null);
-        // If trying to access protected routes while not logged in (except auth pages)
-        if (!pathname.startsWith('/auth') && pathname !== '/') { // Adjust if you have public pages other than '/'
-          // For now, let pages handle their own auth checks if they are not admin
-          // router.replace('/auth/login'); // Or your login page
+        // Only redirect if not on an auth page or public landing page
+        const publicPaths = ['/auth/login', '/auth/signup', '/']; // Add any other public paths
+        if (!publicPaths.includes(pathname) && !pathname.startsWith('/auth')) {
+            // No automatic redirect to login here, pages should handle their own auth checks for non-admin content
+            // if a page requires auth, it should use useAuth and redirect if !currentUser and !loading
         }
       }
       setLoading(false);
@@ -62,11 +62,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [router, pathname]);
 
   const isAdmin = userProfile?.role === 'admin';
-  const isEditor = userProfile?.role === 'editor';
-  const isViewer = userProfile?.role === 'viewer';
+  const isEditor = userProfile?.role === 'editor' || userProfile?.role === 'admin'; // Admins are also editors
+  const isViewer = userProfile?.role === 'viewer' || userProfile?.role === 'editor' || userProfile?.role === 'admin'; // Editors/Admins are also viewers
+
+  const signOut = useCallback(async () => {
+    try {
+      await firebaseSignOut(auth);
+      // setUserProfile(null) and setCurrentUser(null) will be handled by onAuthStateChanged
+      router.push('/auth/login'); // Redirect to login after sign out
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      // Handle sign out error (e.g., display a toast)
+    }
+  }, [router]);
 
   return (
-    <AuthContext.Provider value={{ currentUser, userProfile, loading, isAdmin, isEditor, isViewer, setCurrentUser, setUserProfile }}>
+    <AuthContext.Provider value={{ currentUser, userProfile, loading, isAdmin, isEditor, isViewer, setCurrentUser, setUserProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -79,3 +90,4 @@ export function useAuth() {
   }
   return context;
 }
+
