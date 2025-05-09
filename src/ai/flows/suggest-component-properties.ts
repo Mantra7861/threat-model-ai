@@ -29,10 +29,10 @@ const ActualFlowOutputSchema = z.record(z.any()).describe('Suggested key-value p
 export type SuggestComponentPropertiesOutput = z.infer<typeof ActualFlowOutputSchema>; // This is the function's actual return type
 
 // Schema for the structured output we ask the AI to produce via the prompt.
-// suggestedProperties can now be null if AI has no suggestions.
+// suggestedPropertiesJson will be a stringified JSON object or null.
 const PromptStructuredOutputSchema = z.object({
-  suggestedProperties: z.record(z.any()).nullable().describe("A JSON object containing the suggested additional properties, or null if no new properties are found."),
-}).describe("The overall JSON structure the AI should return. It must contain a 'suggestedProperties' key, which can be null.");
+  suggestedPropertiesJson: z.string().nullable().describe("A JSON string representing an object of suggested additional properties, or null if no new properties are found. Example: '{\"newKey\": \"newValue\", \"isEncrypted\": true}' or null."),
+}).describe("The overall JSON structure the AI should return. It must contain a 'suggestedPropertiesJson' key.");
 
 
 export async function suggestComponentProperties(
@@ -69,17 +69,18 @@ const prompt = ai.definePrompt({
   {{/if}}
 
   Suggest additional properties for the component.
-  Return your answer as a JSON object with a single key "suggestedProperties".
-  The value of "suggestedProperties" should be another JSON object containing the suggested key-value pairs.
+  Return your answer as a JSON object with a single key "suggestedPropertiesJson".
+  The value of "suggestedPropertiesJson" should be a JSON *string* that represents an object of suggested key-value pairs (e.g., "{\"newKey\": \"newValue\", \"isEncrypted\": true}"), or the JSON value null if no new properties are suggested.
+  
   Do not repeat existing properties mentioned in the JSON above.
-  Ensure to include the proper formatting of the data, such as booleans are actually booleans and not strings.
+  Ensure to include the proper formatting of the data within the JSON string, such as booleans are actually booleans and not strings.
   Be as extensive as possible, including anything that would be useful to know.
 
   Example response format with properties:
-  {"suggestedProperties": {"newKey": "newValue", "isEncrypted": true}}
+  {"suggestedPropertiesJson": "{\"newKey\": \"newValue\", \"isEncrypted\": true}"}
 
-  If no new properties can be suggested, the value of "suggestedProperties" should be null:
-  {"suggestedProperties": null}
+  Example response format if no new properties are suggested:
+  {"suggestedPropertiesJson": null}
 
   Return only this JSON object structure, without any surrounding text or markdown formatting.
   `,
@@ -104,15 +105,28 @@ async input => {
 
   const { output: promptResponse } = await prompt(promptInput);
 
-  if (promptResponse && typeof promptResponse.suggestedProperties === 'object' && promptResponse.suggestedProperties !== null) {
-    // AI returned an object for suggestedProperties
-    return promptResponse.suggestedProperties;
-  } else if (promptResponse && promptResponse.suggestedProperties === null) {
-    // AI explicitly suggested no new properties by returning null
+  if (promptResponse && typeof promptResponse.suggestedPropertiesJson === 'string') {
+    try {
+      const parsedProperties = JSON.parse(promptResponse.suggestedPropertiesJson);
+      if (typeof parsedProperties === 'object' && parsedProperties !== null) {
+        // Successfully parsed to a non-null object
+        return parsedProperties;
+      } else {
+        // Parsed to null (e.g., if AI returned "null" as a string) or not an object
+        console.warn("AI returned a JSON string that parsed to non-object or null:", parsedProperties);
+        return {}; // Return an empty object for properties
+      }
+    } catch (e) {
+      console.warn("AI returned invalid JSON string for suggestedPropertiesJson:", promptResponse.suggestedPropertiesJson, e);
+      return {}; // Return an empty object for properties
+    }
+  } else if (promptResponse && promptResponse.suggestedPropertiesJson === null) {
+    // AI explicitly suggested no new properties by returning JSON null for the string field.
     return {}; // Return an empty object for properties
   }
   
   // Fallback if the AI's response structure is not as expected.
-  console.warn("AI output was not in the expected structured format or 'suggestedProperties' was missing/invalid:", promptResponse);
+  console.warn("AI output was not in the expected structured format or 'suggestedPropertiesJson' was missing/invalid:", promptResponse);
   return {}; // Return an empty object for properties
 });
+
