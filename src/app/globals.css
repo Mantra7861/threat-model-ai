@@ -102,55 +102,50 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
+    @apply border border-transparent; /* Ensure default border is transparent or matches card border */
   }
   
+  /* Ensure components always have their specific border, not just on selection */
   /* Infrastructure Component Type-specific styles */
   div.react-flow__node.react-flow__node-server { 
-    @apply border border-blue-400 text-blue-800; 
+    @apply !border-blue-400 text-blue-800; 
   }
   div.react-flow__node.react-flow__node-database { 
-    @apply border border-green-400 text-green-800; 
+    @apply !border-green-400 text-green-800; 
   }
   div.react-flow__node.react-flow__node-service { 
-    @apply border border-purple-400 text-purple-800; 
+    @apply !border-purple-400 text-purple-800; 
   }
   div.react-flow__node.react-flow__node-router { 
-    @apply border border-yellow-500 text-yellow-800; 
+    @apply !border-yellow-500 text-yellow-800; 
   }
   div.react-flow__node.react-flow__node-default {
-     @apply border border-gray-400 text-gray-800; 
+     @apply !border-gray-400 text-gray-800; 
   }
 
   /* Process Component Type-specific styles */
   div.react-flow__node.react-flow__node-step { /* Rectangle */
-    @apply border border-sky-500 text-sky-800;
+    @apply !border-sky-500 text-sky-800;
   }
   div.react-flow__node.react-flow__node-start-end { /* Circle/Oval */
-    @apply border border-lime-500 text-lime-800 !rounded-full; /* Ensure it's circular */
+    @apply !border-lime-500 text-lime-800 !rounded-full; /* Ensure it's circular */
   }
   div.react-flow__node.react-flow__node-decision { /* Diamond */
-    @apply border border-fuchsia-500 text-fuchsia-800; /* Container can be rect, icon is diamond */
-     /* No specific border-radius for the container, the icon dictates shape visually */
+    @apply !border-fuchsia-500 text-fuchsia-800; 
   }
   div.react-flow__node.react-flow__node-input-output { /* Parallelogram */
-    @apply border border-orange-500 text-orange-800;
-    /* transform: skewX(-15deg); */ /* Can apply skew to the node itself if not using SVG for shape */
+    @apply !border-orange-500 text-orange-800;
   }
   div.react-flow__node.react-flow__node-document {
-    @apply border border-indigo-500 text-indigo-800;
+    @apply !border-indigo-500 text-indigo-800;
   }
   div.react-flow__node.react-flow__node-manual-input { /* Trapezoid */
-    @apply border border-amber-500 text-amber-800;
+    @apply !border-amber-500 text-amber-800;
   }
 
-
-  /* Boundary Box Specific Styling */
+  /* Boundary Box Specific Styling - Always visible dashed border */
  div.react-flow__node.react-flow__node-boundary {
-     border-width: 2px !important;
-     border-style: dashed !important;
-     border-color: hsl(var(--destructive)) !important;
-     
-     @apply bg-transparent !important; 
+     @apply !border-2 !border-dashed !border-[hsl(var(--destructive))] !bg-transparent; 
      @apply text-[hsl(var(--destructive))]; 
      @apply cursor-default; 
      @apply shadow-none hover:shadow-none;
@@ -158,11 +153,12 @@ body {
   
   /* General selection outline for non-boundary nodes */
   .react-flow__node.selected:not(.react-flow__node-boundary) {
-    @apply ring-2 ring-primary ring-offset-2;
+    @apply ring-2 ring-primary ring-offset-1; /* Adjusted offset for better visibility */
   }
   
+  /* Selection outline for boundary nodes */
   .react-flow__node-boundary.selected {
-    @apply ring-2 ring-[hsl(var(--destructive))] ring-offset-0;
+    @apply ring-1 ring-offset-0 ring-[hsl(var(--destructive))]; /* Reduced ring for boundary to avoid visual clutter */
   }
 
 
@@ -209,5 +205,10 @@ body {
         height: 100%;
         width: 100%;
         position: relative; 
+    }
+
+    /* Style for active sidebar menu buttons in admin or main layout */
+    [data-sidebar="menu-button"][data-active="true"] {
+      @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }

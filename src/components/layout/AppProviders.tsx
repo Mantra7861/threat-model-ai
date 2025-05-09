@@ -2,7 +2,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ReactFlowProvider } from '@xyflow/react'; // Import ReactFlowProvider
+import { ReactFlowProvider } from '@xyflow/react';
+import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 // import { ThemeProvider } from "next-themes"; // Example provider
 // import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; // Example provider
 
@@ -16,8 +17,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
   //   </QueryClientProvider>
   // </ThemeProvider>
   return (
-    <ReactFlowProvider>
-        {children}
-    </ReactFlowProvider>
+    <AuthProvider> {/* Add AuthProvider here */}
+      <ReactFlowProvider>
+          {children}
+      </ReactFlowProvider>
+    </AuthProvider>
   );
 }

@@ -1,4 +1,6 @@
 
+"use client"; // Make this a client component to use useAuth hook
+
 import type { ReactNode } from "react";
 import {
   SidebarProvider,
@@ -12,29 +14,14 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { FileText, Workflow, Settings, Users, ShieldAlert, HelpCircle, LayoutDashboard, LogOut, SigmaIcon, Circle, FileTextIcon, KeyboardIcon } from "lucide-react";
+import { FileText, Workflow, Settings, Users, ShieldAlert, HelpCircle, LayoutDashboard, LogOut, SigmaIcon, Circle, FileTextIcon, KeyboardIcon, UserCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarComponentLibrary } from "@/components/diagram/SidebarComponentLibrary";
 import { ProjectClientLayout } from "./ProjectClientLayout"; 
 import { ProjectProvider } from "@/contexts/ProjectContext";
-
-// Placeholder SVGs for custom shapes in stencil list (can be more elaborate)
-const DiamondIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="12 2 22 12 12 22 2 12" />
-  </svg>
-);
-
-const ParallelogramIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="1 6 23 6 20 18 0 18" /> {/* Simplified parallelogram */}
-  </svg>
-);
-const TrapezoidIcon = () => (
- <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polygon points="3 6 21 6 17 18 7 18" /> {/* Simplified trapezoid */}
-  </svg>
-);
+import { useAuth } from "@/contexts/AuthContext"; // Import useAuth
+import { auth } from "@/lib/firebase/firebase"; // Import auth for signOut
+import Link from "next/link";
 
 
 export default function ProjectLayout({
@@ -44,6 +31,7 @@ export default function ProjectLayout({
   children: ReactNode; 
   params: { projectId: string };
 }) {
+  const { currentUser, userProfile, isAdmin } = useAuth(); // Get user info
 
   return (
     <ProjectProvider initialProjectId={params.projectId}>
@@ -60,11 +48,20 @@ export default function ProjectLayout({
             </div>
           </SidebarHeader>
           <SidebarContent className="p-0">
-            {/* SidebarComponentLibrary now consumes context, no direct prop needed here */}
             <SidebarComponentLibrary />
           </SidebarContent>
           <SidebarFooter className="mt-auto p-2 border-t border-sidebar-border group-data-[collapsible=icon]:border-none">
             <SidebarMenu>
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <Link href="/admin/users" legacyBehavior passHref>
+                    <SidebarMenuButton tooltip="Admin Panel" className="justify-center group-data-[collapsible=icon]:justify-center">
+                      <Settings />
+                      <span className="group-data-[collapsible=icon]:hidden">Admin Panel</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton tooltip="Help" className="justify-center group-data-[collapsible=icon]:justify-center">
                   <HelpCircle />
@@ -74,14 +71,25 @@ export default function ProjectLayout({
               <SidebarMenuItem>
                   <SidebarMenuButton tooltip="Account Settings" className="justify-center group-data-[collapsible=icon]:justify-center">
                       <Avatar className="size-7 group-data-[collapsible=icon]:size-6">
-                          <AvatarImage src="https://picsum.photos/40/40" data-ai-hint="user avatar" alt="User Avatar" />
-                          <AvatarFallback>U</AvatarFallback>
+                          <AvatarImage src={userProfile?.photoURL || "https://picsum.photos/40/40"} data-ai-hint="user avatar" alt="User Avatar" />
+                          <AvatarFallback>{userProfile?.displayName?.charAt(0).toUpperCase() || currentUser?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                       </Avatar>
-                      <span className="group-data-[collapsible=icon]:hidden">User Name</span>
+                      <span className="group-data-[collapsible=icon]:hidden">{userProfile?.displayName || currentUser?.email}</span>
                   </SidebarMenuButton>
               </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton tooltip="Log Out" className="justify-center group-data-[collapsible=icon]:justify-center">
+                  <SidebarMenuButton 
+                    tooltip="Log Out" 
+                    className="justify-center group-data-[collapsible=icon]:justify-center"
+                    onClick={async () => {
+                        try {
+                            await auth.signOut();
+                            // Router redirect will be handled by AuthContext if needed
+                        } catch (error) {
+                            console.error("Error signing out: ", error);
+                        }
+                    }}
+                  >
                     <LogOut />
                     <span className="group-data-[collapsible=icon]:hidden">Log Out</span>
                   </SidebarMenuButton>
