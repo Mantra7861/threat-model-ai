@@ -3,64 +3,95 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 
-const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+// Ensure this file is only processed on the client-side where process.env.NEXT_PUBLIC_* variables are available.
+// For server-side Firebase (e.g., Admin SDK), a different initialization approach is typically used.
 
-if (!apiKey && typeof window !== 'undefined') { // Check only on client-side to avoid build-time noise if env vars are set differently for client/server
-  console.error(
-    'Firebase API Key is missing. Please ensure NEXT_PUBLIC_FIREBASE_API_KEY is set in your .env.local file and that the Next.js development server has been restarted after changes to .env files.'
-  );
-}
+let app: FirebaseApp | null = null; // Initialize with null
+let auth: Auth | null = null;       // Initialize with null
+let db: Firestore | null = null;    // Initialize with null
 
-const firebaseConfig = {
-  apiKey: apiKey,
+const firebaseConfigBase = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
+const requiredKeys: (keyof typeof firebaseConfigBase)[] = [
+  'apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'
+];
 
-// Ensure Firebase is initialized only on the client side or appropriately for server-side if used there.
-// The original logic implies client-side primary usage.
-if (typeof window !== 'undefined') {
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
-  } else {
-    app = getApp();
+function checkConfig(config: typeof firebaseConfigBase, context: string): { valid: boolean, problems: string[] } {
+  const problems: string[] = [];
+  let valid = true;
+  for (const key of requiredKeys) {
+    if (!config[key]) { // Checks for undefined, null, empty string
+      valid = false;
+      problems.push(`${key} (env: NEXT_PUBLIC_FIREBASE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()})`);
+    }
   }
-  auth = getAuth(app);
-  db = getFirestore(app);
-} else {
-  // Server-side: If you need Firebase Admin SDK, this setup is different.
-  // For client SDK on server (less common for auth/firestore), this might be problematic.
-  // This basic init here is a fallback, assuming client SDK might be imported server-side accidentally.
-  // Proper server-side Firebase usage typically involves the Admin SDK.
-  if (!getApps().length) {
-    // Avoid initializing client SDK on server if API key might be missing during build
-    if (firebaseConfig.apiKey) {
-        app = initializeApp(firebaseConfig);
+  if (!valid) {
+    console.error(
+      `Firebase ${context} configuration is INCOMPLETE. The following required NEXT_PUBLIC_FIREBASE_ environment variables are missing or empty: ${problems.join(', ')}. ` +
+      `Please ensure all are correctly set in your .env.local file and the Next.js development server has been restarted. ` +
+      `Firebase SDK will not be initialized for ${context}.`
+    );
+  }
+  return { valid, problems };
+}
+
+if (typeof window !== 'undefined') { // Client-side
+  const clientConfigStatus = checkConfig(firebaseConfigBase, 'client');
+  if (clientConfigStatus.valid) {
+    if (!getApps().length) {
+      try {
+        app = initializeApp(firebaseConfigBase);
         auth = getAuth(app);
         db = getFirestore(app);
+        // console.log(`Firebase SDK (CLIENT) initialized. Project ID: "${firebaseConfigBase.projectId}".`);
+      } catch (e) {
+        console.error("Firebase client initialization failed:", e);
+      }
     } else {
-        // Cannot initialize without API key, stub them to prevent hard crashes if imported server-side without full config.
-        // @ts-ignore
-        app = null; 
-        // @ts-ignore
-        auth = null;
-        // @ts-ignore
-        db = null;
-        console.warn("Firebase not initialized on server: API key likely missing or not intended for server-side client SDK usage.");
+      app = getApp();
+      auth = getAuth(app);
+      db = getFirestore(app);
     }
-  } else {
+  }
+} else { // Server-side or build-time context
+  const serverConfigStatus = checkConfig(firebaseConfigBase, 'server-stub');
+  if (!getApps().length) {
+    if (serverConfigStatus.valid) {
+      try {
+        // Attempt to initialize with full config if all vars are present (e.g., during build if NEXT_PUBLIC vars are exposed)
+        app = initializeApp(firebaseConfigBase);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        // console.log(`Firebase SDK (SERVER-STUB) initialized. Project ID: "${firebaseConfigBase.projectId}".`);
+      } catch (e) {
+        console.error("Firebase server-stub initialization failed:", e);
+      }
+    } else {
+      // console.warn(
+      //  `Firebase server-stub initialization SKIPPED due to missing/empty NEXT_PUBLIC_FIREBASE_ env vars in this server/build context. This is often normal if client SDK isn't fully used server-side.`
+      // );
+    }
+  } else { // An app already exists
     app = getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
+    // It's possible the existing app was initialized by the client part, so re-assign auth/db safely
+    if (app) {
+        try {
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Error getting Auth/Firestore from existing server-side app instance:", e);
+        }
+    }
   }
 }
 
+// Export possibly null values, consumers must check.
 export { app, auth, db };
