@@ -1,8 +1,8 @@
 
-"use client"; 
+"use client";
 
 import type { ReactNode } from "react";
-import { use } from 'react'; 
+import { use } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -18,21 +18,21 @@ import {
 import { Settings, ShieldAlert, HelpCircle, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarComponentLibrary } from "@/components/diagram/SidebarComponentLibrary";
-import { ProjectClientLayout } from "./ProjectClientLayout"; 
+import { ProjectClientLayout } from "./ProjectClientLayout";
 import { ProjectProvider } from "@/contexts/ProjectContext";
-import { useAuth } from "@/contexts/AuthContext"; 
+import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
 
 
 export default function ProjectLayout({
-  children, 
-  params: paramsPromise, 
+  children,
+  params: paramsPromise,
 }: {
-  children: ReactNode; 
-  params: Promise<{ projectId: string }>; 
+  children: ReactNode;
+  params: Promise<{ projectId: string }>;
 }) {
-  const params = use(paramsPromise); 
-  const { currentUser, userProfile, isAdmin, signOut } = useAuth(); 
+  const params = use(paramsPromise);
+  const { currentUser, userProfile, isAdmin, signOut } = useAuth();
 
   return (
     <ProjectProvider initialProjectId={params.projectId}>
@@ -55,7 +55,7 @@ export default function ProjectLayout({
             <SidebarMenu>
               {isAdmin && (
                 <SidebarMenuItem>
-                  <Link href="/admin/users" legacyBehavior passHref>
+                  <Link href="/admin/users" passHref>
                     <SidebarMenuButton tooltip="Admin Panel" className="justify-start group-data-[collapsible=icon]:justify-center">
                       <Settings />
                       <span className="group-data-[collapsible=icon]:hidden">Admin Panel</span>
@@ -80,8 +80,8 @@ export default function ProjectLayout({
                 </div>
               </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    tooltip="Log Out" 
+                  <SidebarMenuButton
+                    tooltip="Log Out"
                     className="justify-start group-data-[collapsible=icon]:justify-center"
                     onClick={signOut}
                   >
@@ -101,4 +101,3 @@ export default function ProjectLayout({
     </ProjectProvider>
   );
 }
-

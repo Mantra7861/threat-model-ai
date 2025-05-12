@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
 import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2 } from 'lucide-react'; // Added Loader2
@@ -15,6 +15,7 @@ import { AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { userProfile, loading, isAdmin, firebaseReady, signOut } = useAuth(); // Added firebaseReady, signOut
   const router = useRouter();
+  const pathname = usePathname(); // Get current path
 
   useEffect(() => {
     // Redirect only if Firebase is ready and checks are complete
@@ -79,7 +80,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <SidebarContent className="p-2">
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <Link href="/admin/users" legacyBehavior passHref>
+                    <Link href="/admin/users" passHref>
                         {/* Determine isActive based on pathname */}
                         <SidebarMenuButton tooltip="User Management" className="justify-start" isActive={pathname === '/admin/users'}>
                             <Users />
@@ -88,7 +89,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </Link>
                 </SidebarMenuItem>
                  <SidebarMenuItem>
-                    <Link href="/" legacyBehavior passHref>
+                    <Link href="/" passHref>
                         <SidebarMenuButton tooltip="Back to App" className="justify-start">
                             <LayoutDashboard />
                             <span className="group-data-[collapsible=icon]:hidden">Back to App</span>
