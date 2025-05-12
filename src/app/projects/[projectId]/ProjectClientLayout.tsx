@@ -24,8 +24,8 @@ import {
     getUserThreatModels,
     getThreatModelById,
     type Diagram,
-    type Component as DiagramComponent, // Already aliased
-    type Connection as DiagramConnection, // Already aliased
+    type Component as DiagramComponent,
+    type Connection as DiagramConnection,
     getDefaultDiagram,
     type ModelType,
     type LoadedThreatModel,
@@ -36,7 +36,7 @@ import {
     connectionToEdge,
     nodeToComponent,
     edgeToConnection
-} from '@/lib/diagram-utils'; // Ensure these are imported from the correct location
+} from '@/lib/diagram-utils';
 import { useToast } from '@/hooks/use-toast';
 import { calculateEffectiveZIndex, getTopmostElementAtClick } from '@/lib/diagram-utils';
 import { DiagramHeader } from "@/components/layout/DiagramHeader";
@@ -82,20 +82,23 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setEdgesInternal([]);
         setSelectedElementId(null);
         setViewport(undefined);
-        setModelId(null); // Explicitly set modelId to null for a new diagram
+        setModelId(null); 
         setDiagramDataForAI(getDefaultDiagram(null, name, type));
         setError(null);
         
-        // Ensure router reflects the 'new' state if not already there
         if (projectId !== 'new') {
             router.push('/projects/new', { scroll: false });
         }
 
         setTimeout(() => {
             console.log("Attempting fitView after reset in resetDiagramState.");
-            reactFlowInstance?.fitView({ padding: 0.1, duration: 200 });
+            if (reactFlowInstance) {
+              reactFlowInstance.fitView({ padding: 0.1, duration: 200 });
+            } else {
+              console.warn("resetDiagramState: ReactFlow instance not available for fitView.");
+            }
         }, 150);
-    }, [setModelName, setModelType, setNodesInternal, setEdgesInternal, setViewport, setDiagramDataForAI, reactFlowInstance, router, projectId, modelId]);
+    }, [setModelName, setModelType, setNodesInternal, setEdgesInternal, setViewport, setModelId, setDiagramDataForAI, reactFlowInstance, router, projectId]);
 
 
     const loadModel = useCallback(async (idToLoad: string) => {
@@ -120,7 +123,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 setNodesInternal(flowNodes);
                 setEdgesInternal(flowEdges);
                 setViewport(loadedModel.viewport || { x: 0, y: 0, zoom: 1 });
-                setModelId(loadedModel.id); // CRITICAL: Update internal modelId state
+                setModelId(loadedModel.id); 
                 setSelectedElementId(null);
                  
                 const currentDiagramForAI: Diagram = {
@@ -192,28 +195,39 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                  setLoading(false);
                  setTimeout(() => {
                     console.log("EFFECT[projectId]: Re-fitting view for already loaded matching modelId.");
-                    reactFlowInstance?.fitView({ padding: 0.1, duration: 150 });
+                    if (reactFlowInstance) {
+                      reactFlowInstance.fitView({ padding: 0.1, duration: 150 });
+                    } else {
+                      console.warn("EFFECT[projectId]: ReactFlow instance not available for fitView (matching modelId).");
+                    }
                  }, 150);
              }
         } else if (projectId === 'new') {
             if (modelId !== null) {
                 console.log("EFFECT[projectId]: 'new' projectId detected, and modelId is not null. Resetting canvas.");
-                resetDiagramState(); // This will also set modelId to null
+                resetDiagramState(); 
+                setLoading(false); 
             } else {
                  console.log("EFFECT[projectId]: 'new' projectId detected, and modelId is already null. Ensuring clean state, fitting view.");
-                 // Fit view on new, empty canvas
+                 setNodesInternal([]); 
+                 setEdgesInternal([]); 
+                 setViewport(undefined);
                  setTimeout(() => {
-                    reactFlowInstance?.fitView({ padding: 0.1, duration: 150 });
+                    if (reactFlowInstance) {
+                      reactFlowInstance.fitView({ padding: 0.1, duration: 150 });
+                    } else {
+                      console.warn("EFFECT[projectId]: ReactFlow instance not available for fitView ('new' project).");
+                    }
                  }, 150);
+                 setLoading(false);
             }
-            setLoading(false);
         } else {
              console.warn("EFFECT[projectId]: Unexpected state - projectId is null/undefined, but not 'new'. Resetting.");
              resetDiagramState();
              setLoading(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectId, currentUser, authLoading, firebaseReady, loadModel, resetDiagramState]); // Added loadModel, resetDiagramState to deps
+    }, [projectId, currentUser, authLoading, firebaseReady]);
 
 
     useEffect(() => {
@@ -397,8 +411,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             );
             console.log(`HANDLESAVE: Model persistence successful. Returned ID: ${savedModelId}`);
 
-            const wasNewModel = !modelId; // Check if it was new *before* updating modelId state
-            setModelId(savedModelId); // Update modelId state *before* potential navigation
+            const wasNewModel = !modelId; 
+            setModelId(savedModelId); 
 
             const currentDiagramForAI: Diagram = {
                  id: savedModelId,
@@ -410,16 +424,11 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             };
             setDiagramDataForAI(currentDiagramForAI);
 
-            // If it was a new model, or if the URL's projectId doesn't match the savedModelId, navigate.
-            // The main useEffect will then see that projectId (from URL) matches modelId (state) and won't reload.
             if (wasNewModel || projectId !== savedModelId) {
                  console.log(`HANDLESAVE: New model saved or URL projectId mismatch. Navigating to /projects/${savedModelId}. Current projectId: ${projectId}, savedModelId: ${savedModelId}`);
                  router.push(`/projects/${savedModelId}`, { scroll: false });
             } else {
                 console.log(`HANDLESAVE: Existing model updated. ModelId state is now ${savedModelId}. URL (/projects/${projectId}) already matches. No navigation needed.`);
-                // Optional: if explicit re-application of nodes/edges is needed after save (usually not if getNodes() is source of truth)
-                // setNodesInternal(nodesToSave.map(c => componentToNode(c)));
-                // setEdgesInternal(edgesToSave.map(c => connectionToEdge(c)));
             }
 
             toast({ title: 'Saved', description: `Model '${modelName}' saved successfully.` });
@@ -431,7 +440,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             setLoading(false);
             console.log("HANDLESAVE: Save finished.");
         }
-    }, [modelName, modelType, toast, currentUser, modelId, reactFlowInstance, setModelId, setDiagramDataForAI, router, projectId, setNodesInternal, setEdgesInternal]);
+    }, [modelName, modelType, toast, currentUser, modelId, reactFlowInstance, setModelId, setDiagramDataForAI, router, projectId]);
 
 
     const handleLoadTrigger = async () => {
@@ -452,20 +461,23 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         }
     };
 
-    const handleLoadModelSelect = async (selectedModelIdFromDialog: string) => {
+    const handleLoadModelSelect = useCallback(async (selectedModelIdFromDialog: string) => {
         setIsLoadModelDialogOpen(false);
-        if (selectedModelIdFromDialog === modelId) { // Check against current modelId state
+        if (selectedModelIdFromDialog === modelId) { 
              toast({ title: 'Info', description: 'This model is already loaded.', variant: 'default' });
-             // Ensure loading is false if we bail early
              setLoading(false); 
-             // Fit view for already loaded model might be good UX
-             setTimeout(() => reactFlowInstance?.fitView({padding: 0.1, duration: 100}), 150);
+             setTimeout(() => {
+                 if (reactFlowInstance) {
+                    reactFlowInstance.fitView({padding: 0.1, duration: 100});
+                 } else {
+                    console.warn("handleLoadModelSelect: ReactFlow instance not available for fitView.");
+                 }
+            }, 150);
              return;
         }
         console.log(`Load requested from dialog for model ID: ${selectedModelIdFromDialog}. Current modelId state: ${modelId}`);
-        // Navigate. The main useEffect will handle calling loadModel based on the new projectId.
         router.push(`/projects/${selectedModelIdFromDialog}`);
-    };
+    }, [setIsLoadModelDialogOpen, modelId, toast, reactFlowInstance, router, setLoading]);
 
 
      const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
@@ -482,8 +494,8 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
             const point = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY });
             const currentZoom = reactFlowInstance.getViewport().zoom;
-            const currentNodes = reactFlowInstance.getNodes(); // Use instance method
-            const currentEdges = reactFlowInstance.getEdges(); // Use instance method
+            const currentNodes = reactFlowInstance.getNodes(); 
+            const currentEdges = reactFlowInstance.getEdges(); 
 
             const elementToSelect = getTopmostElementAtClick(currentNodes, currentEdges, point, currentZoom, selectedElementId);
 
@@ -528,7 +540,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     }, [reactFlowInstance, modelId, modelName, modelType, toast ]);
 
 
-    if (loading && !(isNewModelDialogOpen || isLoadModelDialogOpen)) { // Only show full page loader if not in dialog
+    if (loading && !(isNewModelDialogOpen || isLoadModelDialogOpen)) { 
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground flex-1 p-4">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -553,7 +565,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 onNewModelClick={() => setIsNewModelDialogOpen(true)}
                 onSave={handleSave}
                 onLoad={handleLoadTrigger}
-                isSaving={loading && !isLoadModelDialogOpen && !isNewModelDialogOpen && modelId !== null} // More specific saving indicator
+                isSaving={loading && !isLoadModelDialogOpen && !isNewModelDialogOpen && modelId !== null} 
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -612,3 +624,4 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         </>
     );
 }
+
