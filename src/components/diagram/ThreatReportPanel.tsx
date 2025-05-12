@@ -49,12 +49,16 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
     });
 
     try {
+      // Serialize the current diagram data to pass to the server-side flow
       const diagramJson = JSON.stringify(currentDiagram);
+      
+      // Call the flow with the serialized data and model details
       const result = await generateThreatReport({
         diagramJson,
         modelName: currentDiagram.name,
         modelType: modelTypeForReport,
       });
+      
       setReport(result);
       toast({
         title: "Report Generated",
