@@ -7,27 +7,63 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
-import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle } from 'lucide-react';
+import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2 } from 'lucide-react'; // Added Loader2
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert
+import { AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { userProfile, loading, isAdmin, signOut } = useAuth(); // Added signOut
+  const { userProfile, loading, isAdmin, firebaseReady, signOut } = useAuth(); // Added firebaseReady, signOut
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !isAdmin) {
-      router.replace('/'); 
+    // Redirect only if Firebase is ready and checks are complete
+    if (firebaseReady && !loading && !isAdmin) {
+      router.replace('/');
     }
-  }, [userProfile, loading, isAdmin, router]);
+  }, [firebaseReady, loading, isAdmin, router]);
+
+  if (!firebaseReady) {
+    // Show a loading or error state if Firebase connection isn't ready
+    return (
+        <div className="flex items-center justify-center h-screen p-4">
+             <Alert variant="destructive" className="w-full max-w-md">
+               <AlertTriangle className="h-4 w-4" />
+               <AlertTitle>Initialization Error</AlertTitle>
+               <AlertDescription>
+                 Could not connect to backend services. Please ensure Firebase is configured correctly or check your network connection. Admin section cannot be loaded.
+               </AlertDescription>
+             </Alert>
+        </div>
+    );
+  }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-screen">Loading admin section...</div>;
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+            Loading admin section...
+        </div>
+    );
   }
 
+  // This check should ideally be redundant because of the useEffect, but acts as a final gate
   if (!isAdmin) {
-    return <div className="flex items-center justify-center h-screen">Access Denied. Admins only.</div>;
+     // This state might be briefly visible if redirection is slow, or if somehow bypassed useEffect
+    return (
+        <div className="flex items-center justify-center h-screen p-4">
+             <Alert variant="destructive" className="w-full max-w-md">
+               <AlertTriangle className="h-4 w-4" />
+               <AlertTitle>Access Denied</AlertTitle>
+               <AlertDescription>
+                 You do not have administrator privileges to access this section. Redirecting...
+               </AlertDescription>
+             </Alert>
+        </div>
+    );
   }
 
+  // User is an admin, Firebase is ready, and loading is complete
   return (
     <SidebarProvider defaultOpen={true}>
       <Sidebar side="left" variant="sidebar" collapsible="icon">
@@ -44,7 +80,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <SidebarMenu>
                 <SidebarMenuItem>
                     <Link href="/admin/users" legacyBehavior passHref>
-                        <SidebarMenuButton tooltip="User Management" className="justify-start" isActive={router.pathname === '/admin/users'}> {/* Example of isActive */}
+                        {/* Determine isActive based on pathname */}
+                        <SidebarMenuButton tooltip="User Management" className="justify-start" isActive={pathname === '/admin/users'}>
                             <Users />
                             <span className="group-data-[collapsible=icon]:hidden">User Management</span>
                         </SidebarMenuButton>
@@ -63,20 +100,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <SidebarFooter className="mt-auto p-2 border-t border-sidebar-border group-data-[collapsible=icon]:border-none">
            <SidebarMenu>
               <SidebarMenuItem>
-                {/* Using a div or span instead of SidebarMenuButton if it's not a button */}
+                {/* User info */}
                 <div className="flex items-center gap-2 p-2 rounded-md group-data-[collapsible=icon]:justify-center text-sidebar-foreground">
                     <Avatar className="size-7 group-data-[collapsible=icon]:size-6">
                         <AvatarImage src={userProfile?.photoURL || undefined} data-ai-hint="admin avatar" alt={userProfile?.displayName || 'Admin Avatar'} />
                         <AvatarFallback>{userProfile?.displayName?.charAt(0).toUpperCase() || 'A'}</AvatarFallback>
                     </Avatar>
-                    <span className="group-data-[collapsible=icon]:hidden text-sm">{userProfile?.displayName || 'Admin'}</span>
+                    <span className="group-data-[collapsible=icon]:hidden text-sm truncate max-w-[120px]">{userProfile?.displayName || 'Admin'}</span>
                 </div>
               </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    tooltip="Log Out" 
-                    className="justify-start group-data-[collapsible=icon]:justify-center" // Changed to justify-start for consistency
-                    onClick={signOut} 
+                  {/* Logout button */}
+                  <SidebarMenuButton
+                    tooltip="Log Out"
+                    className="justify-start group-data-[collapsible=icon]:justify-center"
+                    onClick={signOut}
                   >
                     <LogOut />
                     <span className="group-data-[collapsible=icon]:hidden">Log Out</span>
@@ -86,11 +124,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="flex-1 flex flex-col !p-0">
-        <main className="flex-1 p-6 bg-background overflow-auto"> {/* Changed from muted/40 */}
+        <main className="flex-1 p-6 bg-background overflow-auto">
           {children}
         </main>
       </SidebarInset>
     </SidebarProvider>
   );
 }
-

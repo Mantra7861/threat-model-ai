@@ -4,61 +4,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the requesting user is an admin
-    function isAdmin() {
-      // Check if the user is authenticated and their user document has role 'admin'
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Rules for the 'users' collection
+    // Users Collection
     match /users/{userId} {
-      // Allow a user to create their own profile document:
-      // - The document ID (userId) must match the authenticated user's UID.
-      // - The written data must include an email.
-      // - The 'role' being written must be 'editor'.
-      // - The 'registrationDate' must be a server timestamp.
-      allow create: if request.auth != null && request.auth.uid == userId
-                      && request.resource.data.email is string
-                      && request.resource.data.role == 'editor'
-                      && request.resource.data.registrationDate == request.time; // For serverTimestamp()
+      // Allow users to read their own profile data
+      allow read: if request.auth != null && request.auth.uid == userId;
 
-      // Allow a user to read their own profile
-      allow get: if request.auth != null && request.auth.uid == userId;
+      // Allow authenticated users to create their own user profile upon signup
+      // Ensure they are setting their own role to 'editor' initially
+      allow create: if request.auth != null && request.auth.uid == userId &&
+                       request.resource.data.role == 'editor' &&
+                       request.resource.data.email == request.auth.token.email; // Optional: verify email too
 
-      // Allow an admin to read any user profile (for the admin user list)
-      allow get: if isAdmin();
-      
-      // Allow an admin to list all users (for the admin user list page)
-      allow list: if isAdmin();
-
-      // Allow an admin to update the 'role' of any user:
-      // - Only the 'role' field can be updated by an admin.
-      // - The new role must be one of 'admin', 'editor', 'viewer'.
-      // - Other fields (email, registrationDate, displayName, photoURL) should not be updatable by admin this way.
-      allow update: if isAdmin()
-                      && request.resource.data.size() == keys(resource.data).size() + diff(request.resource.data, resource.data).affectedKeys().size() // Ensure only specified fields can be changed
-                      && diff(request.resource.data, resource.data).affectedKeys().hasOnly(['role'])
-                      && request.resource.data.role is string
-                      && request.resource.data.role in ['admin', 'editor', 'viewer'];
-                      // Add this if you want to ensure other fields are not touched by this update rule
-                      // && request.resource.data.email == resource.data.email
-                      // && request.resource.data.displayName == resource.data.displayName
-                      // && request.resource.data.photoURL == resource.data.photoURL
-                      // && request.resource.data.registrationDate == resource.data.registrationDate;
-
-
-      // Disallow deleting user profiles for now to prevent accidental data loss
-      allow delete: if false;
+      // Allow admins to update the role of any user
+      allow update: if request.auth != null &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
+                       request.resource.data.keys().hasOnly(['role']); // Only allow updating the 'role' field by admins
     }
 
-    // Placeholder for diagram/project data rules.
-    // These should be defined based on ownership and sharing logic.
-    // For now, a basic rule allowing authenticated users might be:
-    // match /projects/{projectId}/{document=**} {
-    //   allow read, write: if request.auth != null; // Example: only authenticated users
+    // Allow admins to list/read all users for the management page
+    match /users/{document=**} {
+      allow list, get: if request.auth != null &&
+                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Add rules for other collections (e.g., diagrams/projects) here
+    // Example (adjust based on actual project structure):
+    // match /projects/{projectId} {
+    //   // Allow editors and admins to read/write their projects
+    //   // Allow viewers to read projects they have access to (requires more complex structure)
+    //   allow read, write: if request.auth != null && (
+    //                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+    //                        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor' && resource.data.ownerId == request.auth.uid) // Example owner check
+    //                      );
     // }
-    // match /diagrams/{diagramId}/{document=**} {
-    //   allow read, write: if request.auth != null; 
-    // }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
