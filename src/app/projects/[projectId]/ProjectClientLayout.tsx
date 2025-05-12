@@ -46,6 +46,8 @@ import { LoadModelDialog } from '@/components/dialogs/LoadModelDialog';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react'; // Added Loader2 for loading state
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 
 interface ProjectClientLayoutProps {
@@ -54,8 +56,9 @@ interface ProjectClientLayoutProps {
 
 export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const { modelType, setModelType, modelName, setModelName } = useProjectContext();
-    const { currentUser, loading: authLoading } = useAuth();
+    const { currentUser, loading: authLoading, firebaseReady } = useAuth();
     const reactFlowInstance = useReactFlow<Node, Edge>(); // Use hook to get instance
+    const router = useRouter(); // Get router instance
 
     const [nodes, setNodesInternal] = useNodesState<Node[]>([]);
     const [edges, setEdgesInternal] = useEdgesState<Edge[]>([]);
@@ -73,6 +76,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
     // Function to reset diagram state to default/new
     const resetDiagramState = useCallback((name = "Untitled Model", type: ModelType = 'infrastructure') => {
+        console.log(`Resetting diagram state. Name: ${name}, Type: ${type}`);
         setModelName(name);
         setModelType(type);
         setNodesInternal([]);
@@ -84,26 +88,34 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setError(null);
         // Fit view after resetting state
         setTimeout(() => {
+            console.log("Attempting fitView after reset.");
             reactFlowInstance?.fitView({ padding: 0.1, duration: 200 });
-        }, 50);
-    }, [setModelName, setModelType, setNodesInternal, setEdgesInternal, setViewport, setModelId, setDiagramDataForAI, reactFlowInstance]);
+        }, 100); // Small delay
+        router.push('/projects/new', { scroll: false }); // Update URL to reflect new state
+    }, [setModelName, setModelType, setNodesInternal, setEdgesInternal, setViewport, setModelId, setDiagramDataForAI, reactFlowInstance, router]);
 
     // Function to load a model by ID
     const loadModel = useCallback(async (idToLoad: string) => {
+        console.log(`Attempting to load model with ID: ${idToLoad}`);
         setLoading(true);
         setError(null);
         try {
             const loadedModel = await getThreatModelById(idToLoad);
             if (loadedModel) {
+                console.log(`Model ${idToLoad} data fetched successfully:`, loadedModel);
                 setModelName(loadedModel.name);
                 setModelType(loadedModel.modelType || 'infrastructure');
                 const flowNodes = loadedModel.components.map(c => componentToNode(c));
                 const flowEdges = loadedModel.connections?.map(c => connectionToEdge(c)) || [];
 
+                console.log("Setting nodes:", flowNodes);
                 setNodesInternal(flowNodes);
+                console.log("Setting edges:", flowEdges);
                 setEdgesInternal(flowEdges);
+                console.log("Setting viewport:", loadedModel.viewport);
                 setViewport(loadedModel.viewport || { x: 0, y: 0, zoom: 1 });
-                 setModelId(loadedModel.id); // Update the current model ID state
+                console.log("Setting modelId state to:", loadedModel.id);
+                setModelId(loadedModel.id); // IMPORTANT: Update the internal model ID state
 
                 // Deselect any elements after loading
                 setSelectedElementId(null);
@@ -122,54 +134,85 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 toast({ title: 'Model Loaded', description: `Successfully loaded '${loadedModel.name}'.` });
                  // Use timeout to ensure React Flow instance is ready before fitting view
                  setTimeout(() => {
+                    console.log("Attempting fitView after loading model.");
                      reactFlowInstance?.fitView({ padding: 0.1, duration: 200 });
-                 }, 100); // Increased delay slightly
+                 }, 150); // Increased delay slightly
+
+                 // Update URL if the projectId doesn't match the loaded model's ID (can happen if loaded via dialog)
+                 if (projectId !== loadedModel.id) {
+                     console.log(`Updating URL from /projects/${projectId} to /projects/${loadedModel.id}`);
+                     router.push(`/projects/${loadedModel.id}`, { scroll: false });
+                 }
 
             } else {
                 throw new Error(`Model with ID ${idToLoad} not found or couldn't be loaded.`);
             }
         } catch (err) {
             setError(`Failed to load diagram: ${err instanceof Error ? err.message : 'Unknown error'}`);
-            console.error(err);
+            console.error("Error in loadModel:", err);
             toast({ title: 'Error', description: 'Could not load the selected diagram.', variant: 'destructive' });
             resetDiagramState(); // Reset to a new state on load error
         } finally {
             setLoading(false);
+            console.log(`Finished loadModel attempt for ID: ${idToLoad}. Loading state: ${false}`);
         }
-    }, [ setModelName, setModelType, setNodesInternal, setEdgesInternal, setViewport, setModelId, setSelectedElementId, setDiagramDataForAI, toast, reactFlowInstance, resetDiagramState]); // Dependencies for loadModel
+    }, [ setModelName, setModelType, setNodesInternal, setEdgesInternal, setViewport, setModelId, setSelectedElementId, setDiagramDataForAI, toast, reactFlowInstance, resetDiagramState, projectId, router]); // Added projectId, router
 
 
     // Effect to load model based on projectId or reset for 'new'
     useEffect(() => {
-        if (authLoading || !currentUser) {
-            setLoading(false); // Stop loading if auth is still resolving or no user
+        console.log(`ProjectClientLayout Effect Triggered. projectId: ${projectId}, modelId state: ${modelId}, authLoading: ${authLoading}, firebaseReady: ${firebaseReady}, currentUser: ${!!currentUser}`);
+
+        if (authLoading || !firebaseReady) {
+            console.log("Effect waiting: Auth loading or Firebase not ready.");
+            setLoading(false); // Stop loading if auth is still resolving or Firebase not ready
             return;
         }
+        if (!currentUser) {
+             console.log("Effect waiting: No current user.");
+             // AuthProvider should redirect, but prevent loading attempts here
+             setLoading(false);
+             return;
+        }
 
-        if (projectId && projectId !== 'new' && projectId !== modelId) {
-            // If projectId is valid and different from current modelId, load it
-            console.log(`ProjectClientLayout: projectId detected (${projectId}), attempting to load model.`);
-            loadModel(projectId);
-        } else if (projectId === 'new' && modelId !== null) {
-            // If URL indicates 'new' but we have a model loaded, reset
-            console.log("ProjectClientLayout: 'new' projectId detected, resetting canvas.");
-            resetDiagramState();
-             setLoading(false); // Stop loading after reset
-        } else if (!modelId && projectId !== 'new') {
-            // Initial state with a project ID, needs loading
-             console.log(`ProjectClientLayout: Initial load for projectId (${projectId}).`);
-             loadModel(projectId);
-        } else if (!modelId && projectId === 'new') {
-             // Initial state for a new project
-            console.log("ProjectClientLayout: Initial setup for a new model.");
-            resetDiagramState();
-            setLoading(false);
+        setLoading(true); // Start loading indicator at the beginning of processing
+
+        if (projectId && projectId !== 'new') {
+             if (projectId !== modelId) {
+                // If projectId is valid and different from current modelId state, load it
+                console.log(`ProjectClientLayout Effect: projectId (${projectId}) differs from modelId state (${modelId}). Loading model.`);
+                loadModel(projectId);
+             } else {
+                 console.log(`ProjectClientLayout Effect: projectId (${projectId}) matches modelId state (${modelId}). Assuming model already loaded.`);
+                 // Model might be loaded, ensure loading is false if we don't call loadModel
+                 setLoading(false);
+                 // Optional: Re-fit view in case component re-rendered without full reload
+                 setTimeout(() => {
+                    reactFlowInstance?.fitView({ padding: 0.1, duration: 100 });
+                 }, 50);
+             }
+        } else if (projectId === 'new') {
+            if (modelId !== null) {
+                // If URL indicates 'new' but we have a model loaded (modelId state is not null), reset
+                console.log("ProjectClientLayout Effect: 'new' projectId detected, resetting canvas as modelId is not null.");
+                resetDiagramState();
+            } else {
+                 console.log("ProjectClientLayout Effect: 'new' projectId detected, and modelId is already null. Ensuring clean state.");
+                 // Already in a 'new' state, ensure loading is false.
+                 // resetDiagramState(); // Consider if needed even if modelId is null
+            }
+            setLoading(false); // Stop loading after handling 'new'
         } else {
-             // Handles cases where projectId matches modelId or other scenarios
+             // Handles cases where projectId is null/undefined initially (shouldn't happen with route structure)
+             console.warn("ProjectClientLayout Effect: Unexpected state - projectId is null or undefined, but not 'new'. Resetting.");
+             resetDiagramState(); // Reset to a known good state
              setLoading(false); // Ensure loading is false if no action needed
         }
+    // Simplified dependency array: React primarily to changes in the URL projectId, user status, and firebase readiness.
+    // loadModel and resetDiagramState are wrapped in useCallback and should be stable unless their own dependencies change.
+    // Including them can sometimes cause infinite loops if not careful.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectId, currentUser, authLoading, loadModel, resetDiagramState]); // Rerun when projectId or user changes
+    }, [projectId, currentUser, authLoading, firebaseReady]); // Rerun when projectId, user, or firebase readiness changes
 
 
      // Effect for updating selection visual state (zIndex)
@@ -177,14 +220,15 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setNodesInternal(prevNodes =>
             prevNodes.map(n => ({
                 ...n,
-                selected: n.id === selectedElementId,
-                zIndex: calculateEffectiveZIndex(n.id, n.type as string, n.id === selectedElementId, n.zIndex, selectedElementId)
+                // Explicitly check selectedElementId against node id
+                selected: selectedElementId === n.id,
+                zIndex: calculateEffectiveZIndex(n.id, n.type as string, selectedElementId === n.id, n.zIndex, selectedElementId)
             }))
         );
         setEdgesInternal(prevEdges =>
             prevEdges.map(e => ({
                 ...e,
-                selected: e.id === selectedElementId
+                selected: selectedElementId === e.id
             }))
         );
     }, [selectedElementId, setNodesInternal, setEdgesInternal]);
@@ -194,60 +238,77 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         (changes: NodeChange[]) => {
             setNodesInternal((currentNodes) => {
                 const updatedNodes = applyNodeChanges(changes, currentNodes);
+                // Recalculate zIndex after changes are applied
                 return updatedNodes.map(node => {
                     const change = changes.find(c => c.id === node.id);
                     let newSelectedStatus = node.selected;
+                     // Check if this node was selected or deselected in the batch
                     if (change?.type === 'select') {
-                        newSelectedStatus = change.selected;
+                       newSelectedStatus = change.selected;
+                       if (newSelectedStatus) {
+                          // If selected in this batch, update the global selected ID
+                          // Note: This might cause multiple updates if multiple nodes selected, handled below
+                       }
                     }
-                     if (change && (change.type === 'select' || change.type === 'add' || change.type === 'reset' || (change.type === 'position' && !change.dragging) || change.type === 'dimensions')) {
-                        return {
-                            ...node,
-                            selected: newSelectedStatus,
-                            zIndex: calculateEffectiveZIndex(node.id, node.type as string, newSelectedStatus, node.zIndex, selectedElementId)
-                        };
-                    }
-                    return node;
+                    // Update zIndex based on the potentially new selected status
+                    return {
+                        ...node,
+                        // selected: newSelectedStatus, // applyNodeChanges handles this
+                        zIndex: calculateEffectiveZIndex(node.id, node.type as string, newSelectedStatus, node.zIndex, selectedElementId) // Use newSelectedStatus here
+                    };
                 });
             });
 
+            // Update the globally selected element ID based on selection changes
             changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
+                         console.log(`Selecting element: ${change.id}`);
                         setSelectedElementId(change.id);
                     } else if (selectedElementId === change.id) {
-                        const isAnotherElementSelectedInThisBatch = changes.some(c => c.type === 'select' && c.selected && c.id !== change.id);
+                        // If the currently selected element is deselected in this batch, check if another was selected
+                        const isAnotherElementSelectedInThisBatch = changes.some(c => c.type === 'select' && c.id !== change.id);
                         if (!isAnotherElementSelectedInThisBatch) {
-                           setSelectedElementId(null);
+                            console.log(`Deselecting element: ${change.id} (no other selection)`);
+                            setSelectedElementId(null);
+                        } else {
+                             console.log(`Deselecting element: ${change.id} (another selection exists)`);
                         }
                     }
                 } else if (change.type === 'remove' && selectedElementId === change.id) {
+                     console.log(`Removing selected element: ${change.id}`);
                     setSelectedElementId(null);
                 }
             });
         },
-        [setNodesInternal, selectedElementId, setSelectedElementId]
+        [setNodesInternal, selectedElementId, setSelectedElementId] // Added setSelectedElementId
     );
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => {
             setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
+             // Update the globally selected element ID based on selection changes
              changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
+                        console.log(`Selecting element: ${change.id}`);
                         setSelectedElementId(change.id);
                     } else if (selectedElementId === change.id) {
-                         const isAnotherElementSelected = changes.some(c => c.type === 'select' && c.selected && c.id !== change.id);
+                         const isAnotherElementSelected = changes.some(c => c.type === 'select' && c.id !== change.id);
                          if (!isAnotherElementSelected) {
-                            setSelectedElementId(null);
+                             console.log(`Deselecting element: ${change.id} (no other selection)`);
+                             setSelectedElementId(null);
+                         } else {
+                             console.log(`Deselecting element: ${change.id} (another selection exists)`);
                          }
                     }
                 } else if (change.type === 'remove' && selectedElementId === change.id) {
+                    console.log(`Removing selected element: ${change.id}`);
                     setSelectedElementId(null);
                 }
             });
         },
-        [setEdgesInternal, selectedElementId, setSelectedElementId]
+        [setEdgesInternal, selectedElementId, setSelectedElementId] // Added setSelectedElementId
     );
 
 
@@ -270,16 +331,13 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             animated: true,
             type: 'smoothstep',
             data: newEdgeData,
-            selected: true,
+            selected: true, // Select the new edge
+            // Reset selection for all other nodes/edges
           };
 
-          setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
-          setNodesInternal(nds => nds.map(n => ({
-              ...n,
-              selected: false,
-            })
-          ));
-          setSelectedElementId(newEdgeId);
+           setNodesInternal(nds => nds.map(n => ({...n, selected: false})));
+           setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
+          setSelectedElementId(newEdgeId); // Set the new edge as the selected element
           toast({ title: 'Connection Added', description: `${modelType === 'process' ? 'Process flow' : 'Data flow'} created and selected.` });
         },
         [setEdgesInternal, setNodesInternal, setSelectedElementId, toast, modelType]
@@ -295,7 +353,9 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
              setNodesInternal((nds) =>
                 nds.map((node) => {
                     if (node.id === elementId) {
+                        // Merge new properties into existing node.data.properties
                         const updatedDataProperties = { ...node.data.properties, ...newProperties };
+                         // Update label if 'name' property changed
                         const label = newProperties.name !== undefined ? newProperties.name : (updatedDataProperties.name || node.data.label);
                         return { ...node, data: { ...node.data, properties: updatedDataProperties, label: label } };
                     }
@@ -306,7 +366,9 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             setEdgesInternal((eds) =>
                 eds.map((edge) => {
                     if (edge.id === elementId) {
+                         // Merge new properties into existing edge.data.properties
                         const updatedDataProperties = { ...(edge.data?.properties || {}), ...newProperties };
+                        // Update label if 'name' property changed
                         const label = newProperties.name !== undefined ? newProperties.name : (updatedDataProperties.name || edge.data?.label);
                          return { ...edge, data: { ...(edge.data || {}), properties: updatedDataProperties, label: label }, label: label };
                     }
@@ -314,16 +376,19 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 })
             );
         }
+         console.log(`Properties updated for ${isNode ? 'node' : 'edge'} ${elementId}:`, newProperties);
     }, [setNodesInternal, setEdgesInternal]);
 
 
     const deleteElement = useCallback((elementId: string, isNode: boolean) => {
         if (isNode) {
             setNodesInternal((nds) => nds.filter((node) => node.id !== elementId));
+            // Also remove edges connected to the deleted node
             setEdgesInternal((eds) => eds.filter((edge) => edge.source !== elementId && edge.target !== elementId));
         } else {
             setEdgesInternal((eds) => eds.filter((edge) => edge.id !== elementId));
         }
+        // If the deleted element was the selected one, clear selection
         if (selectedElementId === elementId) {
             setSelectedElementId(null);
         }
@@ -348,21 +413,35 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setLoading(true); // Indicate saving start
         const currentNodes = reactFlowInstance.getNodes();
         const currentEdges = reactFlowInstance.getEdges();
+        console.log("Nodes to save:", currentNodes);
+        console.log("Edges to save:", currentEdges);
         const nodesToSave = currentNodes.map(n => nodeToComponent(n));
         const edgesToSave = currentEdges.map(e => edgeToConnection(e));
         const currentViewport = reactFlowInstance.getViewport();
+         console.log("Saving with viewport:", currentViewport);
+         console.log("Saving model ID:", modelId); // Log the modelId being used for save
 
         try {
             const savedModelId = await saveThreatModel(
                 currentUser.uid,
-                modelId, // Pass current modelId (null if new)
+                modelId, // Pass current modelId state (null if new)
                 modelName,
                 modelType,
                 nodesToSave,
                 edgesToSave,
                 currentViewport
             );
-            setModelId(savedModelId); // Update the modelId state with the saved/new ID
+             console.log(`Model saved with ID: ${savedModelId}`);
+             if (!modelId) { // If it was a new model
+                 setModelId(savedModelId); // Update the modelId state with the new ID
+                  // Update URL to reflect the saved model's ID
+                 router.push(`/projects/${savedModelId}`, { scroll: false });
+                 console.log(`New model saved, updated modelId state to ${savedModelId} and URL.`);
+             } else {
+                setModelId(savedModelId); // Ensure modelId state is current even on update
+                console.log(`Existing model updated, modelId state remains ${savedModelId}.`);
+             }
+
 
              // Update diagramDataForAI context after save
              const currentDiagramForAI: Diagram = {
@@ -383,7 +462,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         } finally {
             setLoading(false); // Indicate saving end
         }
-    }, [modelName, modelType, toast, currentUser, modelId, reactFlowInstance, setModelId, setDiagramDataForAI]);
+    }, [modelName, modelType, toast, currentUser, modelId, reactFlowInstance, setModelId, setDiagramDataForAI, router]); // Added router dependency
 
 
     // Fetch user models when the load button is clicked
@@ -412,19 +491,34 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
              toast({ title: 'Info', description: 'This model is already loaded.', variant: 'default' });
              return;
         }
-        await loadModel(selectedModelId); // Use the refactored loadModel function
+        console.log(`Load requested from dialog for model ID: ${selectedModelId}`);
+        // Instead of directly calling loadModel, navigate to the corresponding project URL.
+        // The main useEffect will handle the loading based on the new projectId in the URL.
+        router.push(`/projects/${selectedModelId}`);
+        // await loadModel(selectedModelId); // Use the refactored loadModel function - NO, let useEffect handle it
     };
 
 
-    // Callback for clicking on a node or edge
+    // Callback for clicking on a node or edge - This should ideally just set the selected ID
      const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
-        if (element.id === selectedElementId) return;
-        setSelectedElementId(element.id);
-     }, [selectedElementId, setSelectedElementId]);
+         console.log(`Element clicked: ${element.id}, Type: ${'position' in element ? 'Node' : 'Edge'}`);
+        if (element.id !== selectedElementId) {
+             console.log(`Setting selected element ID to: ${element.id}`);
+            setSelectedElementId(element.id);
+             // Manually trigger node/edge change for selection visuals if needed, though useEffect should handle it
+             // if ('position' in element) {
+             //     onNodesChange([{ type: 'select', id: element.id, selected: true }]);
+             // } else {
+             //     onEdgesChange([{ type: 'select', id: element.id, selected: true }]);
+             // }
+        }
+     }, [selectedElementId, setSelectedElementId]); // Removed onNodesChange, onEdgesChange as deps
+
 
     // Callback for clicking on the pane (background)
     const onPaneClick = useCallback(
         (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
+             console.log("Pane clicked.");
             if (!reactFlowInstance) return;
 
             const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
@@ -437,13 +531,29 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const elementToSelect = getTopmostElementAtClick(currentNodes, currentEdges, point, currentZoom, selectedElementId);
 
             if (elementToSelect) {
+                 console.log(`Topmost element at click: ${elementToSelect.id}`);
                 if (elementToSelect.id !== selectedElementId) {
+                     console.log(`Selecting topmost element: ${elementToSelect.id}`);
                      // Directly call the selection logic instead of relying on onElementClick to avoid potential issues
                      setSelectedElementId(elementToSelect.id);
+                      // Optionally trigger changes to update visuals immediately
+                     // if ('position' in elementToSelect) {
+                     //     onNodesChange([{ type: 'select', id: elementToSelect.id, selected: true }]);
+                     // } else {
+                     //     onEdgesChange([{ type: 'select', id: elementToSelect.id, selected: true }]);
+                     // }
                 }
             } else {
+                console.log("No element found at click point.");
                  if (selectedElementId) {
+                     console.log("Clearing selection.");
                     setSelectedElementId(null);
+                      // Optionally trigger changes to update visuals immediately
+                     // const changes: (NodeChange | EdgeChange)[] = [];
+                     // nodes.filter(n => n.selected).forEach(n => changes.push({type: 'select', id: n.id, selected: false}));
+                     // edges.filter(e => e.selected).forEach(e => changes.push({type: 'select', id: e.id, selected: false}));
+                     // onNodesChange(changes.filter(c => c.type === 'select' && 'position' in c) as NodeChange[]); // Filter appropriately
+                     // onEdgesChange(changes.filter(c => c.type === 'select' && !('position' in c)) as EdgeChange[]); // Filter appropriately
                  }
             }
         },
@@ -452,6 +562,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
     // Handler for creating a new model from the dialog
     const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
+         setIsNewModelDialogOpen(false); // Close dialog first
         resetDiagramState(newModelName, newModelType); // Use reset function
         toast({ title: 'New Model Created', description: `Switched to new ${newModelType} model: ${newModelName}` });
     };
@@ -469,7 +580,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         const connectionsToReport = currentEdges.map(e => edgeToConnection(e));
 
         return {
-            id: modelId,
+            id: modelId, // Use the current modelId state
             name: modelName,
             modelType: modelType,
             components: componentsToReport,
@@ -488,7 +599,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             </div>
         );
     }
-    if (error) {
+    if (error && !isLoadModelDialogOpen && !isNewModelDialogOpen) { // Avoid showing error overlay during dialogs
          return (
             <div className="flex flex-col items-center justify-center h-full text-destructive flex-1 p-4 text-center">
                 <p className="font-semibold mb-2">Error Loading Diagram</p>
@@ -501,11 +612,11 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     return (
         <>
             <DiagramHeader
-                // projectId is not directly used here, but might be needed if header needs it
+                projectId={modelId || 'new'} // Pass current modelId or 'new'
                 onNewModelClick={() => setIsNewModelDialogOpen(true)}
                 onSave={handleSave}
                 onLoad={handleLoadTrigger}
-                isSaving={loading} // Pass loading state for save button indicator
+                isSaving={loading && !isLoadModelDialogOpen && !isNewModelDialogOpen} // Show saving only if not loading models list
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -515,14 +626,14 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
-                        setNodes={setNodesInternal}
-                        setEdges={setEdgesInternal}
+                        setNodes={setNodesInternal} // Pass setter if needed by canvas directly (usually not)
+                        setEdges={setEdgesInternal} // Pass setter if needed by canvas directly (usually not)
                         onMoveEnd={(e, vp) => setViewport(vp)}
                         defaultViewport={viewport} // Pass viewport state for initial render
-                        onNodeClick={onElementClick}
-                        onEdgeClick={onElementClick} // Use same handler for edges
+                        onNodeClick={onElementClick} // Use unified click handler
+                        onEdgeClick={onElementClick} // Use unified click handler
                         onPaneClick={onPaneClick}
-                        // onRfLoad={setReactFlowInstance} // Instance obtained via hook now
+                        onRfLoad={(instance) => { console.log("React Flow instance loaded:", instance); }} // Instance obtained via hook now mostly
                         selectedElementId={selectedElementId}
                     />
                 </main>
