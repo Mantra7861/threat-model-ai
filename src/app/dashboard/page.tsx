@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -47,10 +48,11 @@ export default function DashboardPage() {
     // Keep loading if auth is still loading or Firebase not ready
   }, [currentUser, authLoading, firebaseReady, toast]);
 
-  const handleLoadModel = (modelId: string) => {
-    if (!modelId) return;
-    console.log(`Dashboard: Navigating to project ${modelId}`);
-    router.push(`/projects/${modelId}`); // Navigate to the project page using the model ID
+  const handleLoadModel = (modelIdToLoad: string) => {
+    if (!modelIdToLoad) return;
+    console.log(`Dashboard: Navigating to project ${modelIdToLoad}`);
+    // Navigate to the project page. ProjectClientLayout will handle loading based on URL projectId.
+    router.push(`/projects/${modelIdToLoad}`); 
   };
 
    const handleNewModel = () => {
@@ -140,3 +142,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
