@@ -1,41 +1,66 @@
 
+"use client"; // Make this a Client Component
+
+import { useState, useEffect } from 'react';
 import { getAllUsers } from '@/services/userService';
 import { UserManagementTable } from './components/UserManagementTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
-import { AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import type { UserProfile } from '@/types/user';
 
-// Make this a Server Component to fetch data initially.
-// IMPORTANT CAVEAT: The `getAllUsers` function relies on the client-side Firebase SDK (`db` from `firebase.ts`).
-// For this to work reliably in a Server Component context, Firebase initialization needs careful handling.
-// 1. If using client SDK: The `firebase.ts` initialization might only run client-side, making `db` null here.
-// 2. If using Admin SDK: A separate Admin SDK initialization is needed for server-side actions.
-//
-// Current Approach Assumption: We assume `firebase.ts` somehow makes the client `db` available server-side, OR
-// that this page might render client-side despite being async (Next.js behavior can be complex).
-//
-// Recommended Robust Approach: Make this page a Client Component ("use client") and fetch data inside `useEffect`
-// using `useAuth` to ensure the user is an admin before fetching.
-//
-// For this iteration, we'll keep it as a Server Component but add error handling. If it consistently fails,
-// refactoring to client-side fetching is the next step.
+export default function AdminUsersPage() {
+  const { firebaseReady, isAdmin, loading: authLoading } = useAuth();
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true); // Local loading state for fetching users
 
-export default async function AdminUsersPage() {
-  let users = [];
-  let fetchError: string | null = null;
-
-  try {
-    // Attempt to fetch users server-side. This might fail if `db` isn't initialized server-side.
-    users = await getAllUsers();
-  } catch (error) {
-    console.error("Error fetching users in AdminUsersPage (server component):", error);
-    fetchError = error instanceof Error ? error.message : "An unknown error occurred while fetching users.";
-    // Check if the error indicates Firebase isn't initialized server-side
-    if (fetchError.includes("firestore/unavailable") || fetchError.includes("Cannot read properties of null (reading 'firestore')") || fetchError.includes("Firebase client SDK not initialized")) {
-        fetchError = "Failed to connect to the database server-side. User data cannot be loaded here. Consider refactoring for client-side loading.";
+  useEffect(() => {
+    // Only attempt to fetch if Firebase is ready, auth check is done, and the user is an admin
+    if (firebaseReady && !authLoading && isAdmin) {
+      const fetchUsers = async () => {
+        setLoading(true);
+        setFetchError(null);
+        try {
+          const fetchedUsers = await getAllUsers();
+          setUsers(fetchedUsers);
+        } catch (error) {
+          console.error("Error fetching users in AdminUsersPage (client component):", error);
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred while fetching users.";
+          // Check specific error types if needed, e.g., permissions
+          if (errorMessage.includes("permission-denied") || errorMessage.includes("Missing or insufficient permissions")) {
+             setFetchError("You do not have permission to view the user list.");
+          } else {
+             setFetchError(`Failed to fetch users: ${errorMessage}`);
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchUsers();
+    } else if (!authLoading && !isAdmin) {
+        // If auth is done but user is not admin (should be handled by layout, but good to check)
+        setFetchError("Access Denied: Administrator privileges required.");
+        setLoading(false);
+    } else if (!firebaseReady && !authLoading) {
+        // If auth is done but Firebase isn't ready
+        setFetchError("Failed to connect to the database. Please check configuration or network.");
+        setLoading(false);
     } else {
-        fetchError = `Failed to fetch users: ${fetchError}`;
+        // Still waiting for auth or Firebase readiness
+        setLoading(true);
     }
+  }, [firebaseReady, isAdmin, authLoading]); // Depend on auth state
+
+  // Show loading indicator while auth is resolving or users are fetching
+  if (authLoading || loading) {
+    return (
+        <div className="flex items-center justify-center h-full py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+            Loading user data...
+        </div>
+    );
   }
 
   return (
@@ -64,3 +89,4 @@ export default async function AdminUsersPage() {
     </div>
   );
 }
+
