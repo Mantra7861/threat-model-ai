@@ -1,5 +1,4 @@
-
-import type { Viewport } from '@xyflow/react'; // Need Viewport type
+import type { Viewport } from '@xyflow/react';
 import { db, ensureFirebaseInitialized } from '@/lib/firebase/firebase';
 import {
   collection,
@@ -93,49 +92,31 @@ export type ModelType = 'infrastructure' | 'process';
 interface ThreatModelData {
   components: Component[];
   connections: Connection[];
-  viewport?: Viewport; // Add viewport
+  viewport?: Viewport;
 }
 
 /**
  * Represents the full threat model document structure in Firestore.
  */
 interface ThreatModelDocument {
-  id?: string; // Firestore document ID, optional before saving
+  id?: string;
   userId: string;
   name: string;
   modelType: ModelType;
   data: ThreatModelData;
-  createdDate: Timestamp | FieldValue; // For Firestore
-  modifiedDate: Timestamp | FieldValue; // For Firestore
+  createdDate: Timestamp | FieldValue;
+  modifiedDate: Timestamp | FieldValue;
 }
 
 /**
  * Represents a diagram. Used mainly for runtime state before saving.
  */
 export interface Diagram {
-  /**
-   * The unique identifier of the diagram (may be null if new).
-   */
   id: string | null;
-  /**
-   * The name of the diagram.
-   */
   name: string;
-  /**
-   * The type of the model.
-   */
   modelType?: ModelType;
-  /**
-   * The components in the diagram.
-   */
   components: Component[];
-  /**
-   * The connections (edges) in the diagram.
-   */
   connections?: Connection[];
-  /**
-   * Optional viewport state for the diagram.
-   */
   viewport?: Viewport;
 }
 
@@ -160,16 +141,15 @@ export async function saveThreatModel(
   components: Component[],
   connections: Connection[],
   viewport?: Viewport
-): Promise<string> { // Returns the modelId
+): Promise<string> {
   const { initialized, error } = ensureFirebaseInitialized();
   if (!initialized || !db) {
-    throw new Error(error || "Firestore not initialized");
+    throw new Error(error || "Firestore not initialized for saveThreatModel");
   }
 
   const modelData: ThreatModelData = { components, connections: connections ?? [], viewport };
 
   if (modelId) {
-    // Update existing model
     const modelDocRef = doc(db, 'threatModels', modelId);
     await updateDoc(modelDocRef, {
       name: modelName,
@@ -180,7 +160,6 @@ export async function saveThreatModel(
     console.log(`Threat model updated: ${modelId}`);
     return modelId;
   } else {
-    // Create new model
     const collectionRef = collection(db, 'threatModels');
     const docRef = await addDoc(collectionRef, {
       userId: userId,
@@ -189,7 +168,7 @@ export async function saveThreatModel(
       data: modelData,
       createdDate: serverTimestamp(),
       modifiedDate: serverTimestamp(),
-    } as Omit<ThreatModelDocument, 'id'>); // Ensure type matches Firestore structure
+    } as Omit<ThreatModelDocument, 'id'>);
     console.log(`New threat model created: ${docRef.id}`);
     return docRef.id;
   }
@@ -213,10 +192,9 @@ export interface SavedModelInfo {
 export async function getUserThreatModels(userId: string): Promise<SavedModelInfo[]> {
    const { initialized, error } = ensureFirebaseInitialized();
    if (!initialized || !db) {
-     throw new Error(error || "Firestore not initialized");
+     throw new Error(error || "Firestore not initialized for getUserThreatModels");
    }
    const modelsCollectionRef = collection(db, 'threatModels');
-   // Note: Firestore security rules require the query to filter by userId.
    const q = query(modelsCollectionRef, where('userId', '==', userId));
    const querySnapshot = await getDocs(q);
    return querySnapshot.docs.map(docSnap => {
@@ -230,7 +208,7 @@ export async function getUserThreatModels(userId: string): Promise<SavedModelInf
            name: data.name || 'Untitled Model',
            modifiedDate: modifiedDate
        } as SavedModelInfo;
-   }).sort((a, b) => (b.modifiedDate?.getTime() || 0) - (a.modifiedDate?.getTime() || 0)); // Sort by date descending
+   }).sort((a, b) => (b.modifiedDate?.getTime() || 0) - (a.modifiedDate?.getTime() || 0));
 }
 
 /**
@@ -254,40 +232,44 @@ export interface LoadedThreatModel {
 export async function getThreatModelById(modelId: string): Promise<LoadedThreatModel | null> {
     const { initialized, error } = ensureFirebaseInitialized();
     if (!initialized || !db) {
-      throw new Error(error || "Firestore not initialized");
+      console.error("getThreatModelById: Firebase not initialized or db is null.");
+      throw new Error(error || "Firestore not initialized for getThreatModelById");
     }
     const modelDocRef = doc(db, 'threatModels', modelId);
+    console.log(`getThreatModelById: Fetching model ${modelId}`);
     const docSnap = await getDoc(modelDocRef);
 
     if (!docSnap.exists()) {
-        console.error(`Threat model with ID ${modelId} not found.`);
+        console.error(`getThreatModelById: Threat model with ID ${modelId} not found.`);
         return null;
     }
 
     const data = docSnap.data();
     if (!data || !data.data) {
-         console.error(`Threat model data field missing for ID ${modelId}.`);
+         console.error(`getThreatModelById: Threat model data field missing for ID ${modelId}. Document data:`, data);
          return null;
     }
     const modelData = data.data as ThreatModelData;
+    console.log(`getThreatModelById: Successfully fetched document data for ${modelId}:`, data);
+    console.log(`getThreatModelById: Extracted modelData (components, connections, viewport) for ${modelId}:`, modelData);
+
 
     return {
         id: docSnap.id,
         name: data.name || 'Untitled Model',
-        modelType: data.modelType || 'infrastructure', // Default if missing
-        components: modelData.components || [],
-        connections: modelData.connections || [],
+        modelType: data.modelType || 'infrastructure',
+        components: modelData.components || [], // Ensure components is an array
+        connections: modelData.connections || [], // Ensure connections is an array
         viewport: modelData.viewport
     };
 }
 
 
-// Default empty diagram structure
 export const getDefaultDiagram = (id: string | null, name: string, type: ModelType): Diagram => ({
-  id, // Can be null for a new diagram
+  id,
   name,
   modelType: type,
   components: [],
   connections: [],
-  viewport: undefined, // Start with default viewport
+  viewport: undefined,
 });
