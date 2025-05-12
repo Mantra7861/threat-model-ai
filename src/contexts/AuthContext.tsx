@@ -69,44 +69,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             let profile = await getUserProfile(user.uid);
             if (!profile) {
-              console.log(`No profile found for ${user.uid}, creating one...`);
+              console.log(`No profile found for ${user.uid}, attempting to create one...`);
+              // Attempt to create profile
               profile = await createUserProfile(user.uid, user.email, user.displayName, user.photoURL);
                toast({ title: "Profile Created", description: "Your user profile has been set up." });
+               console.log(`Profile created for ${user.uid}.`);
             } else {
                  // console.log(`Profile found for ${user.uid}:`, profile);
             }
             setUserProfile(profile);
 
+             // Admin area access check (should only happen *after* profile is confirmed)
              if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
                console.log(`User ${user.uid} (${profile?.role}) attempting to access admin area. Redirecting.`);
                toast({ title: "Access Denied", description: "Admin area requires administrator privileges.", variant: "destructive" });
                router.replace('/');
              }
         } catch (error) {
-             console.error("Error fetching or creating user profile:", error);
-             toast({ title: "Profile Error", description: "Could not load or create your user profile.", variant: "destructive" });
+             // Log the specific error for better debugging
+             console.error(`Error fetching or creating user profile for ${user.uid}:`, error);
+             // Provide a generic message to the user
+             toast({ title: "Profile Error", description: "Could not load or create your user profile. Check console for details.", variant: "destructive" });
              // Decide how to handle this - maybe sign out?
-             // For now, set profile to null
+             // For now, set profile to null, preventing potential incorrect role access
              setUserProfile(null);
         }
 
       } else {
         setCurrentUser(null);
         setUserProfile(null);
-        // Logic for redirecting non-authenticated users remains the same
-        const publicPaths = ['/auth/login', '/auth/signup']; // '/' might require auth depending on app logic
+        // Logic for redirecting non-authenticated users
+        const publicPaths = ['/auth/login', '/auth/signup'];
         const requiresAuth = !publicPaths.includes(pathname) && !pathname.startsWith('/auth');
 
-        if (requiresAuth) {
-            // console.log("User not authenticated, redirecting to login from:", pathname);
-            // router.replace('/auth/login'); // Consider if automatic redirect is desired
+        // Redirect to login if trying to access a protected route without being logged in
+        // Avoid redirecting if already on login/signup or if auth is still loading/initializing
+        if (requiresAuth && firebaseReady && !loading) {
+            console.log("User not authenticated, redirecting to login from:", pathname);
+            router.replace('/auth/login');
         }
       }
       setLoading(false);
     });
 
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [router, pathname, toast]); // Added toast dependency
+  }, [router, pathname, toast, loading, firebaseReady]); // Add loading and firebaseReady to dependencies
 
   const isAdmin = userProfile?.role === 'admin';
   const isEditor = userProfile?.role === 'editor' || userProfile?.role === 'admin';
@@ -119,6 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       await firebaseSignOut(auth);
+      // Clear local state immediately
+      setCurrentUser(null);
+      setUserProfile(null);
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
       router.push('/auth/login'); // Redirect to login after sign out
     } catch (error) {

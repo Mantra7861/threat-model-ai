@@ -4,41 +4,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users Collection
+    // Users Collection Rules
     match /users/{userId} {
-      // Allow users to read their own profile data
-      allow read: if request.auth != null && request.auth.uid == userId;
+      // Allow reads by any authenticated user (can be restricted further if needed)
+      allow read: if request.auth != null;
 
-      // Allow authenticated users to create their own user profile upon signup
-      // Ensure they are setting their own role to 'editor' initially
-      allow create: if request.auth != null && request.auth.uid == userId &&
-                       request.resource.data.role == 'editor' &&
-                       request.resource.data.email == request.auth.token.email; // Optional: verify email too
+      // Allow creation only by the user themselves
+      allow create: if request.auth != null && request.auth.uid == userId;
 
-      // Allow admins to update the role of any user
-      allow update: if request.auth != null &&
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' &&
-                       request.resource.data.keys().hasOnly(['role']); // Only allow updating the 'role' field by admins
+      // Allow updates only by the user themselves or an admin
+      // Admins might need broader update capabilities later, but for now, focus on self-updates + role updates by admin
+      allow update: if request.auth != null && (
+                      request.auth.uid == userId || // User can update their own profile (e.g., displayName, photoURL)
+                      (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])) // Admin can ONLY update the 'role' field
+                    );
+                    
+      // Allow deletion only by the user themselves or an admin (generally not recommended to allow user deletion directly)
+      // Consider disabling user deletion or handling it via backend functions for cleanup.
+      // allow delete: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow delete: if false; // Safer default: disallow client-side deletion of user profiles
     }
 
-    // Allow admins to list/read all users for the management page
-    match /users/{document=**} {
-      allow list, get: if request.auth != null &&
-                          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Add rules for other collections (e.g., diagrams/projects) here
-    // Example (adjust based on actual project structure):
-    // match /projects/{projectId} {
-    //   // Allow editors and admins to read/write their projects
-    //   // Allow viewers to read projects they have access to (requires more complex structure)
-    //   allow read, write: if request.auth != null && (
-    //                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-    //                        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor' && resource.data.ownerId == request.auth.uid) // Example owner check
-    //                      );
-    // }
-
-    // Default deny all other access
+    // Default deny all other collections/paths unless explicitly allowed
     match /{document=**} {
       allow read, write: if false;
     }
