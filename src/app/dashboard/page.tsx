@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -49,17 +48,14 @@ export default function DashboardPage() {
   }, [currentUser, authLoading, firebaseReady, toast]);
 
   const handleLoadModel = (modelId: string) => {
-    router.push(`/projects/${modelId}`); // Navigate to the project page
+    if (!modelId) return;
+    console.log(`Dashboard: Navigating to project ${modelId}`);
+    router.push(`/projects/${modelId}`); // Navigate to the project page using the model ID
   };
 
    const handleNewModel = () => {
-     // Navigate to the project page with a special identifier or query param for 'new'?
-     // Or just navigate to a generic project route which starts blank.
-     // For simplicity, let's assume `/projects/new` or similar route could handle it,
-     // or just redirect to `/projects/default` which ProjectClientLayout treats as new.
-     // Let's use the existing logic: redirect to a dummy ID that ProjectClientLayout ignores
-     // and starts fresh.
-     router.push(`/projects/new`); // ProjectClientLayout will treat this as new
+     console.log("Dashboard: Navigating to new project page.");
+     router.push(`/projects/new`); // Navigate to the route indicating a new project
    };
 
 
@@ -99,9 +95,15 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           {error && <p className="text-destructive mb-4">{error}</p>}
-          {models.length === 0 && !loadingModels && !error ? (
+          {loadingModels && models.length === 0 && ( // Show loader specifically when loading empty list
+              <div className="flex items-center justify-center text-muted-foreground py-8">
+                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading models...
+              </div>
+          )}
+          {!loadingModels && models.length === 0 && !error && (
             <p className="text-center text-muted-foreground py-8">You haven't saved any threat models yet. Click "New Model" to start.</p>
-          ) : (
+          )}
+          {!loadingModels && models.length > 0 && (
             <ScrollArea className="h-[60vh] border rounded-md">
               <Table>
                 <TableHeader>
