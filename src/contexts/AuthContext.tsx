@@ -4,7 +4,7 @@
 import type { ReactNode, Dispatch, SetStateAction } from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { onAuthStateChanged, type User as FirebaseUser, signOut as firebaseSignOut } from 'firebase/auth';
-import { auth, initializationError, ensureFirebaseInitialized } from '@/lib/firebase/firebase'; // Import auth and initialization status
+import { auth, initializationError, ensureFirebaseInitialized, db } from '@/lib/firebase/firebase'; // Import db
 import { getUserProfile, createUserProfile } from '@/services/userService';
 import type { UserProfile } from '@/types/user';
 import { usePathname, useRouter } from 'next/navigation';
@@ -34,87 +34,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast(); // Get toast function
 
+  // Effect to check Firebase initialization status
   useEffect(() => {
     const { initialized, error } = ensureFirebaseInitialized();
     setFirebaseReady(initialized);
 
     if (!initialized && error) {
-      console.error("Auth Provider Error:", error);
+      console.error("Auth Provider Initialization Error:", error);
       toast({
           title: "Configuration Error",
-          description: "Firebase is not configured correctly. Please check environment variables. Some features may be unavailable.",
+          description: "Firebase is not configured correctly. Backend features may be unavailable.",
           variant: "destructive",
-          duration: Infinity, // Keep message shown
+          duration: 9000, // Show for 9 seconds
       });
-      setLoading(false); // Stop loading as Firebase won't initialize
-      // Optionally redirect to an error page or show a persistent banner
-      // For now, we just show a toast and set loading to false.
-      return; // Stop further auth checks if Firebase isn't ready
+      setLoading(false); // Stop loading
+    }
+     // Ensure auth and db are available after initialization check
+    if (initialized && (!auth || !db)) {
+         console.error("Auth Provider Error: Firebase Auth or Firestore instance is null after successful initialization check.");
+         toast({ title: "Initialization Error", description: "Could not obtain Firebase Auth/DB instance.", variant: "destructive" });
+         setLoading(false);
+         setFirebaseReady(false); // Mark as not ready if instances are null
+    }
+  }, [toast]); // Only depends on toast for showing errors
+
+  // Effect to handle authentication state changes and profile fetching
+  useEffect(() => {
+    if (!firebaseReady || !auth || !db) {
+       setLoading(false); // Ensure loading stops if firebase isn't ready
+       return; // Don't run auth listener if Firebase isn't ready
     }
 
-    if (!auth) {
-        // This case should theoretically be covered by ensureFirebaseInitialized, but as a safeguard:
-        console.error("Auth Provider Error: Firebase Auth instance is null.");
-        toast({ title: "Initialization Error", description: "Could not initialize Firebase Authentication.", variant: "destructive" });
-        setLoading(false);
-        return;
-    }
+    setLoading(true); // Start loading when listener might attach or re-run due to deps
 
-
-    // Only proceed with onAuthStateChanged if Firebase is initialized
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setLoading(true);
+      // It's crucial to manage loading state carefully within the async callback
+      setLoading(true); // Set loading true when auth state changes
+
       if (user) {
         setCurrentUser(user);
         try {
             let profile = await getUserProfile(user.uid);
             if (!profile) {
               console.log(`No profile found for ${user.uid}, attempting to create one...`);
-              // Attempt to create profile
               profile = await createUserProfile(user.uid, user.email, user.displayName, user.photoURL);
-               toast({ title: "Profile Created", description: "Your user profile has been set up." });
-               console.log(`Profile created for ${user.uid}.`);
-            } else {
-                 // console.log(`Profile found for ${user.uid}:`, profile);
+              toast({ title: "Profile Created", description: "Your user profile has been set up." });
+              console.log(`Profile created for ${user.uid}.`);
             }
-            setUserProfile(profile);
+            setUserProfile(profile); // Set profile regardless of whether it was fetched or created
 
-             // Admin area access check (should only happen *after* profile is confirmed)
-             if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
+             // Admin area access check
+             const isAdminUser = profile?.role === 'admin';
+             if (pathname.startsWith('/admin') && !isAdminUser) {
                console.log(`User ${user.uid} (${profile?.role}) attempting to access admin area. Redirecting.`);
                toast({ title: "Access Denied", description: "Admin area requires administrator privileges.", variant: "destructive" });
                router.replace('/');
              }
         } catch (error) {
-             // Log the specific error for better debugging
              console.error(`Error fetching or creating user profile for ${user.uid}:`, error);
-             // Provide a generic message to the user
-             toast({ title: "Profile Error", description: "Could not load or create your user profile. Check console for details.", variant: "destructive" });
-             // Decide how to handle this - maybe sign out?
-             // For now, set profile to null, preventing potential incorrect role access
-             setUserProfile(null);
+             toast({ title: "Profile Error", description: "Could not load or create your user profile. Please try refreshing. Check console for details.", variant: "destructive" });
+             setUserProfile(null); // Ensure profile is null on error
+        } finally {
+            setLoading(false); // Stop loading after profile fetch/create attempt
         }
-
       } else {
+        // User is signed out
         setCurrentUser(null);
         setUserProfile(null);
-        // Logic for redirecting non-authenticated users
-        const publicPaths = ['/auth/login', '/auth/signup'];
-        const requiresAuth = !publicPaths.includes(pathname) && !pathname.startsWith('/auth');
 
-        // Redirect to login if trying to access a protected route without being logged in
-        // Avoid redirecting if already on login/signup or if auth is still loading/initializing
-        if (requiresAuth && firebaseReady && !loading) {
+        // Redirect non-authenticated users from protected routes
+        const publicPaths = ['/auth/login', '/auth/signup'];
+        const isPublicPath = publicPaths.includes(pathname) || pathname.startsWith('/auth');
+
+        if (!isPublicPath && firebaseReady) { // Check firebaseReady here too
             console.log("User not authenticated, redirecting to login from:", pathname);
             router.replace('/auth/login');
         }
+        setLoading(false); // Stop loading after handling sign-out
       }
-      setLoading(false);
     });
 
     // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, [router, pathname, toast, loading, firebaseReady]); // Add loading and firebaseReady to dependencies
+    return () => {
+        unsubscribe();
+        setLoading(false); // Ensure loading is false on cleanup
+    };
+  // Rerun this effect if firebase readiness changes, or route changes (for redirection logic)
+  // DO NOT include `loading` here to prevent loops.
+  }, [firebaseReady, router, pathname, toast]);
 
   const isAdmin = userProfile?.role === 'admin';
   const isEditor = userProfile?.role === 'editor' || userProfile?.role === 'admin';
@@ -127,11 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       await firebaseSignOut(auth);
-      // Clear local state immediately
-      setCurrentUser(null);
-      setUserProfile(null);
+      // No need to clear local state here, onAuthStateChanged will handle it
       toast({ title: "Signed Out", description: "You have been successfully signed out." });
-      router.push('/auth/login'); // Redirect to login after sign out
+      router.push('/auth/login'); // Redirect handled by onAuthStateChanged generally, but can force here too
     } catch (error) {
       console.error("Error signing out: ", error);
       toast({ title: "Sign Out Error", description: `Failed to sign out: ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
@@ -147,8 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         isEditor,
         isViewer,
-        setCurrentUser,
-        setUserProfile,
+        setCurrentUser, // Keep these setters if direct manipulation is needed elsewhere, though unlikely
+        setUserProfile, // Keep these setters if direct manipulation is needed elsewhere, though unlikely
         signOut
      }}>
       {children}
