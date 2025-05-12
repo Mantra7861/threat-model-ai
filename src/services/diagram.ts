@@ -1,4 +1,21 @@
 
+import type { Viewport } from '@xyflow/react'; // Need Viewport type
+import { db, ensureFirebaseInitialized } from '@/lib/firebase/firebase';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  getDoc,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+  Timestamp,
+  type FieldValue,
+} from 'firebase/firestore';
+
+
 /**
  * Represents a component in the diagram.
  */
@@ -6,15 +23,15 @@ export interface Component {
   /**
    * The unique identifier of the component.
    */
-id: string;
+  id: string;
   /**
    * The type of the component (e.g., server, database).
    */
-type: string;
+  type: string;
   /**
    * The properties of the component.
    */
-properties: Record<string, any> & {
+  properties: Record<string, any> & {
     /** Optional position for saving layout */
     position?: { x: number; y: number };
     /** Optional width for saving layout */
@@ -71,17 +88,39 @@ export interface Connection {
 export type ModelType = 'infrastructure' | 'process';
 
 /**
- * Represents a diagram.
+ * Represents the data structure stored within a threat model document.
+ */
+interface ThreatModelData {
+  components: Component[];
+  connections: Connection[];
+  viewport?: Viewport; // Add viewport
+}
+
+/**
+ * Represents the full threat model document structure in Firestore.
+ */
+interface ThreatModelDocument {
+  id?: string; // Firestore document ID, optional before saving
+  userId: string;
+  name: string;
+  modelType: ModelType;
+  data: ThreatModelData;
+  createdDate: Timestamp | FieldValue; // For Firestore
+  modifiedDate: Timestamp | FieldValue; // For Firestore
+}
+
+/**
+ * Represents a diagram. Used mainly for runtime state before saving.
  */
 export interface Diagram {
   /**
-   * The unique identifier of the diagram.
+   * The unique identifier of the diagram (may be null if new).
    */
-id: string;
+  id: string | null;
   /**
    * The name of the diagram.
    */
-name: string;
+  name: string;
   /**
    * The type of the model.
    */
@@ -89,124 +128,166 @@ name: string;
   /**
    * The components in the diagram.
    */
-components: Component[];
+  components: Component[];
   /**
    * The connections (edges) in the diagram.
    */
   connections?: Connection[];
+  /**
+   * Optional viewport state for the diagram.
+   */
+  viewport?: Viewport;
+}
+
+
+/**
+ * Asynchronously saves or updates a threat model in Firestore.
+ *
+ * @param userId The ID of the user saving the model.
+ * @param modelId The current ID of the model (null if new).
+ * @param modelName The name of the model.
+ * @param modelType The type of the model.
+ * @param components The components array.
+ * @param connections The connections array.
+ * @param viewport Optional viewport state.
+ * @returns A promise that resolves to the model's ID (new or existing).
+ */
+export async function saveThreatModel(
+  userId: string,
+  modelId: string | null,
+  modelName: string,
+  modelType: ModelType,
+  components: Component[],
+  connections: Connection[],
+  viewport?: Viewport
+): Promise<string> { // Returns the modelId
+  const { initialized, error } = ensureFirebaseInitialized();
+  if (!initialized || !db) {
+    throw new Error(error || "Firestore not initialized");
+  }
+
+  const modelData: ThreatModelData = { components, connections: connections ?? [], viewport };
+
+  if (modelId) {
+    // Update existing model
+    const modelDocRef = doc(db, 'threatModels', modelId);
+    await updateDoc(modelDocRef, {
+      name: modelName,
+      modelType: modelType,
+      data: modelData,
+      modifiedDate: serverTimestamp(),
+    });
+    console.log(`Threat model updated: ${modelId}`);
+    return modelId;
+  } else {
+    // Create new model
+    const collectionRef = collection(db, 'threatModels');
+    const docRef = await addDoc(collectionRef, {
+      userId: userId,
+      name: modelName,
+      modelType: modelType,
+      data: modelData,
+      createdDate: serverTimestamp(),
+      modifiedDate: serverTimestamp(),
+    } as Omit<ThreatModelDocument, 'id'>); // Ensure type matches Firestore structure
+    console.log(`New threat model created: ${docRef.id}`);
+    return docRef.id;
+  }
 }
 
 /**
- * Asynchronously retrieves a diagram by its ID.
- * Simulates fetching data with layout properties.
- *
- * @param id The ID of the diagram to retrieve.
- * @returns A promise that resolves to a Diagram object.
+ * Information about a saved model, used for listing.
  */
-export async function getDiagram(id: string): Promise<Diagram> {
-  console.log(`Fetching diagram with ID: ${id}`);
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  // Return mock data including position, width, and height
-  return {
-    id: '1',
-    name: 'Sample E-commerce Architecture',
-    modelType: 'infrastructure', // Default to infrastructure for existing mock
-    components: [
-      {
-        id: 'web-server-1',
-        type: 'server',
-        properties: {
-          name: 'Web Server',
-          os: 'Ubuntu 22.04',
-          ipAddress: '10.0.0.5',
-          description: 'Handles incoming HTTP requests.',
-          position: { x: 250, y: 100 }, 
-          width: 150,
-          height: 80,
-          selected: false,
-        },
-      },
-      {
-        id: 'db-1',
-        type: 'database',
-        properties: {
-          name: 'Customer DB',
-          engine: 'PostgreSQL 14',
-          storageGB: 512,
-          description: 'Stores customer information.',
-          position: { x: 250, y: 300 }, 
-          width: 150,
-          height: 80,
-          selected: false,
-        },
-      },
-      {
-        id: 'api-gw-1',
-        type: 'service', 
-        properties: {
-            name: 'API Gateway',
-            provider: 'Cloud Provider',
-            description: 'Manages API access.',
-            position: { x: 50, y: 200}, 
-            width: 150,
-            height: 80,
-            selected: false,
-        }
-      },
-      {
-        id: 'trust-boundary-1',
-        type: 'boundary',
-        properties: {
-            name: 'Internal Network',
-            description: 'Internal trusted network zone.',
-            position: { x: 180, y: 50 }, 
-            width: 300, 
-            height: 350, 
-            selected: false,
-        }
-      }
-    ],
-    connections: [
-      { 
-        id: 'edge-api-web', 
-        source: 'api-gw-1', target: 'web-server-1', 
-        sourceHandle: 'right', targetHandle: 'left', 
-        label: 'HTTPS Traffic', 
-        properties: { name: 'HTTPS Traffic', protocol: 'HTTPS/TLS', dataType: 'JSON API Calls', securityConsiderations: 'Input validation, WAF' },
-        selected: false,
-      },
-      { 
-        id: 'edge-web-db', 
-        source: 'web-server-1', target: 'db-1', 
-        sourceHandle: 'bottom', targetHandle: 'top',
-        label: 'DB Queries',
-        properties: { name: 'DB Queries', protocol: 'TCP/IP (PostgreSQL)', dataType: 'SQL', securityConsiderations: 'Parameterized queries, network segmentation' },
-        selected: false,
-      },
-    ],
-  };
+export interface SavedModelInfo {
+  id: string;
+  name: string;
+  modifiedDate?: Date;
 }
 
 /**
- * Asynchronously saves a diagram.
- * Simulates saving data including layout properties.
+ * Asynchronously retrieves a list of saved threat models for a given user.
  *
- * @param diagram The diagram to save.
- * @returns A promise that resolves when the diagram is saved.
+ * @param userId The ID of the user whose models to retrieve.
+ * @returns A promise that resolves to an array of SavedModelInfo objects.
  */
-export async function saveDiagram(diagram: Diagram): Promise<void> {
-  console.log('Saving diagram:', JSON.stringify(diagram, null, 2)); 
-  await new Promise(resolve => setTimeout(resolve, 500));
-  console.log(`Diagram ${diagram.id} (type: ${diagram.modelType || 'unknown'}) simulated save complete.`);
+export async function getUserThreatModels(userId: string): Promise<SavedModelInfo[]> {
+   const { initialized, error } = ensureFirebaseInitialized();
+   if (!initialized || !db) {
+     throw new Error(error || "Firestore not initialized");
+   }
+   const modelsCollectionRef = collection(db, 'threatModels');
+   // Note: Firestore security rules require the query to filter by userId.
+   const q = query(modelsCollectionRef, where('userId', '==', userId));
+   const querySnapshot = await getDocs(q);
+   return querySnapshot.docs.map(docSnap => {
+       const data = docSnap.data();
+       let modifiedDate: Date | undefined = undefined;
+       if (data.modifiedDate && data.modifiedDate instanceof Timestamp) {
+           modifiedDate = data.modifiedDate.toDate();
+       }
+       return {
+           id: docSnap.id,
+           name: data.name || 'Untitled Model',
+           modifiedDate: modifiedDate
+       } as SavedModelInfo;
+   }).sort((a, b) => (b.modifiedDate?.getTime() || 0) - (a.modifiedDate?.getTime() || 0)); // Sort by date descending
 }
+
+/**
+ * The structure of a loaded threat model ready for use in the application.
+ */
+export interface LoadedThreatModel {
+    id: string;
+    name: string;
+    modelType: ModelType;
+    components: Component[];
+    connections: Connection[];
+    viewport?: Viewport;
+}
+
+/**
+ * Asynchronously retrieves a specific threat model by its ID from Firestore.
+ *
+ * @param modelId The ID of the threat model to retrieve.
+ * @returns A promise that resolves to a LoadedThreatModel object or null if not found.
+ */
+export async function getThreatModelById(modelId: string): Promise<LoadedThreatModel | null> {
+    const { initialized, error } = ensureFirebaseInitialized();
+    if (!initialized || !db) {
+      throw new Error(error || "Firestore not initialized");
+    }
+    const modelDocRef = doc(db, 'threatModels', modelId);
+    const docSnap = await getDoc(modelDocRef);
+
+    if (!docSnap.exists()) {
+        console.error(`Threat model with ID ${modelId} not found.`);
+        return null;
+    }
+
+    const data = docSnap.data();
+    if (!data || !data.data) {
+         console.error(`Threat model data field missing for ID ${modelId}.`);
+         return null;
+    }
+    const modelData = data.data as ThreatModelData;
+
+    return {
+        id: docSnap.id,
+        name: data.name || 'Untitled Model',
+        modelType: data.modelType || 'infrastructure', // Default if missing
+        components: modelData.components || [],
+        connections: modelData.connections || [],
+        viewport: modelData.viewport
+    };
+}
+
 
 // Default empty diagram structure
-export const getDefaultDiagram = (id: string, name: string, type: ModelType): Diagram => ({
-  id,
+export const getDefaultDiagram = (id: string | null, name: string, type: ModelType): Diagram => ({
+  id, // Can be null for a new diagram
   name,
   modelType: type,
   components: [],
   connections: [],
+  viewport: undefined, // Start with default viewport
 });

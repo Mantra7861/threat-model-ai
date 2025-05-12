@@ -4,62 +4,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isUser(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Rules for the 'users' collection
+    // Rules for user profiles
     match /users/{userId} {
-      // Allow a user to create their own document with default 'editor' role and matching email.
-      allow create: if isUser(userId) &&
-                       request.resource.data.email == request.auth.token.email &&
-                       request.resource.data.role == 'editor' &&
-                       request.resource.data.keys().hasAll(['email', 'displayName', 'photoURL', 'role', 'registrationDate']);
-
-      // Allow a user to read their own document, or an admin to read any user document.
-      allow read: if isUser(userId) || isAdmin();
-
-      // Allow a user to update their own displayName or photoURL.
-      // Allow an admin to update only the 'role' of any user.
-      allow update: if isAuthenticated() && (
-                      (isUser(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL'])) ||
-                      (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']))
-                    );
-      
-      // Deleting user documents is typically handled by backend functions or restricted.
-      // allow delete: if isAdmin(); // Example: only admin can delete
+      // Allow users to read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Allow authenticated users to create their profile (typically on signup)
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow admins to update any profile (for role changes)
+      // Allow users to update their own profile (e.g., display name, photoURL)
+      allow update: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      // Generally, profiles shouldn't be deleted, but allow admins if necessary
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Allow admin to list all users.
-    match /users {
-      allow list: if isAdmin();
+     // Rules for listing users (for admin page)
+     match /users {
+        // Only allow admins to list all users
+       allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+     }
+
+
+    // Rules for threat models
+    match /threatModels/{modelId} {
+      // Allow authenticated users to create new threat models
+      allow create: if request.auth != null;
+      // Allow users to read their own threat models
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Allow users to update their own threat models
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid;
+      // Allow users to delete their own threat models
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
-    // --- Placeholder for Diagram Rules ---
-    // You will need to add rules for your 'diagrams' collection (or whatever it's named)
-    // to control who can create, read, update, and delete diagrams.
-    // For example:
-    // match /diagrams/{diagramId} {
-    //   // Allow owner to do anything
-    //   allow read, write: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
-    //   // Allow shared users to read if they have a 'viewer' role in a subcollection for this diagram
-    //   // allow read: if isAuthenticated() && exists(/databases/$(database)/documents/diagrams/$(diagramId)/permissions/$(request.auth.uid)) &&
-    //   //                get(/databases/$(database)/documents/diagrams/$(diagramId)/permissions/$(request.auth.uid)).data.role == 'viewer';
-    // }
-    // match /diagrams {
-    //    allow list, create: if isAuthenticated(); // Allow any authenticated user to list their diagrams and create new ones
-    // }
-
-    // By default, Firestore rules deny access to any path not explicitly allowed.
-    // So, if you have other collections, they will be inaccessible until you add rules for them.
+     // Rules for listing threat models
+     match /threatModels {
+        // Allow users to list only their own models (queries must include userId filter)
+       allow list: if request.auth != null && request.query.resource.data.userId == request.auth.uid;
+     }
   }
 }
