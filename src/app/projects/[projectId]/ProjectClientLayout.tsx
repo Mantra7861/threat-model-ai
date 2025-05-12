@@ -15,65 +15,66 @@ import {
     applyEdgeChanges,
     addEdge,
     type ReactFlowInstance,
-    useReactFlow, // Import useReactFlow
+    useReactFlow,
 } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-    saveThreatModel, // Use new Firestore save function
-    getUserThreatModels, // Function to list models
-    getThreatModelById, // Function to load a specific model
+    saveThreatModel,
+    getUserThreatModels,
+    getThreatModelById,
     type Diagram,
-    type Component as DiagramComponent,
-    type Connection as DiagramConnection,
+    type Component as DiagramComponent, // Already aliased
+    type Connection as DiagramConnection, // Already aliased
     getDefaultDiagram,
     type ModelType,
-    type LoadedThreatModel, // Type for loaded model data
-    type SavedModelInfo, // Type for model list
+    type LoadedThreatModel,
+    type SavedModelInfo,
 } from '@/services/diagram';
 import {
-    componentToNode, // Utility function
-    connectionToEdge, // Utility function
-    nodeToComponent, // Utility function
-    edgeToConnection // Utility function
-} from '@/lib/diagram-utils'; // Corrected import path
+    componentToNode,
+    connectionToEdge,
+    nodeToComponent, // Import this
+    edgeToConnection // Import this
+} from '@/lib/diagram-utils';
 import { useToast } from '@/hooks/use-toast';
 import { calculateEffectiveZIndex, getTopmostElementAtClick } from '@/lib/diagram-utils';
 import { DiagramHeader } from "@/components/layout/DiagramHeader";
 import { ThreatReportPanel } from "@/components/diagram/ThreatReportPanel";
-import { Button } from '@/components/ui/button';
+// Button removed as it's not directly used here anymore for save
 import { NewModelDialog } from '@/components/dialogs/NewModelDialog';
-import { LoadModelDialog } from '@/components/dialogs/LoadModelDialog'; // Import new dialog
+import { LoadModelDialog } from '@/components/dialogs/LoadModelDialog';
 import { useProjectContext } from '@/contexts/ProjectContext';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
 
 
 interface ProjectClientLayoutProps {
-    projectId: string; // This might become less relevant if we load models dynamically
+    projectId: string;
 }
 
 export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const { modelType, setModelType, modelName, setModelName } = useProjectContext();
-    const { currentUser } = useAuth(); // Get current user for saving/loading
-    const reactFlowInstance = useReactFlow<Node, Edge>(); // Use hook to get instance
+    const { currentUser } = useAuth();
+    const reactFlowInstance = useReactFlow<Node, Edge>();
 
     const [nodes, setNodesInternal] = useNodesState<Node[]>([]);
     const [edges, setEdgesInternal] = useEdgesState<Edge[]>([]);
     const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-    const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(null); // Used to hold data for AI flows
-    const [loading, setLoading] = useState(true); // Combined loading state
+    // diagramDataForAI is mainly for *saving* and *AI property suggestion context*.
+    // For *report generation*, we'll grab the live state.
+    const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(null);
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const { toast } = useToast();
-    // const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null); // Replaced by useReactFlow hook
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
-    const [isLoadModelDialogOpen, setIsLoadModelDialogOpen] = useState(false); // State for Load dialog
-    const [userModels, setUserModels] = useState<SavedModelInfo[]>([]); // State for user's models list
-    const [modelId, setModelId] = useState<string | null>(null); // State to track the current Firestore model ID
+    const [isLoadModelDialogOpen, setIsLoadModelDialogOpen] = useState(false);
+    const [userModels, setUserModels] = useState<SavedModelInfo[]>([]);
+    const [modelId, setModelId] = useState<string | null>(null);
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-    // Effect for initial load - now starts with an empty canvas
+
     useEffect(() => {
         setModelName("Untitled Model");
         setModelType('infrastructure');
@@ -81,14 +82,14 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setEdgesInternal([]);
         setSelectedElementId(null);
         setViewport(undefined);
-        setModelId(null); // Indicate unsaved model
+        setModelId(null);
         setLoading(false);
         setError(null);
-        setDiagramDataForAI(null); // Clear AI data
+        // Set initial diagramDataForAI for context like diagram name in properties panel
+        setDiagramDataForAI(getDefaultDiagram(null, "Untitled Model", 'infrastructure'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Run only once on mount
+    }, []);
 
-    // Effect to set nodes and edges selected status based on selectedElementId
     useEffect(() => {
         setNodesInternal(prevNodes =>
             prevNodes.map(n => ({
@@ -110,7 +111,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         (changes: NodeChange[]) => {
             setNodesInternal((currentNodes) => {
                 const updatedNodes = applyNodeChanges(changes, currentNodes);
-                // Calculate zIndex based on selection status changes
                 return updatedNodes.map(node => {
                     const change = changes.find(c => c.id === node.id);
                     let newSelectedStatus = node.selected;
@@ -124,7 +124,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                             zIndex: calculateEffectiveZIndex(node.id, node.type as string, newSelectedStatus, node.zIndex, selectedElementId)
                         };
                     }
-                     // Update zIndex on position change too
                     if (change && (change.type === 'position' && !change.dragging) || change?.type === 'dimensions') {
                          return {
                             ...node,
@@ -135,36 +134,32 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 });
             });
 
-             // Update selectedElementId based on selection changes
             changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
                         setSelectedElementId(change.id);
                     } else if (selectedElementId === change.id) {
-                        // Deselect if the current element is deselected and no other element is being selected in this batch
                         const isAnotherElementSelectedInThisBatch = changes.some(c => c.type === 'select' && c.selected && c.id !== change.id);
                         if (!isAnotherElementSelectedInThisBatch) {
                            setSelectedElementId(null);
                         }
                     }
                 } else if (change.type === 'remove' && selectedElementId === change.id) {
-                    setSelectedElementId(null); // Clear selection if element is removed
+                    setSelectedElementId(null);
                 }
             });
         },
-        [setNodesInternal, selectedElementId, setSelectedElementId] // Added setSelectedElementId
+        [setNodesInternal, selectedElementId, setSelectedElementId]
     );
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => {
             setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
-             // Update selectedElementId based on edge selection changes
              changes.forEach(change => {
                 if (change.type === 'select') {
                     if (change.selected) {
                         setSelectedElementId(change.id);
                     } else if (selectedElementId === change.id) {
-                        // Deselect if the current edge is deselected and no other element is being selected
                         const isAnotherElementSelected = changes.some(c => c.type === 'select' && c.selected && c.id !== change.id);
                         if (!isAnotherElementSelected) {
                             setSelectedElementId(null);
@@ -175,7 +170,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 }
             });
         },
-        [setEdgesInternal, selectedElementId, setSelectedElementId] // Added setSelectedElementId
+        [setEdgesInternal, selectedElementId, setSelectedElementId]
     );
 
     const onConnect = useCallback(
@@ -247,7 +242,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     const deleteElement = useCallback((elementId: string, isNode: boolean) => {
         if (isNode) {
             setNodesInternal((nds) => nds.filter((node) => node.id !== elementId));
-            // Also remove edges connected to the deleted node
             setEdgesInternal((eds) => eds.filter((edge) => edge.source !== elementId && edge.target !== elementId));
         } else {
             setEdgesInternal((eds) => eds.filter((edge) => edge.id !== elementId));
@@ -259,7 +253,6 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     }, [setNodesInternal, setEdgesInternal, toast, selectedElementId, setSelectedElementId]);
 
 
-    // --- Save Logic ---
     const handleSave = useCallback(async () => {
         if (!currentUser) {
             toast({ title: 'Error', description: 'You must be logged in to save.', variant: 'destructive' });
@@ -270,32 +263,35 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             return;
         }
 
-        const nodesToSave = nodes.map(n => nodeToComponent(n));
-        const edgesToSave = edges.map(e => edgeToConnection(e));
-        const currentViewport = reactFlowInstance.getViewport(); // Get current viewport
+        const currentNodes = reactFlowInstance.getNodes(); // Get current nodes from instance
+        const currentEdges = reactFlowInstance.getEdges(); // Get current edges from instance
+
+        const nodesToSave = currentNodes.map(n => nodeToComponent(n));
+        const edgesToSave = currentEdges.map(e => edgeToConnection(e));
+        const currentViewport = reactFlowInstance.getViewport();
 
         try {
-            setLoading(true); // Indicate saving
+            setLoading(true);
             const savedModelId = await saveThreatModel(
                 currentUser.uid,
-                modelId, // Pass the current modelId (null if new)
+                modelId,
                 modelName,
                 modelType,
                 nodesToSave,
                 edgesToSave,
-                currentViewport // Save the viewport
+                currentViewport
             );
-            setModelId(savedModelId); // Update modelId state after saving
+            setModelId(savedModelId);
 
-             // Also update data used for AI generation if needed
-            setDiagramDataForAI({
-                 id: savedModelId, // Use the saved ID
+            const currentDiagramForAI: Diagram = {
+                 id: savedModelId,
                  name: modelName,
                  modelType: modelType,
                  components: nodesToSave,
                  connections: edgesToSave,
                  viewport: currentViewport,
-            });
+            };
+            setDiagramDataForAI(currentDiagramForAI);
 
             toast({ title: 'Saved', description: 'Diagram saved successfully.' });
         } catch (err) {
@@ -303,20 +299,18 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             const errorMessage = err instanceof Error ? err.message : 'Could not save diagram.';
             toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
         } finally {
-            setLoading(false); // Stop saving indicator
+            setLoading(false);
         }
-    // Added dependencies for save logic
-    }, [modelName, modelType, nodes, edges, toast, currentUser, modelId, reactFlowInstance, setModelId, setDiagramDataForAI]);
+    }, [modelName, modelType, toast, currentUser, modelId, reactFlowInstance, setModelId, setDiagramDataForAI]);
 
 
-    // --- Load Logic ---
     const handleLoadTrigger = async () => {
         if (!currentUser) {
             toast({ title: 'Error', description: 'You must be logged in to load models.', variant: 'destructive' });
             return;
         }
         try {
-            setLoading(true); // Indicate loading models list
+            setLoading(true);
             const models = await getUserThreatModels(currentUser.uid);
             setUserModels(models);
             setIsLoadModelDialogOpen(true);
@@ -332,7 +326,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         setIsLoadModelDialogOpen(false);
         if (selectedModelId === modelId) {
              toast({ title: 'Info', description: 'This model is already loaded.', variant: 'default' });
-             return; // Don't reload if the same model is selected
+             return;
         }
 
         setLoading(true);
@@ -347,25 +341,23 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
 
                 setNodesInternal(flowNodes);
                 setEdgesInternal(flowEdges);
-                 // Use setViewport to update, fitView needs instance which might not be ready
-                 setViewport(loadedModel.viewport || { x: 0, y: 0, zoom: 1 }); // Default viewport if none saved
-                 // Schedule fitView after state updates settle
+                 setViewport(loadedModel.viewport || { x: 0, y: 0, zoom: 1 });
                  setTimeout(() => {
                      reactFlowInstance?.fitView({ padding: 0.1, duration: 200 });
                  }, 50);
 
-                setModelId(loadedModel.id); // Set the loaded model's ID
-                setSelectedElementId(null); // Deselect any previous selection
+                setModelId(loadedModel.id);
+                setSelectedElementId(null);
 
-                // Update AI data source
-                 setDiagramDataForAI({
+                 const currentDiagramForAI: Diagram = {
                      id: loadedModel.id,
                      name: loadedModel.name,
                      modelType: loadedModel.modelType,
                      components: loadedModel.components,
                      connections: loadedModel.connections,
                      viewport: loadedModel.viewport,
-                 });
+                 };
+                 setDiagramDataForAI(currentDiagramForAI);
 
                 toast({ title: 'Model Loaded', description: `Successfully loaded '${loadedModel.name}'.` });
             } else {
@@ -375,13 +367,12 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             setError('Failed to load selected diagram.');
             console.error(err);
             toast({ title: 'Error', description: 'Could not load the selected diagram.', variant: 'destructive' });
-            setModelId(null); // Reset model ID if load fails
+            setModelId(null);
         } finally {
             setLoading(false);
         }
     };
 
-    // --- Click Handling ---
     const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
         if (element.id === selectedElementId) return;
         setSelectedElementId(element.id);
@@ -414,25 +405,47 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
         [reactFlowInstance, selectedElementId, setSelectedElementId, onElementClick]
     );
 
-    // --- New Model Creation ---
     const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
         setModelName(newModelName);
         setModelType(newModelType);
         setNodesInternal([]);
         setEdgesInternal([]);
         setSelectedElementId(null);
-        setViewport(undefined); // Reset viewport
-        setModelId(null); // Set ID to null for new model
+        setViewport(undefined);
+        setModelId(null);
         setDiagramDataForAI(getDefaultDiagram(null, newModelName, newModelType));
         toast({ title: 'New Model Created', description: `Switched to new ${newModelType} model: ${newModelName}` });
-         // Fit view for the new empty canvas
          setTimeout(() => {
              reactFlowInstance?.fitView({ padding: 0.1, duration: 200 });
          }, 50);
     };
 
-    // Display loading or error state
-    if (loading && !isLoadModelDialogOpen) { // Don't show main loading when dialog is open
+    // Function to get current diagram data for report generation
+    const getCurrentDiagramDataForReport = useCallback((): Diagram | null => {
+        if (!reactFlowInstance) {
+            toast({ title: "Diagram Not Ready", description: "Cannot generate report, canvas not fully initialized.", variant: "destructive" });
+            return null;
+        }
+        const currentNodes = reactFlowInstance.getNodes();
+        const currentEdges = reactFlowInstance.getEdges();
+        const currentViewport = reactFlowInstance.getViewport();
+
+        // Use nodeToComponent and edgeToConnection for consistent data structure
+        const componentsToReport = currentNodes.map(n => nodeToComponent(n));
+        const connectionsToReport = currentEdges.map(e => edgeToConnection(e));
+        
+        return {
+            id: modelId, // current modelId from state (can be null for unsaved)
+            name: modelName,
+            modelType: modelType,
+            components: componentsToReport,
+            connections: connectionsToReport,
+            viewport: currentViewport,
+        };
+    }, [reactFlowInstance, modelId, modelName, modelType, toast ]);
+
+
+    if (loading && !isLoadModelDialogOpen) {
         return <div className="flex items-center justify-center h-full text-muted-foreground flex-1">Loading Diagram...</div>;
     }
     if (error) {
@@ -442,11 +455,11 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
     return (
         <>
             <DiagramHeader
-                projectId={projectId} // Keep projectId for now, might be removed later
+                projectId={projectId}
                 onNewModelClick={() => setIsNewModelDialogOpen(true)}
-                onSave={handleSave} // Pass save handler
-                onLoad={handleLoadTrigger} // Pass load handler trigger
-                isSaving={loading} // Pass loading state as isSaving indicator
+                onSave={handleSave}
+                onLoad={handleLoadTrigger}
+                isSaving={loading && !isLoadModelDialogOpen} // Pass a more accurate saving state
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -459,11 +472,10 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         setNodes={setNodesInternal}
                         setEdges={setEdgesInternal}
                         onMoveEnd={(e, vp) => setViewport(vp)}
-                        defaultViewport={viewport} // Use defaultViewport for initial/loaded state
+                        defaultViewport={viewport}
                         onNodeClick={onElementClick}
                         onEdgeClick={onElementClick}
                         onPaneClick={onPaneClick}
-                        // onRfLoad={setReactFlowInstance} // Not needed with useReactFlow hook
                         selectedElementId={selectedElementId}
                     />
                 </main>
@@ -484,12 +496,11 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                         </TabsContent>
                         <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
                             <ThreatReportPanel
-                                diagramId={modelId || 'unsaved'} // Pass current model ID or indicate unsaved
+                                getCurrentDiagramData={getCurrentDiagramDataForReport} // Pass function
                                 setIsGenerating={setIsGeneratingReport}
                              />
                         </TabsContent>
                     </Tabs>
-                     {/* Removed separate save button as it's now in the header */}
                 </aside>
             </div>
             <NewModelDialog
@@ -497,7 +508,7 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
                 onClose={() => setIsNewModelDialogOpen(false)}
                 onCreateModel={handleCreateNewModel}
             />
-            <LoadModelDialog // Add the LoadModelDialog component
+            <LoadModelDialog
                 isOpen={isLoadModelDialogOpen}
                 onClose={() => setIsLoadModelDialogOpen(false)}
                 models={userModels}
@@ -505,28 +516,4 @@ export function ProjectClientLayout({ projectId }: ProjectClientLayoutProps) {
             />
         </>
     );
-}
-
-// Simple debounce function (replace with lodash.debounce if available)
-// This might not be necessary if you have lodash or a similar utility library
-function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-
-  const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-    timeout = setTimeout(() => func(...args), waitFor);
-  };
-
-  // Add a cancel method to the debounced function
-  debounced.cancel = () => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-  };
-
-  return debounced as F & { cancel?: () => void };
 }

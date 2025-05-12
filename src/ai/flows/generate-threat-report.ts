@@ -10,14 +10,16 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
-import { getThreatModelById, type LoadedThreatModel } from '@/services/diagram'; // Changed import
+// Removed: import { getThreatModelById, type LoadedThreatModel } from '@/services/diagram';
 
+// Updated Input Schema: Takes diagram data directly
 const GenerateThreatReportInputSchema = z.object({
-  diagramId: z.string().describe('The ID of the diagram to analyze.'),
+  diagramJson: z.string().describe('The JSON representation of the threat model diagram.'),
+  modelName: z.string().describe('The name of the threat model.'),
+  modelType: z.string().describe('The type of the threat model (e.g., infrastructure, process).'),
 });
 export type GenerateThreatReportInput = z.infer<typeof GenerateThreatReportInputSchema>;
 
-// Keep the output schema focused on the report string
 const GenerateThreatReportOutputSchema = z.object({
   report: z.string().describe('The generated threat report.'),
 });
@@ -27,12 +29,13 @@ export async function generateThreatReport(input: GenerateThreatReportInput): Pr
   return generateThreatReportFlow(input);
 }
 
-// Update prompt input schema to expect the loaded model JSON
+// Updated Prompt Input Schema to match the flow's input
 const PromptInputSchema = z.object({
-  diagramJson: z.string().describe('The JSON representation of the loaded threat model diagram.'),
+  diagramJson: z.string().describe('The JSON representation of the threat model diagram.'),
+  modelName: z.string().describe('The name of the threat model.'),
+  modelType: z.string().describe('The type of the threat model (e.g., infrastructure, process).'),
 });
 
-// Define prompt output schema explicitly
 const PromptOutputSchema = z.object({
   report: z.string().describe('A comprehensive threat report detailing potential threats, suggested mitigations, and the location of the threats within the diagram, based on the STRIDE model.'),
 });
@@ -40,14 +43,15 @@ const PromptOutputSchema = z.object({
 const prompt = ai.definePrompt({
   name: 'generateThreatReportPrompt',
   input: {
-    schema: PromptInputSchema, // Use the updated schema
+    schema: PromptInputSchema,
   },
   output: {
-    schema: PromptOutputSchema, // Use the explicit output schema
+    schema: PromptOutputSchema,
   },
   prompt: `You are a security expert specializing in threat modeling.
 
-You will analyze the provided diagram data (in JSON format) and generate a comprehensive threat report based on the STRIDE model (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege).
+You will analyze the provided diagram data (in JSON format) for the threat model named "{{modelName}}" (Type: {{modelType}}).
+Generate a comprehensive threat report based on the STRIDE model (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege).
 
 For each component and connection in the diagram, identify potential threats, suggest mitigations, and specify the location of the threat within the diagram based on the provided data.
 
@@ -63,28 +67,23 @@ const generateThreatReportFlow = ai.defineFlow<
   inputSchema: GenerateThreatReportInputSchema,
   outputSchema: GenerateThreatReportOutputSchema,
 }, async input => {
-  // Use the correct function to load the model
-  const loadedModel: LoadedThreatModel | null = await getThreatModelById(input.diagramId);
+  // The diagram data is now passed directly in the input.
+  // No need to fetch using getThreatModelById.
 
-  if (!loadedModel) {
-    // Handle the case where the model isn't found or fails to load
-    // Returning an empty report or throwing an error are options.
-    // Let's return an empty report string for now.
-    console.error(`Threat model with ID ${input.diagramId} not found or failed to load for report generation.`);
-    // Throwing an error might be better to signal failure clearly
-    throw new Error(`Threat model with ID ${input.diagramId} not found or could not be loaded.`);
-    // return { report: "Error: Could not load the specified threat model." };
+  if (!input.diagramJson) {
+    throw new Error('Diagram data (JSON) is missing in the input for report generation.');
   }
 
-  // Pass the loaded model data (as JSON) to the prompt
-  const { output } = await prompt({ diagramJson: JSON.stringify(loadedModel) });
+  // Pass the diagramJson, modelName, and modelType directly to the prompt
+  const { output } = await prompt({
+    diagramJson: input.diagramJson,
+    modelName: input.modelName,
+    modelType: input.modelType,
+  });
 
   if (!output) {
-     // Handle cases where the prompt fails or returns unexpected output
      throw new Error('AI failed to generate a report from the provided diagram data.');
   }
 
-  // Return the generated report from the prompt's output
   return { report: output.report };
 });
-

@@ -1,42 +1,64 @@
-
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from 'react'; // Added Dispatch, SetStateAction
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport, type GenerateThreatReportOutput } from '@/ai/flows/generate-threat-report';
 import { Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import type { Diagram } from '@/services/diagram'; // Import Diagram type
 
 interface ThreatReportPanelProps {
-  diagramId: string;
-  setIsGenerating: Dispatch<SetStateAction<boolean>>; // Prop to update parent's loading state
+  // Removed diagramId, replaced with a function to get current diagram data
+  getCurrentDiagramData: () => Diagram | null;
+  setIsGenerating: Dispatch<SetStateAction<boolean>>;
 }
 
-export function ThreatReportPanel({ diagramId, setIsGenerating }: ThreatReportPanelProps) {
+export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: ThreatReportPanelProps) {
   const [report, setReport] = useState<GenerateThreatReportOutput | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // Local loading state for the button
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
-    setIsGenerating(true); // Inform parent component
+    setIsGenerating(true);
     setError(null);
     setReport(null);
+    
+    const currentDiagram = getCurrentDiagramData();
+
+    if (!currentDiagram) {
+      toast({
+        title: "Error Generating Report",
+        description: "No active diagram data available to generate a report. Please ensure your model is loaded or has content.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      setIsGenerating(false);
+      return;
+    }
+    
+    // Ensure modelType has a default if undefined
+    const modelTypeForReport = currentDiagram.modelType || 'infrastructure';
+
     toast({
       title: "Generating Report",
-      description: "AI is analyzing your diagram...",
+      description: "AI is analyzing your current diagram...",
     });
+
     try {
-      // generateThreatReport uses the diagramId to fetch the most recently SAVED version of the diagram.
-      // This ensures the report is based on a consistent, saved state.
-      const result = await generateThreatReport({ diagramId });
+      const diagramJson = JSON.stringify(currentDiagram);
+      const result = await generateThreatReport({
+        diagramJson,
+        modelName: currentDiagram.name,
+        modelType: modelTypeForReport,
+      });
       setReport(result);
       toast({
         title: "Report Generated",
-        description: "Threat report generated successfully.",
+        description: "Threat report generated successfully based on the current diagram.",
         variant: "default",
       });
     } catch (err) {
@@ -50,7 +72,7 @@ export function ThreatReportPanel({ diagramId, setIsGenerating }: ThreatReportPa
       });
     } finally {
       setIsLoading(false);
-      setIsGenerating(false); // Inform parent component
+      setIsGenerating(false);
     }
   };
 
@@ -90,7 +112,7 @@ export function ThreatReportPanel({ diagramId, setIsGenerating }: ThreatReportPa
             <p className="text-sm text-muted-foreground">
             Click "Generate New Report" to analyze your diagram for potential threats.
             <br/>
-            Ensure your diagram is saved before generating.
+            The report will be based on the current state of your diagram on the canvas.
             </p>
         </div>
       )}
@@ -100,7 +122,7 @@ export function ThreatReportPanel({ diagramId, setIsGenerating }: ThreatReportPa
           <Card>
             <CardHeader>
                 <CardTitle className="text-xl">Analysis Complete</CardTitle>
-                <CardDescription>Based on the STRIDE model and your saved diagram.</CardDescription>
+                <CardDescription>Based on the STRIDE model and your current diagram.</CardDescription>
             </CardHeader>
             <CardContent>
                 <pre className="whitespace-pre-wrap text-sm bg-secondary/50 p-4 rounded-md font-mono">
@@ -113,4 +135,3 @@ export function ThreatReportPanel({ diagramId, setIsGenerating }: ThreatReportPa
     </div>
   );
 }
-
