@@ -1,3 +1,4 @@
+
 import type { Viewport } from '@xyflow/react';
 import { db, ensureFirebaseInitialized } from '@/lib/firebase/firebase';
 import {
@@ -87,12 +88,23 @@ export interface Connection {
 export type ModelType = 'infrastructure' | 'process';
 
 /**
+ * Represents a single generated report entry.
+ */
+export interface ReportEntry {
+  reportName: string;
+  reportData: string; // HTML content of the report
+  createdDate: Date | Timestamp; // Date on client, Timestamp in Firestore
+}
+
+
+/**
  * Represents the data structure stored within a threat model document.
  */
 interface ThreatModelData {
   components: Component[];
   connections: Connection[];
   viewport?: Viewport;
+  reports?: ReportEntry[]; // Array of saved reports
 }
 
 /**
@@ -118,6 +130,7 @@ export interface Diagram {
   components: Component[];
   connections?: Connection[];
   viewport?: Viewport;
+  reports?: ReportEntry[]; // For runtime management
 }
 
 
@@ -131,6 +144,7 @@ export interface Diagram {
  * @param components The components array.
  * @param connections The connections array.
  * @param viewport Optional viewport state.
+ * @param reportsToSave Optional array of reports to save.
  * @returns A promise that resolves to the model's ID (new or existing).
  */
 export async function saveThreatModel(
@@ -140,14 +154,25 @@ export async function saveThreatModel(
   modelType: ModelType,
   components: Component[],
   connections: Connection[],
-  viewport?: Viewport
+  viewport?: Viewport,
+  reportsToSave?: ReportEntry[]
 ): Promise<string> {
   const { initialized, error } = ensureFirebaseInitialized();
   if (!initialized || !db) {
     throw new Error(error || "Firestore not initialized for saveThreatModel");
   }
 
-  const modelData: ThreatModelData = { components, connections: connections ?? [], viewport };
+  const processedReports = (reportsToSave || []).map(report => ({
+    ...report,
+    createdDate: report.createdDate instanceof Date ? Timestamp.fromDate(report.createdDate) : report.createdDate,
+  }));
+
+  const modelData: ThreatModelData = { 
+    components, 
+    connections: connections ?? [], 
+    viewport,
+    reports: processedReports,
+  };
 
   if (modelId) {
     const modelDocRef = doc(db, 'threatModels', modelId);
@@ -221,6 +246,7 @@ export interface LoadedThreatModel {
     components: Component[];
     connections: Connection[];
     viewport?: Viewport;
+    reports?: ReportEntry[]; // Array of saved reports
 }
 
 /**
@@ -232,26 +258,31 @@ export interface LoadedThreatModel {
 export async function getThreatModelById(modelId: string): Promise<LoadedThreatModel | null> {
     const { initialized, error } = ensureFirebaseInitialized();
     if (!initialized || !db) {
-      console.error("getThreatModelById: Firebase not initialized or db is null.");
+      // console.error("getThreatModelById: Firebase not initialized or db is null.");
       throw new Error(error || "Firestore not initialized for getThreatModelById");
     }
     const modelDocRef = doc(db, 'threatModels', modelId);
-    console.log(`getThreatModelById: Fetching model ${modelId}`);
+    // console.log(`getThreatModelById: Fetching model ${modelId}`);
     const docSnap = await getDoc(modelDocRef);
 
     if (!docSnap.exists()) {
-        console.error(`getThreatModelById: Threat model with ID ${modelId} not found.`);
+        // console.error(`getThreatModelById: Threat model with ID ${modelId} not found.`);
         return null;
     }
 
     const data = docSnap.data();
     if (!data || !data.data) {
-         console.error(`getThreatModelById: Threat model data field missing for ID ${modelId}. Document data:`, data);
+         // console.error(`getThreatModelById: Threat model data field missing for ID ${modelId}. Document data:`, data);
          return null;
     }
     const modelData = data.data as ThreatModelData;
-    console.log(`getThreatModelById: Successfully fetched document data for ${modelId}:`, data);
-    console.log(`getThreatModelById: Extracted modelData (components, connections, viewport) for ${modelId}:`, modelData);
+    // console.log(`getThreatModelById: Successfully fetched document data for ${modelId}:`, data);
+    // console.log(`getThreatModelById: Extracted modelData (components, connections, viewport) for ${modelId}:`, modelData);
+
+    const reports = (modelData.reports || []).map(report => ({
+      ...report,
+      createdDate: report.createdDate instanceof Timestamp ? report.createdDate.toDate() : report.createdDate,
+    }));
 
 
     return {
@@ -260,7 +291,8 @@ export async function getThreatModelById(modelId: string): Promise<LoadedThreatM
         modelType: data.modelType || 'infrastructure',
         components: modelData.components || [], // Ensure components is an array
         connections: modelData.connections || [], // Ensure connections is an array
-        viewport: modelData.viewport
+        viewport: modelData.viewport,
+        reports: reports,
     };
 }
 
@@ -272,4 +304,5 @@ export const getDefaultDiagram = (id: string | null, name: string, type: ModelTy
   components: [],
   connections: [],
   viewport: undefined,
+  reports: [],
 });

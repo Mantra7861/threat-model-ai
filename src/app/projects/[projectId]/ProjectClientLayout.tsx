@@ -24,12 +24,13 @@ import {
     getUserThreatModels,
     getThreatModelById,
     type Diagram,
-    type Component as DiagramComponent,
-    type Connection as DiagramConnection,
+    type Component as DiagramComponent, // Already aliased
+    type Connection as DiagramConnection, // Already aliased
     getDefaultDiagram,
     type ModelType,
     type LoadedThreatModel,
     type SavedModelInfo,
+    type ReportEntry, // Import ReportEntry
 } from '@/services/diagram';
 import {
     componentToNode,
@@ -69,13 +70,14 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [loading, setLoading] = useState(true);
     const [isLoadingModel, setIsLoadingModel] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { toast, dismiss: dismissToast } = useToast(); // Destructure dismiss function
+    const { toast, dismiss: dismissToast } = useToast();
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
     const [isLoadModelDialogOpen, setIsLoadModelDialogOpen] = useState(false);
     const [userModels, setUserModels] = useState<SavedModelInfo[]>([]);
 
     const [modelId, setModelId] = useState<string | null>(null);
     const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(getDefaultDiagram(null, "Untitled Model", "infrastructure"));
+    const [sessionReports, setSessionReports] = useState<ReportEntry[]>([]); // State for session reports
     
     const justCreatedNewModelFromDialog = useRef(false);
     const lastToastTime = useRef(Date.now());
@@ -99,6 +101,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         rfSetViewport(defaultVp, {duration: 0});
         setModelId(null); 
         setDiagramDataForAI(getDefaultDiagram(null, name, type));
+        setSessionReports([]); // Clear session reports
         setError(null);
         initialLoadAttempted.current = false;
         justCreatedNewModelFromDialog.current = true;
@@ -118,7 +121,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [
         modelId, setModelName, setProjectContextModelType,
         setNodesInternal, setEdgesInternal, setSelectedElementId,
-        setCurrentViewport, rfSetViewport, setModelId, setDiagramDataForAI,
+        setCurrentViewport, rfSetViewport, setModelId, setDiagramDataForAI, setSessionReports,
         pathname, router, fitView
     ]);
 
@@ -170,6 +173,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             setProjectContextModelType(loadedModelType); 
             setModelId(loadedModelData.id); 
             setSelectedElementId(null);
+            setSessionReports(loadedModelData.reports || []); // Load reports
 
             const currentDiagramForAI: Diagram = {
                  id: loadedModelData.id,
@@ -178,19 +182,17 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                  components: loadedModelData.components || [],
                  connections: loadedModelData.connections || [],
                  viewport: loadedModelData.viewport || currentViewport,
+                 reports: loadedModelData.reports || [],
             };
             setDiagramDataForAI(currentDiagramForAI);
             
             const now = Date.now();
              if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
-                 // Check if it's a genuinely different model being loaded or just a refresh of the same one.
                  const isDifferentModel = modelId !== loadedModelData.id || 
                                          currentContextModelName !== loadedModelData.name ||
                                          currentContextModelType !== loadedModelType;
                  if (isDifferentModel) {
                      toast({ title: 'Model Loaded', description: `Successfully loaded '${loadedModelData.name}'.` });
-                 } else if (initialLoadAttempted.current) { // Only show refresh if it's not the very first load
-                    //  toast({ title: 'Model Refreshed', description: `Model '${loadedModelData.name}' is active.` });
                  }
                  lastToastTime.current = now;
              }
@@ -213,7 +215,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [
         modelId, isLoadingModel, fitView, rfSetViewport, setNodesInternal, setEdgesInternal,
         setCurrentViewport, setModelName, setProjectContextModelType, setModelId,
-        setSelectedElementId, setDiagramDataForAI, toast,
+        setSelectedElementId, setDiagramDataForAI, toast, setSessionReports,
         router, pathname, modelType, modelName, lastToastTime, currentViewport
     ]);
 
@@ -242,11 +244,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         if (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
             if (!isLoadingModel) { 
                 if (initialProjectIdFromUrl !== modelId || 
-                    (initialProjectIdFromUrl === modelId && (nodes.length === 0 && edges.length === 0) && !error && modelType === setProjectContextModelType.arguments ) ) { 
+                    (initialProjectIdFromUrl === modelId && (nodes.length === 0 && edges.length === 0) && !error && modelType !== useProjectContext.getState().modelType) ) { 
                     console.log(`EFFECT[URL_PROJECT_ID]: Condition to load met for ${initialProjectIdFromUrl}. Calling loadModel.`);
                     loadModel(initialProjectIdFromUrl); 
                 } else {
-                    console.log(`EFFECT[URL_PROJECT_ID]: Model ${initialProjectIdFromUrl} already matches canvas state. No load action needed. Fitting view if canvas is empty.`);
+                    console.log(`EFFECT[URL_PROJECT_ID]: Model ${initialProjectIdFromUrl} already matches canvas state or model type. No load action needed. Fitting view if canvas is empty.`);
                     if (nodes.length === 0 && edges.length === 0 && !error && modelId) {
                         if (typeof fitView === 'function') {
                            setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
@@ -286,7 +288,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         modelId, modelName, modelType, 
         loadModel, resetDiagramState,
         nodes.length, edges.length, error, diagramDataForAI?.name, diagramDataForAI?.modelType,
-        isLoadingModel, fitView, setProjectContextModelType
+        isLoadingModel, fitView
     ]);
 
 
@@ -476,7 +478,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                 currentContextModelType,
                 nodesToSave,
                 edgesToSave,
-                viewportToSave
+                viewportToSave,
+                sessionReports // Pass session reports to save function
             );
 
             const wasNewSaveOrDifferentId = !modelId || modelId !== savedModelId;
@@ -489,6 +492,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                  components: nodesToSave,
                  connections: edgesToSave,
                  viewport: viewportToSave,
+                 reports: sessionReports,
             };
             setDiagramDataForAI(currentDiagramForAI);
 
@@ -509,7 +513,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [
         modelName, modelType, toast, currentUser, modelId, 
         getViewport, getNodes, getEdges, setCurrentViewport,
-        setModelId, setDiagramDataForAI, router, pathname
+        setModelId, setDiagramDataForAI, router, pathname, sessionReports
     ]);
 
 
@@ -616,12 +620,17 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             components: currentNodesForReport.map(n => nodeToComponent(n)),
             connections: currentEdgesForReport.map(e => edgeToConnection(e)),
             viewport: currentViewportForReport,
+            reports: sessionReports, // Include session reports in data for AI if needed
         };
-    }, [getViewport, getNodes, getEdges, modelId, modelName, modelType, toast ]);
+    }, [getViewport, getNodes, getEdges, modelId, modelName, modelType, toast, sessionReports ]);
 
     const onViewportChangeInternal = useCallback((vp: Viewport) => {
          setCurrentViewport(vp);
     }, [setCurrentViewport]);
+
+    const addSessionReport = useCallback((report: ReportEntry) => {
+        setSessionReports(prev => [...prev, report]);
+    }, [setSessionReports]);
 
 
     if ((loading || authLoading) && !isNewModelDialogOpen && !isLoadModelDialogOpen ) {
@@ -695,6 +704,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                                 setIsGenerating={(genState) => {
                                     // Placeholder for disabling UI elements during report generation
                                 }}
+                                sessionReports={sessionReports}
+                                addSessionReport={addSessionReport}
                              />
                         </TabsContent>
                     </Tabs>
