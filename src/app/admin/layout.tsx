@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
-import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2 } from 'lucide-react'; // Added Loader2
+import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2, Shapes } from 'lucide-react'; // Added Loader2 and Shapes
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert
 import { AlertTriangle } from 'lucide-react'; // Added AlertTriangle
@@ -81,10 +81,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <SidebarMenu>
                 <SidebarMenuItem>
                     <Link href="/admin/users" passHref>
-                        {/* Determine isActive based on pathname */}
                         <SidebarMenuButton tooltip="User Management" className="justify-start" isActive={pathname === '/admin/users'}>
                             <Users />
                             <span className="group-data-[collapsible=icon]:hidden">User Management</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <Link href="/admin/stencils" passHref>
+                        <SidebarMenuButton tooltip="Stencil Management" className="justify-start" isActive={pathname.startsWith('/admin/stencils')}>
+                            <Shapes />
+                            <span className="group-data-[collapsible=icon]:hidden">Stencil Management</span>
                         </SidebarMenuButton>
                     </Link>
                 </SidebarMenuItem>
