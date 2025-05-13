@@ -67,10 +67,12 @@ export function ThreatReportPanel({
     });
 
     try {
+      // The diagram data is already in a suitable JSON structure.
+      // For the AI flow, we pass the whole Diagram object as JSON.
       const diagramJson = JSON.stringify(currentDiagram);
       
       const result = await generateThreatReport({
-        diagramJson,
+        diagramJson, // Pass the stringified current diagram
         modelName: modelNameForReport,
         modelType: modelTypeForReport,
       });
@@ -78,7 +80,7 @@ export function ThreatReportPanel({
       const reportName = `${modelNameForReport} Report - ${format(new Date(), 'yyyy-MM-dd HH:mm')}`;
       const newReportEntry: ReportEntry = {
         reportName,
-        reportData: result.report,
+        reportData: result.report, // This is the HTML string from the AI
         createdDate: new Date(),
       };
       addSessionReport(newReportEntry);
@@ -106,27 +108,20 @@ export function ThreatReportPanel({
   const handleViewInBrowser = (htmlContent: string, reportName: string) => {
     const newWindow = window.open("", "_blank");
     if (newWindow) {
+        // The AI now generates HTML with embedded styles. We can use it directly.
+        // If a more robust styling is needed, a separate CSS file or more specific global styles could be applied.
         const styledHtmlContent = `
           <html>
             <head>
               <title>${reportName}</title>
               <style>
-                body { font-family: sans-serif; margin: 20px; color: hsl(var(--foreground)); background-color: hsl(var(--background)); }
-                h1 { font-size: 1.5em; margin-bottom: 0.5em; color: hsl(var(--primary)); }
-                h2 { font-size: 1.25em; margin-top: 1em; margin-bottom: 0.4em; border-bottom: 1px solid hsl(var(--border)); padding-bottom: 0.2em;}
-                h3 { font-size: 1.1em; margin-top: 0.8em; margin-bottom: 0.3em; }
-                h4 { font-size: 1em; margin-top: 0.6em; margin-bottom: 0.2em; }
-                p { margin-bottom: 0.5em; line-height: 1.6; }
-                ul { margin-left: 20px; margin-bottom: 0.5em; list-style-type: disc;}
-                li { margin-bottom: 0.25em; }
-                strong { font-weight: bold; }
-                em { font-style: italic; color: hsl(var(--muted-foreground));}
-                div > div { /* Component/Connection block */
-                  padding: 0.5em;
-                  border: 1px solid hsl(var(--border));
-                  border-radius: var(--radius);
-                  background-color: hsl(var(--card)); 
-                  margin-bottom: 1em;
+                /* Minimal body styles; AI output should be self-contained */
+                body { 
+                  font-family: sans-serif; 
+                  margin: 20px; 
+                  line-height: 1.6; 
+                  color: #333; /* Example default text color */
+                  background-color: #fff; /* Example default background */
                 }
               </style>
             </head>
@@ -152,6 +147,7 @@ export function ThreatReportPanel({
       return;
     }
     
+    // Set the HTML content into the hidden div
     pdfRenderRef.current.innerHTML = htmlContent;
     const filename = `${reportName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
 
@@ -160,24 +156,45 @@ export function ThreatReportPanel({
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        // Removed explicit width and height to let html2canvas attempt to auto-determine.
-        // This can be more reliable for off-screen elements.
+        scale: 2, // Improves quality
+        useCORS: true, // Important if report HTML pulls external images/resources
+        logging: false, // Suppress html2canvas logs
+        // Ensure all content is captured by setting width and height if needed,
+        // or by letting html2canvas determine it. For complex/long reports,
+        // auto-determination might be better.
+        // width: pdfRenderRef.current.scrollWidth, 
+        // windowWidth: pdfRenderRef.current.scrollWidth,
       },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
 
     toast({ title: "Generating PDF...", description: "Please wait, this might take a moment."});
 
-    html2pdf().from(pdfRenderRef.current).set(opt).save().then(() => {
-        toast({ title: "PDF Saved", description: `${filename} has been downloaded.`});
-        if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = ''; 
-    }).catch((err: any) => {
-        console.error("Error saving PDF:", err);
-        toast({ title: "PDF Save Error", description: "Could not save the report as PDF.", variant: "destructive"});
-        if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
+    // Wait for images to load before generating PDF
+    const images = pdfRenderRef.current.querySelectorAll('img');
+    const imagePromises: Promise<void>[] = [];
+    images.forEach(img => {
+        if (!img.complete) {
+            imagePromises.push(new Promise(resolve => {
+                img.onload = () => resolve();
+                img.onerror = () => resolve(); // Resolve even on error to not block PDF generation
+            }));
+        }
+    });
+
+    Promise.all(imagePromises).then(() => {
+        html2pdf().from(pdfRenderRef.current).set(opt).save().then(() => {
+            toast({ title: "PDF Saved", description: `${filename} has been downloaded.`});
+            if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = ''; 
+        }).catch((err: any) => {
+            console.error("Error saving PDF:", err);
+            toast({ title: "PDF Save Error", description: "Could not save the report as PDF.", variant: "destructive"});
+            if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
+        });
+    }).catch(err => {
+        console.error("Error waiting for images to load for PDF:", err);
+        toast({ title: "PDF Generation Error", description: "Could not load images for PDF generation.", variant: "destructive" });
+         if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
     });
   };
 
@@ -193,7 +210,7 @@ export function ThreatReportPanel({
                 Generating...
               </>
             ) : (
-              "Generate Report"
+              "Generate Report" // Changed button text
             )}
           </Button>
       </div>
@@ -212,8 +229,20 @@ export function ThreatReportPanel({
         </Card>
       )}
 
-      {/* Off-screen div for PDF rendering */}
-      <div ref={pdfRenderRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '8.5in', padding: '0.5in', background: 'white' }}></div>
+      {/* Off-screen div for PDF rendering. Style it to ensure it's truly off-screen and not affecting layout */}
+      <div 
+        ref={pdfRenderRef} 
+        style={{ 
+            position: 'absolute', 
+            left: '-9999px', 
+            top: '-9999px', 
+            width: '8.5in', /* Standard letter width for PDF base */
+            padding: '0.5in', /* Consistent with PDF margins */
+            background: 'white', /* Ensure background for html2canvas */
+            visibility: 'hidden', /* Ensures it's not visible but still in DOM for rendering */
+            zIndex: -1000, /* Ensure it's behind everything */
+        }}
+      ></div>
 
 
       {sessionReports.length === 0 && !isLoading && !error && (
@@ -239,10 +268,10 @@ export function ThreatReportPanel({
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleViewInBrowser(report.reportData, report.reportName)} title="View in Browser">
+                  <Button variant="outline" size="icon" onClick={() => handleViewInBrowser(report.reportData, report.reportName)} title="View in Browser">
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleSaveAsPdf(report.reportData, report.reportName)} title="Download as PDF" disabled={!html2pdf}>
+                  <Button variant="outline" size="icon" onClick={() => handleSaveAsPdf(report.reportData, report.reportName)} title="Download as PDF" disabled={!html2pdf}>
                     <FileDown className="h-4 w-4" />
                   </Button>
                 </div>
