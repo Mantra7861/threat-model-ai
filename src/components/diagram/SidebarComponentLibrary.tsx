@@ -3,7 +3,19 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Server, Database, Cloud, Router, ShieldCheck, ArrowRight, Circle, FileTextIcon, KeyboardIcon, SigmaIcon, MinusIcon, Square, ChevronsUpDownIcon, CaseSensitiveIcon, WorkflowIcon, RectangleHorizontalIcon, EllipsisIcon, DiamondIcon, FileInputIcon, WaypointsIcon } from "lucide-react"; 
+import { 
+    Server, 
+    Database, 
+    Cloud, 
+    Router, 
+    ShieldCheck, 
+    Square, // Used for Step/Action
+    Circle, // Used for Start/End
+    DiamondIcon as LucideDiamondIcon, // Default Lucide diamond, for Decision
+    Archive, // New for Input/Output
+    StickyNote, // New for Document
+    TerminalSquare, // New for Manual Input
+} from "lucide-react"; 
 import { useProjectContext } from "@/contexts/ProjectContext";
 
 interface DraggableComponentProps {
@@ -33,17 +45,11 @@ const DraggableComponent = ({ type, label, icon: Icon }: DraggableComponentProps
   );
 };
 
-// SVG Icons for custom shapes (if Lucide doesn't cover them)
-const ParallelogramLucideIcon = () => ( // Using Waypoints as a stand-in
-  <WaypointsIcon />
-);
-
-const TrapezoidLucideIcon = () => ( // Using RectangleHorizontal with a slight modification idea
-  <RectangleHorizontalIcon transform="skewX(-10)"/>
-);
-
-const DocumentLucideIcon = () => ( // Using FileTextIcon, as it's close
-    <FileTextIcon />
+// Custom SVG for DiamondIcon if Lucide's default isn't preferred or to ensure fill
+const CustomDiamondIcon = () => (
+  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="currentColor" strokeWidth="0.1" className="text-card-foreground">
+    <polygon points="12 2 22 12 12 22 2 12" />
+  </svg>
 );
 
 
@@ -59,13 +65,12 @@ export function SidebarComponentLibrary() {
   ];
 
   const processComponents = [
-    { type: "step", label: "Step/Action", icon: Square }, // Rectangle
-    { type: "start-end", label: "Start/End", icon: Circle }, // Circle or Oval
-    { type: "decision", label: "Decision", icon: DiamondIcon }, // Diamond
-    { type: "input-output", label: "Input/Output", icon: ParallelogramLucideIcon }, // Parallelogram
-    { type: "document", label: "Document", icon: DocumentLucideIcon }, // Rectangle with wavy bottom (using FileText for now)
-    { type: "manual-input", label: "Manual Input", icon: TrapezoidLucideIcon }, // Trapezoid
-    // "flow" for process models is handled by connections, not a draggable stencil
+    { type: "step", label: "Step/Action", icon: Square }, 
+    { type: "start-end", label: "Start/End", icon: Circle }, 
+    { type: "decision", label: "Decision", icon: CustomDiamondIcon }, // Using custom filled diamond
+    { type: "input-output", label: "Input/Output", icon: Archive }, 
+    { type: "document", label: "Document", icon: StickyNote }, 
+    { type: "manual-input", label: "Manual Input", icon: TerminalSquare }, 
   ];
 
   const componentsToDisplay = modelType === 'process' ? processComponents : infrastructureComponents;
@@ -84,4 +89,3 @@ export function SidebarComponentLibrary() {
     </ScrollArea>
   );
 }
-
