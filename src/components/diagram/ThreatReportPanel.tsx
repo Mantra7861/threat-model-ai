@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, type Dispatch, type SetStateAction, useRef } from 'react';
+import { useState, type Dispatch, type SetStateAction, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -9,7 +9,7 @@ import { generateThreatReport } from '@/ai/flows/generate-threat-report';
 import { Loader2, AlertTriangle, ShieldCheck, FileDown, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { Diagram, ReportEntry } from '@/services/diagram';
-import html2pdf from 'html2pdf.js';
+// import html2pdf from 'html2pdf.js'; // Removed static import
 import { format } from 'date-fns';
 
 interface ThreatReportPanelProps {
@@ -28,7 +28,18 @@ export function ThreatReportPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const pdfRenderRef = useRef<HTMLDivElement>(null); // Ref for the hidden div for PDF generation
+  const pdfRenderRef = useRef<HTMLDivElement>(null);
+  const [html2pdf, setHtml2pdf] = useState<any>(null); // State to hold the dynamically imported module
+
+  useEffect(() => {
+    // Dynamically import html2pdf.js only on the client-side
+    import('html2pdf.js').then(module => {
+      setHtml2pdf(() => module.default || module); // Handle default export or module itself
+    }).catch(err => {
+      console.error("Failed to load html2pdf.js", err);
+      toast({ title: "PDF Library Error", description: "Could not load PDF generation library.", variant: "destructive" });
+    });
+  }, [toast]);
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
@@ -57,7 +68,7 @@ export function ThreatReportPanel({
     });
 
     try {
-      const diagramJson = JSON.stringify(currentDiagram); // Diagram now includes reports array, AI prompt might need update if this is an issue
+      const diagramJson = JSON.stringify(currentDiagram);
       
       const result = await generateThreatReport({
         diagramJson,
@@ -96,7 +107,6 @@ export function ThreatReportPanel({
   const handleViewInBrowser = (htmlContent: string, reportName: string) => {
     const newWindow = window.open("", "_blank");
     if (newWindow) {
-        // Embed styles directly for portability if not already in htmlContent
         const styledHtmlContent = `
           <html>
             <head>
@@ -119,7 +129,6 @@ export function ThreatReportPanel({
                   background-color: hsl(var(--card)); 
                   margin-bottom: 1em;
                 }
-                /* Add other necessary styles from globals.css or theme if needed */
               </style>
             </head>
             <body>
@@ -135,12 +144,16 @@ export function ThreatReportPanel({
   };
 
   const handleSaveAsPdf = (htmlContent: string, reportName: string) => {
+    if (!html2pdf) {
+      toast({ title: "Error", description: "PDF generation library not loaded yet. Please try again shortly.", variant: "destructive" });
+      return;
+    }
     if (!pdfRenderRef.current) {
       toast({ title: "Error", description: "PDF generation area not ready.", variant: "destructive" });
       return;
     }
     
-    pdfRenderRef.current.innerHTML = htmlContent; // Set the content to be printed
+    pdfRenderRef.current.innerHTML = htmlContent;
     const filename = `${reportName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
 
     const opt = {
@@ -156,7 +169,7 @@ export function ThreatReportPanel({
     html2pdf().from(pdfRenderRef.current).set(opt).save().then(() => {
         toast({ title: "PDF Saved", description: `${filename} has been downloaded.`});
         if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = ''; 
-    }).catch(err => {
+    }).catch((err: any) => {
         console.error("Error saving PDF:", err);
         toast({ title: "PDF Save Error", description: "Could not save the report as PDF.", variant: "destructive"});
         if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
@@ -175,7 +188,7 @@ export function ThreatReportPanel({
                 Generating...
               </>
             ) : (
-              "Generate New Report"
+              "Generate Report" // Changed button text
             )}
           </Button>
       </div>
@@ -203,7 +216,7 @@ export function ThreatReportPanel({
             <p className="text-sm text-muted-foreground">
             No reports generated for this session yet.
             <br/>
-            Click "Generate New Report" to analyze your diagram.
+            Click "Generate Report" to analyze your diagram.
             </p>
         </div>
       )}
@@ -211,7 +224,7 @@ export function ThreatReportPanel({
       {sessionReports.length > 0 && (
         <ScrollArea className="flex-1 mt-2 border rounded-md bg-card">
           <ul className="p-2 space-y-2">
-            {sessionReports.slice().reverse().map((report, index) => ( // Show newest first
+            {sessionReports.slice().reverse().map((report, index) => (
               <li key={`${report.reportName}-${index}`} className="p-3 border rounded-md flex justify-between items-center bg-background hover:bg-secondary/30">
                 <div>
                   <p className="font-medium">{report.reportName}</p>
@@ -223,7 +236,7 @@ export function ThreatReportPanel({
                   <Button variant="outline" size="sm" onClick={() => handleViewInBrowser(report.reportData, report.reportName)} title="View in Browser">
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleSaveAsPdf(report.reportData, report.reportName)} title="Download as PDF">
+                  <Button variant="outline" size="sm" onClick={() => handleSaveAsPdf(report.reportData, report.reportName)} title="Download as PDF" disabled={!html2pdf}>
                     <FileDown className="h-4 w-4" />
                   </Button>
                 </div>
