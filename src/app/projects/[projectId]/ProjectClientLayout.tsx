@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, type ReactNode, useRef } from 'react';
@@ -66,64 +65,70 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [currentViewport, setCurrentViewport] = useState<Viewport | undefined>(undefined);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
-    const [loading, setLoading] = useState(true);
-    const [isLoadingModel, setIsLoadingModel] = useState(false); 
+    const [loading, setLoading] = useState(true); // Global loading for page/layout
+    const [isLoadingModel, setIsLoadingModel] = useState(false); // Specific for model load operation
     const [error, setError] = useState<string | null>(null);
     const { toast } = useToast();
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
     const [isLoadModelDialogOpen, setIsLoadModelDialogOpen] = useState(false);
     const [userModels, setUserModels] = useState<SavedModelInfo[]>([]);
 
-    const [modelId, setModelId] = useState<string | null>(null); // ID of the model currently on canvas
+    const [modelId, setModelId] = useState<string | null>(null);
     const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(getDefaultDiagram(null, "Untitled Model", "infrastructure"));
+    
     const justCreatedNewModelFromDialog = useRef(false);
-    const lastToastTime = useRef(Date.now());
-    const TOAST_DEBOUNCE_DURATION = 2000; // 2 seconds - reduced from 3
+    const lastToastTime = useRef(0); // Initialize with 0
+    const TOAST_DEBOUNCE_DURATION = 2000;
+    const initialLoadAttempted = useRef(false);
 
 
     const resetDiagramState = useCallback((name = "Untitled Model", type: ModelType = 'infrastructure') => {
         console.log(`Resetting diagram state. Target Name: ${name}, Target Type: ${type}. Current canvas modelId: ${modelId}`);
-        setLoading(true);
+        setLoading(true); // Show loading overlay during reset
 
-        setModelName(name);
-        setProjectContextModelType(type); 
+        setModelName(name); // Update context
+        setProjectContextModelType(type); // Update context
 
         setNodesInternal([]);
         setEdgesInternal([]);
         setSelectedElementId(null);
         const defaultVp = { x: 0, y: 0, zoom: 1 };
         setCurrentViewport(defaultVp);
-        setModelId(null); 
+        setModelId(null); // This is a new, unsaved model
         setDiagramDataForAI(getDefaultDiagram(null, name, type));
         setError(null);
 
+        // If not on /projects/new, navigate there.
+        // If already on /projects/new (e.g. after dialog confirmation), ensure canvas is ready.
         if (pathname !== '/projects/new') {
-             console.log(`resetDiagramState: Navigating to /projects/new from ${pathname}`);
-             router.push('/projects/new', { scroll: false });
+            console.log(`resetDiagramState: Navigating to /projects/new from ${pathname}`);
+            router.push('/projects/new', { scroll: false });
+            // The useEffect will handle the rest once navigation completes.
         } else {
-            // Already on /projects/new, ensure canvas is cleared and view is fitted.
-            // This path is hit when the NewModelDialog finishes and calls resetDiagramState.
-            // justCreatedNewModelFromDialog.current should be true here.
-            console.log("resetDiagramState: Already on /projects/new. Setting up for a fresh model.");
+            // Already on /projects/new. The useEffect hook will take over to ensure fitView and setLoading(false).
+            // This path is usually hit when NewModelDialog calls this.
+            console.log("resetDiagramState: Already on /projects/new. useEffect will finalize.");
              setTimeout(() => {
                 if (typeof fitView === 'function') {
                   fitView({ padding: 0.2, duration: 150 });
                 }
                 setLoading(false);
-            }, 150); // Reduced timeout for quicker feedback
+            }, 150);
         }
     }, [
-        setModelName, setProjectContextModelType, setNodesInternal, setEdgesInternal,
-        setCurrentViewport, setModelId, setDiagramDataForAI, fitView, router, pathname,
-        modelId // Removed setLoading, setError as they are set within the function
+        modelId, // Current modelId to check against
+        setModelName, setProjectContextModelType, // Context setters
+        setNodesInternal, setEdgesInternal, setSelectedElementId,
+        setCurrentViewport, setModelId, setDiagramDataForAI,
+        pathname, router, fitView // React Flow and router
     ]);
 
 
     const loadModel = useCallback(async (idToLoad: string) => {
-        const currentContextModelType = modelType; // Use context directly
+        const currentContextModelType = modelType;
         console.log(`LOADMODEL: Attempting to load model ID: ${idToLoad}. Current canvas modelId: ${modelId}, current context modelType: ${currentContextModelType}`);
 
-        if (isLoadingModel && modelId === idToLoad) { // Only skip if loading the *same* model
+        if (isLoadingModel && modelId === idToLoad) {
             console.log(`LOADMODEL: Already loading model ${idToLoad}. Skipping.`);
             return;
         }
@@ -133,35 +138,14 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const previousModelIdForToast = modelId;
 
         try {
-            const currentNodesOnCanvas = getNodes ? getNodes() : []; // Can be empty
             const loadedModelData = await getThreatModelById(idToLoad);
             
             if (!loadedModelData) {
                  throw new Error(`Model with ID ${idToLoad} not found or couldn't be loaded.`);
             }
             const loadedModelType = loadedModelData.modelType || 'infrastructure';
-            console.log(`LOADMODEL: Data for ${idToLoad} fetched. Name: ${loadedModelData.name}, Type: ${loadedModelType}, Components: ${loadedModelData.components?.length}, Connections: ${loadedModelData.connections?.length}`);
+            console.log(`LOADMODEL: Data for ${idToLoad} fetched. Name: ${loadedModelData.name}, Type: ${loadedModelType}`);
             
-            // Check if this exact model (ID and Type) is already on canvas with content
-            const isSameModelAndTypeOnCanvas = idToLoad === modelId && currentContextModelType === loadedModelType;
-            const hasContentOnCanvas = currentNodesOnCanvas.length > 0 || (getEdges ? getEdges() : []).length > 0;
-
-
-            if (isSameModelAndTypeOnCanvas && hasContentOnCanvas) {
-                console.log(`LOADMODEL: Model ${idToLoad} (type: ${loadedModelType}) is already on canvas with content and context type matches. Fitting view.`);
-                 const now = Date.now();
-                 if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
-                    toast({ title: 'Model Loaded', description: `Model '${loadedModelData.name}' is already active.` });
-                    lastToastTime.current = now;
-                 }
-                if (typeof fitView === 'function') {
-                    setTimeout(() => { fitView({ padding: 0.2, duration: 100 }); }, 150);
-                }
-                setIsLoadingModel(false);
-                setLoading(false);
-                return;
-            }
-
             const flowNodes = (loadedModelData.components || []).map(c => componentToNode(c));
             const flowEdges = (loadedModelData.connections || []).map(c => connectionToEdge(c));
 
@@ -170,9 +154,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             const vpToSet = loadedModelData.viewport || { x: 0, y: 0, zoom: 1 };
             setCurrentViewport(vpToSet);
 
-            setModelName(loadedModelData.name);
-            setProjectContextModelType(loadedModelType); 
-            setModelId(loadedModelData.id); 
+            setModelName(loadedModelData.name); // Update context
+            setProjectContextModelType(loadedModelType); // Update context
+            setModelId(loadedModelData.id); // Set canvas's current model ID
             setSelectedElementId(null);
 
             const currentDiagramForAI: Diagram = {
@@ -185,19 +169,21 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             };
             setDiagramDataForAI(currentDiagramForAI);
             
-            if (previousModelIdForToast !== loadedModelData.id || currentContextModelType !== loadedModelType) {
-                const now = Date.now();
-                if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
+            const now = Date.now();
+            if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
+                 if (previousModelIdForToast !== loadedModelData.id || currentContextModelType !== loadedModelType) {
                     toast({ title: 'Model Loaded', description: `Successfully loaded '${loadedModelData.name}'.` });
-                    lastToastTime.current = now;
-                }
+                 } else {
+                    toast({ title: 'Model Refreshed', description: `Model '${loadedModelData.name}' is active.` });
+                 }
+                lastToastTime.current = now;
             }
-
+            
             setTimeout(() => {
                 if (typeof fitView === 'function') {
-                    fitView({ padding: 0.2, duration: 150 }); // Reduced duration
+                    fitView({ padding: 0.2, duration: 150 });
                 }
-            }, 150); // Reduced timeout
+            }, 150);
 
             if (pathname !== `/projects/${loadedModelData.id}`) {
                  router.push(`/projects/${loadedModelData.id}`, { scroll: false });
@@ -213,113 +199,82 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             setLoading(false);
         }
     }, [
-        modelId, getNodes, getEdges, fitView, setNodesInternal, setEdgesInternal, // Added getEdges
+        modelId, fitView, setNodesInternal, setEdgesInternal,
         setCurrentViewport, setModelName, setProjectContextModelType, setModelId,
         setSelectedElementId, setDiagramDataForAI, toast,
-        router, pathname, // Removed setLoading, setError as they are set within the function
-        isLoadingModel, modelType // Use context modelType
+        router, pathname, isLoadingModel, modelType 
     ]);
 
-
+    // Effect for handling URL changes and initializing the model
     useEffect(() => {
-        const currentContextModelType = modelType;
-        const currentContextModelName = modelName;
-        const currentNodes = getNodes ? getNodes() : [];
-        const currentEdges = getEdges ? getEdges() : [];
-
-        console.log(`EFFECT[URL_PROJECT_ID]: Triggered. URL_projectId: ${initialProjectIdFromUrl}, canvas modelId: ${modelId}, authLoading: ${authLoading}, firebaseReady: ${firebaseReady}, currentUser: ${!!currentUser}, justCreated: ${justCreatedNewModelFromDialog.current}, context modelName: ${currentContextModelName}, context modelType: ${currentContextModelType}, nodes length: ${currentNodes.length}, isLoadingModel: ${isLoadingModel}`);
+        console.log(`EFFECT[URL_PROJECT_ID]: Triggered. URL_projectId: ${initialProjectIdFromUrl}, canvas modelId: ${modelId}, authLoading: ${authLoading}, firebaseReady: ${firebaseReady}, initialLoadAttempted: ${initialLoadAttempted.current}, isLoadingModel: ${isLoadingModel}, contextModelName: ${modelName}, contextModelType: ${modelType}`);
 
         if (authLoading || !firebaseReady ) {
-            if (!authLoading && !firebaseReady) {
-                setError("Firebase connection failed. Cannot load or initialize project.");
-            }
-            if (!authLoading) setLoading(false); // Ensure loading stops if only auth was pending
+            if (!authLoading && !firebaseReady) setError("Firebase connection failed.");
+            if (!authLoading) setLoading(false);
             return;
         }
-
-        if (!currentUser && !authLoading && firebaseReady) {
-             console.log("EFFECT[URL_PROJECT_ID]: No current user, but Firebase ready. AuthProvider should handle redirection.");
-             setLoading(false);
+        if (!currentUser) {
+             console.log("EFFECT[URL_PROJECT_ID]: No current user. AuthProvider should redirect.");
+             setLoading(false); // Stop loading if no user, redirection will handle it
              return;
         }
         
-        if (isLoadingModel && initialProjectIdFromUrl !== modelId) { // Only defer if loading a *different* model
-            console.log(`EFFECT[URL_PROJECT_ID]: isLoadingModel is true for a different model, deferring action for ${initialProjectIdFromUrl}.`);
+        // Prevent re-processing if already loading this specific model via direct loadModel call
+        if (isLoadingModel && modelId === initialProjectIdFromUrl) {
+            console.log(`EFFECT[URL_PROJECT_ID]: isLoadingModel is true for the current URL model ${initialProjectIdFromUrl}, deferring effect action.`);
             return;
         }
-
-        if (justCreatedNewModelFromDialog.current) {
-            console.log(`EFFECT[URL_PROJECT_ID]: New model was just created from dialog. Context: Name=${currentContextModelName}, Type=${currentContextModelType}. Flag will be reset.`);
-            // `resetDiagramState` was already called by `handleCreateNewModel`.
-            // It should have set modelId to null, cleared nodes/edges, and set context.
-            // If path is not /projects/new, resetDiagramState would have navigated.
-            // If path is /projects/new, resetDiagramState would have fitted view.
-            // We mainly need to ensure loading state is correct and flag is reset.
-            if (pathname !== '/projects/new') {
-                 // This case implies resetDiagramState pushed to /projects/new, and this effect is re-running due to URL change.
-                 // The next run of this effect with initialProjectIdFromUrl = 'new' will handle final setup.
-                 console.log("EFFECT[URL_PROJECT_ID]: justCreated flag was true, navigation to /projects/new should be in progress by resetDiagramState.");
-            } else {
-                // Already on /projects/new, and resetDiagramState should have configured it.
-                console.log("EFFECT[URL_PROJECT_ID]: justCreated flag was true, already on /projects/new. Ensuring view fit.");
-                 if (typeof fitView === 'function') {
-                     setTimeout(() => { fitView({ padding: 0.2, duration: 150 }); }, 150);
-                 }
-            }
-            setLoading(false); // New model setup is complete.
-            justCreatedNewModelFromDialog.current = false;
-            return;
-        }
-
 
         if (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
-            // If the URL points to a specific model ID
-            const isDifferentModelOrType = initialProjectIdFromUrl !== modelId || currentContextModelType !== (diagramDataForAI?.modelType || currentContextModelType);
-            const isCanvasEmpty = currentNodes.length === 0 && currentEdges.length === 0;
-
-            if (!isLoadingModel && (isDifferentModelOrType || isCanvasEmpty)) {
-                console.log(`EFFECT[URL_PROJECT_ID]: Condition to load met for ${initialProjectIdFromUrl}. Different model/type or empty canvas. Calling loadModel.`);
-                loadModel(initialProjectIdFromUrl); 
-            } else if (!isLoadingModel) { // Same model ID and type, canvas might have content or not
-                 console.log(`EFFECT[URL_PROJECT_ID]: Model ${initialProjectIdFromUrl} (context type: ${currentContextModelType}) likely matches canvas state and context. Fitting view if content exists.`);
-                 if (typeof fitView === 'function' && (currentNodes.length > 0 || currentEdges.length > 0)) {
-                    setTimeout(() => { fitView({ padding: 0.2, duration: 150 }); }, 150);
-                 }
+            // Specific model ID in URL
+            if (modelId !== initialProjectIdFromUrl || !initialLoadAttempted.current) {
+                console.log(`EFFECT[URL_PROJECT_ID]: URL is for specific model ${initialProjectIdFromUrl}. Canvas modelId is ${modelId}. Attempting load.`);
+                initialLoadAttempted.current = true;
+                loadModel(initialProjectIdFromUrl);
+            } else {
+                 console.log(`EFFECT[URL_PROJECT_ID]: URL is for specific model ${initialProjectIdFromUrl}, which matches canvas modelId. Assuming loaded. Fitting view.`);
+                 if (typeof fitView === 'function') setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
                  setLoading(false);
             }
         } else if (initialProjectIdFromUrl === 'new') {
-            console.log(`EFFECT[URL_PROJECT_ID]: URL is /projects/new. Current canvas modelId: ${modelId}. Context: Name=${currentContextModelName}, Type=${currentContextModelType}`);
+            // '/projects/new' URL
+            const targetName = modelName; // Name from context (could be set by NewModelDialog)
+            const targetType = modelType; // Type from context
 
-            const targetNewName = currentContextModelName || "Untitled Model";
-            const targetNewType = currentContextModelType || "infrastructure";
-            
-            // If modelId is not null, we came from a saved model and need a full reset.
-            // Or, if context values are stale compared to what a "new" model should be.
             if (modelId !== null || 
-                currentContextModelName !== targetNewName || 
-                currentContextModelType !== targetNewType) {
-                console.log(`EFFECT[URL_PROJECT_ID]: On /projects/new, but modelId (${modelId}) is not null or context mismatch. Resetting to new state (Name: ${targetNewName}, Type: ${targetNewType}).`);
-                resetDiagramState(targetNewName, targetNewType); // This will set loading(true)
-            } else {
-                // modelId is null, and context name/type are consistent with a new model state
-                console.log(`EFFECT[URL_PROJECT_ID]: On /projects/new, in a consistent new state (Name: ${targetNewName}, Type: ${targetNewType}). Fitting view.`);
-                if (typeof fitView === 'function') {
-                    setTimeout(() => { fitView({ padding: 0.2, duration: 150 }); }, 150);
+                (diagramDataForAI?.name !== targetName || diagramDataForAI?.modelType !== targetType) ||
+                !initialLoadAttempted.current
+            ) {
+                console.log(`EFFECT[URL_PROJECT_ID]: URL is /projects/new. Resetting to new state. Context Name: ${targetName}, Type: ${targetType}. Canvas modelId: ${modelId}. diagramDataForAI name: ${diagramDataForAI?.name}, type: ${diagramDataForAI?.modelType}`);
+                initialLoadAttempted.current = true;
+                if (justCreatedNewModelFromDialog.current) {
+                    // If dialog just created it, context is source of truth.
+                    resetDiagramState(targetName, targetType);
+                    justCreatedNewModelFromDialog.current = false;
+                } else {
+                    // Navigated to /new, or context changed while on /new. Reset with current context.
+                    resetDiagramState(targetName, targetType);
                 }
+            } else {
+                console.log(`EFFECT[URL_PROJECT_ID]: URL is /projects/new. State seems consistent (Name: ${targetName}, Type: ${targetType}). Fitting view.`);
+                if (typeof fitView === 'function') setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
+                 if (justCreatedNewModelFromDialog.current) justCreatedNewModelFromDialog.current = false;
                 setLoading(false);
             }
         } else {
              console.log(`EFFECT[URL_PROJECT_ID]: No valid project ID in URL (${initialProjectIdFromUrl}). Resetting to default new state.`);
-             resetDiagramState("Untitled Model", "infrastructure"); // This will set loading(true)
+             initialLoadAttempted.current = true; // Mark attempt
+             resetDiagramState(); // Defaults to "Untitled Model", "infrastructure"
         }
+
     }, [
         initialProjectIdFromUrl, currentUser, authLoading, firebaseReady,
-        fitView, modelId, 
-        loadModel, resetDiagramState,
-        // nodes and edges removed from here to prevent reset on element addition to new diagram
-        error, // Keep error to potentially re-trigger if error state changes
+        modelId, // Canvas's current model ID
         modelName, modelType, // Context values
-        pathname, router, isLoadingModel, getNodes, getEdges // Added getNodes, getEdges for current state check
+        loadModel, resetDiagramState, fitView, // Callbacks
+        // Removed router, pathname, getNodes, getEdges to reduce re-runs if possible.
+        // isLoadingModel is handled at the start of the effect.
     ]);
 
 
@@ -344,6 +299,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         (changes: NodeChange[]) => {
             setNodesInternal((currentNodes) => {
                 const updatedNodes = applyNodeChanges(changes, currentNodes);
+                // Ensure zIndex is updated on selection change or structural changes
                 return updatedNodes.map(node => {
                     const change = changes.find(c => c.id === node.id && (c.type === 'select' || c.type === 'position' || c.type === 'dimensions'));
                     if (change) {
@@ -364,14 +320,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                     if (change.selected) {
                         setSelectedElementId(change.id);
                     } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
-                        setSelectedElementId(null);
+                        // Only deselect if no other element was selected in this batch of changes
+                        const otherSelected = changes.find(c => c.type === 'select' && c.id !== change.id && c.selected);
+                        if (!otherSelected) setSelectedElementId(null);
                     }
                 } else if (change.type === 'remove' && selectedElementId === change.id) {
                     setSelectedElementId(null);
                 }
             });
         },
-        [setNodesInternal, selectedElementId, setSelectedElementId]
+        [setNodesInternal, selectedElementId, setSelectedElementId] // setSelectedElementId was missing
     );
 
     const onEdgesChange = useCallback(
@@ -382,20 +340,21 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                     if (change.selected) {
                         setSelectedElementId(change.id);
                     } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
-                        setSelectedElementId(null);
+                        const otherSelected = changes.find(c => c.type === 'select' && c.id !== change.id && c.selected);
+                        if (!otherSelected) setSelectedElementId(null);
                     }
                 } else if (change.type === 'remove' && selectedElementId === change.id) {
                     setSelectedElementId(null);
                 }
             });
         },
-        [setEdgesInternal, selectedElementId, setSelectedElementId]
+        [setEdgesInternal, selectedElementId, setSelectedElementId] // setSelectedElementId was missing
     );
 
 
     const onConnect = useCallback(
         (connection: Connection) => {
-          const currentContextModelType = modelType; // Use context modelType
+          const currentContextModelType = modelType; 
           const newEdgeId = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
           const newEdgeData = {
             label: currentContextModelType === 'process' ? 'Process Flow' : 'Data Flow',
@@ -411,16 +370,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             ...connection,
             id: newEdgeId,
             animated: true,
-            type: 'smoothstep',
+            type: 'smoothstep', 
             data: newEdgeData,
-            selected: true,
+            selected: true, 
           };
            setNodesInternal(nds => nds.map(n => ({...n, selected: false})));
            setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
-          setSelectedElementId(newEdgeId);
-          toast({ title: 'Connection Added', description: `${currentContextModelType === 'process' ? 'Process flow' : 'Data flow'} created and selected.` });
+          setSelectedElementId(newEdgeId); 
+          toast({ title: 'Connection Added', description: `${currentContextModelType === 'process' ? 'Process flow' : 'data flow'} created and selected.` });
         },
-        [setEdgesInternal, setNodesInternal, setSelectedElementId, toast, modelType] // Use context modelType
+        [setEdgesInternal, setNodesInternal, setSelectedElementId, toast, modelType]
     );
 
     const selectedNode = useMemo(() => nodes.find(node => node.id === selectedElementId) ?? null, [nodes, selectedElementId]);
@@ -485,7 +444,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             return;
          }
 
-        setLoading(true);
+        setLoading(true); // Indicate saving process visually
         const currentNodesForSave = getNodes();
         const currentEdgesForSave = getEdges();
         const viewportToSave = getViewport();
@@ -493,21 +452,21 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const nodesToSave = currentNodesForSave.map(n => nodeToComponent(n));
         const edgesToSave = currentEdgesForSave.map(e => edgeToConnection(e));
 
-        setCurrentViewport(viewportToSave);
+        setCurrentViewport(viewportToSave); // Save current viewport to state for consistency
 
         try {
             const savedModelId = await saveThreatModel(
                 currentUser.uid,
-                modelId, // current canvas modelId state
-                currentContextModelName, // from context
-                currentContextModelType, // from context
+                modelId, 
+                currentContextModelName,
+                currentContextModelType,
                 nodesToSave,
                 edgesToSave,
                 viewportToSave
             );
 
             const wasNewSaveOrDifferentId = !modelId || modelId !== savedModelId;
-            setModelId(savedModelId); 
+            setModelId(savedModelId); // Update canvas modelId with the saved one
 
             const currentDiagramForAI: Diagram = {
                  id: savedModelId,
@@ -521,9 +480,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
             if (wasNewSaveOrDifferentId && pathname !== `/projects/${savedModelId}`) {
                  router.push(`/projects/${savedModelId}`, { scroll: false });
-            } else if (wasNewSaveOrDifferentId && pathname === `/projects/${savedModelId}`) {
-                 console.log("Saved with new ID, but already on the correct project URL.");
             }
+            initialLoadAttempted.current = true; // After save, this model is considered "loaded"
 
             toast({ title: 'Saved', description: `Model '${currentContextModelName}' saved successfully.` });
         } catch (err) {
@@ -536,7 +494,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         modelName, modelType, toast, currentUser, modelId, 
         getViewport, getNodes, getEdges,
         setModelId, setDiagramDataForAI, router, pathname,
-        // setLoading removed from deps, set internally
+        setCurrentViewport 
     ]);
 
 
@@ -545,15 +503,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             toast({ title: 'Error', description: 'You must be logged in to load models.', variant: 'destructive' });
             return;
         }
-        setLoading(true); 
+        // Show a loading indicator while fetching model list
+        const tempLoadingToastId = toast({ title: 'Fetching Models...', description: 'Please wait.' }).id;
         try {
             const models = await getUserThreatModels(currentUser.uid);
+            toast.dismiss(tempLoadingToastId); 
             setUserModels(models);
             setIsLoadModelDialogOpen(true);
         } catch (err) {
+            toast.dismiss(tempLoadingToastId);
             toast({ title: 'Error', description: 'Could not fetch your saved models.', variant: 'destructive' });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -563,12 +522,21 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
         if (pathname !== `/projects/${selectedModelIdFromDialog}`) {
             console.log(`LOADMODELSELECT: Navigating to /projects/${selectedModelIdFromDialog}`);
+            initialLoadAttempted.current = false; // Reset flag to allow useEffect to load
             router.push(`/projects/${selectedModelIdFromDialog}`, { scroll: false });
         } else {
-            console.log(`LOADMODELSELECT: Already on /projects/${selectedModelIdFromDialog}. Calling loadModel directly.`);
-            loadModel(selectedModelIdFromDialog); 
+            // Already on the correct URL, directly call loadModel if different from current
+            console.log(`LOADMODELSELECT: Already on /projects/${selectedModelIdFromDialog}.`);
+            if (modelId !== selectedModelIdFromDialog) {
+                 initialLoadAttempted.current = false; // Reset flag
+                 loadModel(selectedModelIdFromDialog); 
+            } else {
+                 // Model is already the active one, perhaps just fit view or show a toast
+                 toast({title: "Model Active", description: "This model is already loaded on the canvas."});
+                 if (typeof fitView === 'function') setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
+            }
         }
-    }, [modelId, router, setIsLoadModelDialogOpen, loadModel, pathname]);
+    }, [modelId, router, setIsLoadModelDialogOpen, loadModel, pathname, toast, fitView]);
 
 
      const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
@@ -580,7 +548,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const onPaneClick = useCallback(
         (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
-            if (typeof screenToFlowPosition !== 'function' || typeof getNodes !== 'function' || typeof getEdges !== 'function' || typeof getViewport !== 'function' || typeof project !== 'function') return;
+            // screenToFlowPosition might be undefined if ReactFlow instance not ready
+            if (typeof screenToFlowPosition !== 'function' || typeof getNodes !== 'function' || typeof getEdges !== 'function' || typeof getViewport !== 'function' || typeof project !== 'function') {
+                 console.warn("onPaneClick: ReactFlow instance methods not available yet.");
+                 if(selectedElementId) setSelectedElementId(null); // Still deselect if possible
+                 return;
+            }
 
             const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
             const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
@@ -597,7 +570,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                      setSelectedElementId(elementToSelect.id);
                 }
             } else {
-                 if (selectedElementId) {
+                 if (selectedElementId) { // Only deselect if something was selected
                     setSelectedElementId(null);
                  }
             }
@@ -607,9 +580,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
          setIsNewModelDialogOpen(false);
-        justCreatedNewModelFromDialog.current = true; 
+        justCreatedNewModelFromDialog.current = true;
+        initialLoadAttempted.current = false; // Allow useEffect to run for new model setup
+        // Context will be updated by resetDiagramState, then useEffect will handle navigation/reset.
         resetDiagramState(newModelName, newModelType);
-        toast({ title: 'New Model Created', description: `Switched to new ${newModelType} model: ${newModelName}` });
+        toast({ title: 'New Model Space Initialized', description: `Switched to new ${newModelType} model: ${newModelName}` });
     };
 
     const getCurrentDiagramDataForReport = useCallback((): Diagram | null => {
@@ -634,22 +609,24 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [getViewport, getNodes, getEdges, modelId, modelName, modelType, toast ]); 
 
 
-    if (loading && !(isNewModelDialogOpen || isLoadModelDialogOpen) && !isLoadingModel) {
+    if (loading && !isNewModelDialogOpen && !isLoadModelDialogOpen ) { // Removed isLoadingModel from this main check
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground flex-1 p-4">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Loading Diagram...
+                Initializing Canvas...
             </div>
         );
     }
     if (error && !loading && !isNewModelDialogOpen && !isLoadModelDialogOpen) { 
          return (
             <div className="flex flex-col items-center justify-center h-full text-destructive flex-1 p-4 text-center">
-                <p className="font-semibold mb-2">Error Loading Diagram</p>
+                <p className="font-semibold mb-2">Error Initializing Diagram</p>
                 <p className="text-sm mb-4">{error}</p>
                 <Button onClick={() => {
-                    justCreatedNewModelFromDialog.current = true; 
-                    resetDiagramState(); // This will set modelName and modelType to defaults
+                    setError(null); // Clear error
+                    justCreatedNewModelFromDialog.current = true;
+                    initialLoadAttempted.current = false;
+                    resetDiagramState(); 
                 }}>Start New Model</Button>
             </div>
         );
@@ -662,7 +639,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                 onNewModelClick={() => setIsNewModelDialogOpen(true)}
                 onSave={handleSave}
                 onLoad={handleLoadTrigger}
-                isSaving={loading && modelId !== null && !isLoadModelDialogOpen && !isNewModelDialogOpen && !isLoadingModel}
+                isSaving={loading && !isLoadingModel && modelId !== null} // More specific saving indicator
             />
             <div className="flex flex-1 overflow-hidden">
                 <main className="flex-1 overflow-auto p-0 relative bg-secondary/50">
@@ -672,8 +649,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
-                        setNodes={setNodesInternal}
-                        setEdges={setEdgesInternal}
+                        setNodes={setNodesInternal} // Pass the state setter directly
+                        setEdges={setEdgesInternal} // Pass the state setter directly
                         onMoveEnd={(e, vp) => setCurrentViewport(vp)}
                         viewport={currentViewport}
                         onNodeClick={onElementClick}
@@ -701,7 +678,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                             <ThreatReportPanel
                                 getCurrentDiagramData={getCurrentDiagramDataForReport}
                                 setIsGenerating={(genState) => {
-                                    // This could be used for a global generating indicator if needed
+                                    // Potentially use this to disable save/load during report generation
                                 }}
                              />
                         </TabsContent>
@@ -722,3 +699,4 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         </>
     );
 }
+
