@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useRef, type DragEvent, type MouseEvent as ReactMouseEvent, type Dispatch, type SetStateAction } from 'react';
@@ -45,7 +46,7 @@ interface DiagramCanvasProps {
   onConnect: OnConnect;
   setNodes: Dispatch<SetStateAction<Node[]>>; 
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
-  onViewportChange?: (viewport: Viewport) => void; // Changed from onMoveEnd
+  onViewportChange?: (viewport: Viewport) => void;
   viewport?: Viewport; 
   selectedElementId?: string | null; 
   onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
@@ -61,7 +62,7 @@ export function DiagramCanvas({
   onConnect,
   setNodes,
   setEdges, 
-  onViewportChange, // Changed from onMoveEnd
+  onViewportChange,
   viewport, 
   selectedElementId, 
   onNodeClick,
@@ -175,7 +176,7 @@ export function DiagramCanvas({
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
-        onViewportChange={onViewportChange} // Changed from onMoveEnd
+        onViewportChange={onViewportChange}
         viewport={viewport} 
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
@@ -193,6 +194,9 @@ export function DiagramCanvas({
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
         panOnDrag={true}
+        zoomOnScroll={true} // Explicitly enable zoom on scroll
+        zoomOnPinch={true} // Explicitly enable zoom on pinch
+        panOnScroll={false} // Ensure scroll pans, not zooms, if panOnDrag is enabled
       >
         <Controls />
         <Background gap={16} />
@@ -229,3 +233,4 @@ export function DiagramCanvas({
     </div>
   );
 }
+
