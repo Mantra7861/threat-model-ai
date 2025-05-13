@@ -1,15 +1,14 @@
 
 "use client";
 
-import { useState, type Dispatch, type SetStateAction, useRef, useEffect } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
-import { Loader2, AlertTriangle, ShieldCheck, FileDown, Eye } from 'lucide-react';
+import { Loader2, AlertTriangle, ShieldCheck, Eye } from 'lucide-react'; // Removed FileDown
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { Diagram, ReportEntry } from '@/services/diagram';
-// html2pdf is dynamically imported in useEffect
 import { format } from 'date-fns';
 
 interface ThreatReportPanelProps {
@@ -28,17 +27,6 @@ export function ThreatReportPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const pdfRenderRef = useRef<HTMLDivElement>(null);
-  const [html2pdf, setHtml2pdf] = useState<any>(null);
-
-  useEffect(() => {
-    import('html2pdf.js').then(module => {
-      setHtml2pdf(() => module.default || module);
-    }).catch(err => {
-      console.error("Failed to load html2pdf.js", err);
-      toast({ title: "PDF Library Error", description: "Could not load PDF generation library.", variant: "destructive" });
-    });
-  }, [toast]);
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
@@ -67,18 +55,24 @@ export function ThreatReportPanel({
     });
 
     try {
+      // The diagramJson should be the actual diagram data, not diagramId.
+      // The AI flow 'generate-threat-report.ts' expects diagramJson, modelName, modelType.
       const diagramJson = JSON.stringify(currentDiagram);
 
       const result = await generateThreatReport({
-        diagramJson,
+        diagramJson, // Pass the full diagram data as JSON
         modelName: modelNameForReport,
         modelType: modelTypeForReport,
       });
+      
+      if (!result || !result.report) {
+        throw new Error("AI did not return a report string.");
+      }
 
       const reportName = `${modelNameForReport} Report - ${format(new Date(), 'yyyy-MM-dd HH:mm')}`;
       const newReportEntry: ReportEntry = {
         reportName,
-        reportData: result.report,
+        reportData: result.report, // This is the HTML string from the AI
         createdDate: new Date(),
       };
       addSessionReport(newReportEntry);
@@ -106,6 +100,17 @@ export function ThreatReportPanel({
   const handleViewInBrowser = (htmlContent: string, reportName: string) => {
     const newWindow = window.open("", "_blank");
     if (newWindow) {
+        const instructionHTML = `
+          <div class="browser-pdf-instruction">
+            <p>To save this report as a PDF, please use your browser's Print function:</p>
+            <ul>
+              <li><strong>Windows/Linux:</strong> Press <kbd>Ctrl</kbd> + <kbd>P</kbd></li>
+              <li><strong>Mac:</strong> Press <kbd>Cmd</kbd> + <kbd>P</kbd></li>
+            </ul>
+            <p>In the print dialog, choose 'Save as PDF' as the destination.</p>
+          </div>
+        `;
+
         const styledHtmlContent = `
           <html>
             <head>
@@ -118,9 +123,45 @@ export function ThreatReportPanel({
                   color: #333;
                   background-color: #fff;
                 }
+                .browser-pdf-instruction {
+                  background-color: #e0f7fa; /* Light blue background */
+                  color: #1A237E; /* Dark blue text */
+                  padding: 15px;
+                  margin-bottom: 20px;
+                  border: 1px solid #4fc3f7; /* Light blue border */
+                  text-align: center;
+                  font-weight: bold;
+                  border-radius: 0.5rem;
+                }
+                .browser-pdf-instruction p {
+                  margin: 0.25em 0;
+                }
+                .browser-pdf-instruction ul {
+                  list-style-type: none;
+                  padding: 0;
+                  margin: 0.5em 0;
+                }
+                .browser-pdf-instruction li {
+                  margin-bottom: 0.25em;
+                }
+                .browser-pdf-instruction kbd {
+                  background-color: #eee;
+                  border-radius: 3px;
+                  border: 1px solid #b4b4b4;
+                  box-shadow: 0 1px 1px rgba(0, 0, 0, .2), 0 2px 0 0 rgba(255, 255, 255, .7) inset;
+                  color: #333;
+                  display: inline-block;
+                  font-size: .85em;
+                  font-weight: 700;
+                  line-height: 1;
+                  padding: 2px 4px;
+                  white-space: nowrap;
+                }
+                /* Styles for the report content itself are expected to be embedded in htmlContent */
               </style>
             </head>
             <body>
+              ${instructionHTML}
               ${htmlContent}
             </body>
           </html>
@@ -130,80 +171,6 @@ export function ThreatReportPanel({
     } else {
         toast({ title: "Error", description: "Could not open new window. Please check your pop-up blocker.", variant: "destructive" });
     }
-  };
-
-  const handleSaveAsPdf = (htmlContent: string, reportName: string) => {
-    if (!html2pdf) {
-      toast({ title: "Error", description: "PDF generation library not loaded yet. Please try again shortly.", variant: "destructive" });
-      return;
-    }
-    if (!pdfRenderRef.current) {
-      toast({ title: "Error", description: "PDF generation area not ready.", variant: "destructive" });
-      return;
-    }
-
-    pdfRenderRef.current.innerHTML = htmlContent;
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    pdfRenderRef.current.offsetHeight; // Force reflow
-
-    const filename = `${reportName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
-
-    toast({ title: "Generating PDF...", description: "Please wait, this might take a moment."});
-
-    const images = pdfRenderRef.current.querySelectorAll('img');
-    const imagePromises: Promise<void>[] = [];
-    images.forEach(img => {
-        if (!img.complete) {
-            imagePromises.push(new Promise(resolve => {
-                img.onload = () => resolve();
-                img.onerror = () => {
-                    console.warn(`Image failed to load for PDF: ${img.src}`);
-                    resolve(); // Resolve even on error
-                }
-            }));
-        }
-    });
-
-    Promise.all(imagePromises).then(() => {
-      if (!pdfRenderRef.current) { // Re-check ref in case it became null
-        toast({ title: "PDF Error", description: "PDF rendering area disappeared.", variant: "destructive" });
-        return;
-      }
-      const contentWidth = pdfRenderRef.current.scrollWidth || 816; // 8.5in at 96dpi as fallback
-
-      const opt = {
-        margin:       [0.5, 0.5, 0.5, 0.5], // inches
-        filename:     filename,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          width: contentWidth,
-          windowWidth: contentWidth,
-        },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-      };
-
-      setTimeout(() => {
-        if (!pdfRenderRef.current) { // Final check
-            toast({ title: "PDF Error", description: "PDF rendering target lost before generation.", variant: "destructive" });
-            return;
-        }
-        html2pdf().from(pdfRenderRef.current).set(opt).save().then(() => {
-            toast({ title: "PDF Saved", description: `${filename} has been downloaded.`});
-            if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
-        }).catch((err: any) => {
-            console.error("Error saving PDF with html2pdf:", err);
-            toast({ title: "PDF Save Error", description: `Could not save report as PDF. Details: ${err.message || 'See console.'}`, variant: "destructive"});
-            if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
-        });
-      }, 100); // Increased delay slightly to ensure rendering
-    }).catch(err => {
-        console.error("Error waiting for images to load for PDF:", err);
-        toast({ title: "PDF Generation Error", description: "Could not load images for PDF generation.", variant: "destructive" });
-         if (pdfRenderRef.current) pdfRenderRef.current.innerHTML = '';
-    });
   };
 
 
@@ -218,7 +185,7 @@ export function ThreatReportPanel({
                 Generating...
               </>
             ) : (
-              "Generate Report"
+              "Generate Report" // Changed from "Generate New Report"
             )}
           </Button>
       </div>
@@ -236,21 +203,6 @@ export function ThreatReportPanel({
             </CardContent>
         </Card>
       )}
-
-      <div
-        ref={pdfRenderRef}
-        style={{
-            position: 'absolute',
-            left: '-9999px',
-            top: '-9999px',
-            padding: '0.5in',
-            background: 'white',
-            // visibility: 'hidden', // Removed: rely on off-screen positioning
-            zIndex: -1000,
-            width: 'auto', // Allow content to define width initially
-        }}
-      ></div>
-
 
       {sessionReports.length === 0 && !isLoading && !error && (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-md">
@@ -278,9 +230,7 @@ export function ThreatReportPanel({
                   <Button variant="outline" size="icon" onClick={() => handleViewInBrowser(report.reportData, report.reportName)} title="View in Browser">
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="icon" onClick={() => handleSaveAsPdf(report.reportData, report.reportName)} title="Download as PDF" disabled={!html2pdf}>
-                    <FileDown className="h-4 w-4" />
-                  </Button>
+                  {/* "Download as PDF" button removed */}
                 </div>
               </li>
             ))}
@@ -290,3 +240,4 @@ export function ThreatReportPanel({
     </div>
   );
 }
+
