@@ -46,12 +46,13 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
       setIsLoading(true);
       setError(null);
       getStencilById(stencilId)
-        .then(stencil => {
+        .then(async stencil => { // Make callback async
           if (stencil) {
             setName(stencil.name);
             setIconName(stencil.iconName);
             setTextColor(stencil.textColor || "#000000");
-            setStaticPropertiesString(formatStaticPropertiesToString(stencil.properties));
+            const formattedProps = await formatStaticPropertiesToString(stencil.properties); // Await async function
+            setStaticPropertiesString(formattedProps);
             if (stencil.stencilType === 'infrastructure') {
               const infraStencil = stencil as InfrastructureStencilData;
               setIsBoundary(infraStencil.isBoundary || false);
@@ -82,7 +83,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         return;
     }
 
-    const properties = parseStaticPropertiesString(staticPropertiesString);
+    const properties = await parseStaticPropertiesString(staticPropertiesString); // Await async function
     
     let stencilPayload: StencilFirestoreData = {
       name: name.trim(),
@@ -242,3 +243,4 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     </form>
   );
 }
+

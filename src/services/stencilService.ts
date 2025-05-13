@@ -107,7 +107,7 @@ export async function getStencilById(stencilId: string): Promise<StencilData | n
   return null;
 }
 
-export const parseStaticPropertiesString = (str: string | undefined): Record<string, string> => {
+export async function parseStaticPropertiesString(str: string | undefined): Promise<Record<string, string>> {
   if (!str || typeof str !== 'string') return {};
   const properties: Record<string, string> = {};
   str.split('\n').forEach(line => {
@@ -117,11 +117,11 @@ export const parseStaticPropertiesString = (str: string | undefined): Record<str
     }
   });
   return properties;
-};
+}
 
-export const formatStaticPropertiesToString = (props: Record<string, any> | undefined): string => {
+export async function formatStaticPropertiesToString(props: Record<string, any> | undefined): Promise<string> {
   if (!props) return "";
   return Object.entries(props)
     .map(([key, value]) => `${key}: ${String(value)}`)
     .join('\n');
-};
+}
