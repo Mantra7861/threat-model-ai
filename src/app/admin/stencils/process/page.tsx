@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -13,11 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 
 // Dynamically get the Lucide icon component by name
 const DynamicLucideIcon = ({ name, ...props }: { name: keyof typeof LucideIcons; [key: string]: any }) => {
-  const IconComponent = LucideIcons[name] as LucideIcons.LucideIcon;
-  if (!IconComponent) {
-    return <LucideIcons.HelpCircle {...props} />; // Fallback icon
+  // Ensure the name is a valid key and it points to a function (React component)
+  if (Object.prototype.hasOwnProperty.call(LucideIcons, name) && typeof LucideIcons[name] === 'function') {
+    const IconComponent = LucideIcons[name] as LucideIcons.LucideIcon;
+    return <IconComponent {...props} />;
   }
-  return <IconComponent {...props} />;
+  // console.warn(`DynamicLucideIcon: Icon "${String(name)}" not found or not a function. Using fallback.`);
+  return <LucideIcons.HelpCircle {...props} />; // Fallback icon
 };
 
 export default function ProcessStencilsPage() {
