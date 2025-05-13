@@ -1,7 +1,8 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+// Modify Firestore imports to include initializeFirestore and memoryLocalCache
+import { getFirestore, initializeFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 
 // --- Configuration ---
 const firebaseConfig = {
@@ -34,47 +35,58 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 let initializationError: string | null = null;
 
-// Perform initialization only on the client-side
-if (typeof window !== 'undefined') {
-  const { valid, missingKeys } = isConfigValid(firebaseConfig);
+const { valid, missingKeys } = isConfigValid(firebaseConfig);
 
-  if (!valid) {
-    initializationError = `Firebase client configuration is incomplete. Missing environment variables: ${missingKeys.join(', ')}. Check your .env.local file.`;
-    console.error(initializationError);
-  } else {
-    if (!getApps().length) {
-      try {
-        console.log("Initializing Firebase Client SDK...");
-        app = initializeApp(firebaseConfig);
-        auth = getAuth(app);
-        db = getFirestore(app);
-        console.log(`Firebase Client SDK Initialized. Project ID: "${firebaseConfig.projectId}".`);
-      } catch (e) {
-        initializationError = `Firebase client initialization failed: ${e instanceof Error ? e.message : String(e)}`;
-        console.error(initializationError);
-        app = null; // Ensure app is null if init fails
-        auth = null;
-        db = null;
-      }
-    } else {
-      // App already initialized (e.g., due to HMR)
-      app = getApp();
-      try {
-        auth = getAuth(app);
-        db = getFirestore(app);
-        // console.log("Firebase Client SDK re-used existing app instance.");
-      } catch(e) {
-         initializationError = `Error getting Auth/Firestore from existing app: ${e instanceof Error ? e.message : String(e)}`;
-         console.error(initializationError);
-         auth = null;
-         db = null;
-      }
-    }
-  }
+if (!valid) {
+  initializationError = `Firebase client configuration is incomplete. Missing environment variables: ${missingKeys.join(', ')}. Check your .env.local file.`;
+  console.error(initializationError);
 } else {
-  // console.log("Firebase Client SDK initialization skipped (server-side or build time).");
-  // Server-side Firebase (Admin SDK) should be handled separately if needed.
+  if (!getApps().length) {
+    try {
+      console.log("Initializing Firebase App SDK...");
+      app = initializeApp(firebaseConfig);
+      console.log(`Firebase App SDK Initialized. Project ID: "${firebaseConfig.projectId}".`);
+    } catch (e) {
+      initializationError = `Firebase app initialization failed: ${e instanceof Error ? e.message : String(e)}`;
+      console.error(initializationError);
+      // app remains null
+    }
+  } else {
+    app = getApp();
+    // console.log("Firebase App SDK re-used existing app instance.");
+  }
+
+  if (app) {
+    try {
+      auth = getAuth(app);
+      if (typeof window === 'undefined') {
+        // Server environment (e.g., Server Action, RSC rendering)
+        // Use Firestore with memory cache to avoid IndexedDB issues on server
+        console.log("Initializing Firestore with memory cache for server environment.");
+        db = initializeFirestore(app, { localCache: memoryLocalCache() });
+      } else {
+        // Client environment
+        console.log("Initializing Firestore for client environment.");
+        db = getFirestore(app);
+      }
+      console.log("Firebase Auth and Firestore services initialized.");
+    } catch (e) {
+      const serviceInitError = `Error initializing Firebase services (Auth/Firestore): ${e instanceof Error ? e.message : String(e)}`;
+      console.error(serviceInitError);
+      // If app initialized but services failed, this is a partial failure.
+      // initializationError might already be set if app init failed.
+      if (!initializationError) initializationError = serviceInitError;
+      auth = null;
+      db = null;
+    }
+  } else if (!initializationError) {
+    // If app is null (meaning init failed above) and no specific error was set for app init,
+    // set a generic one. This case should ideally be covered by the app init catch block.
+    initializationError = "Firebase app could not be initialized, and no specific error was caught during app initialization.";
+    console.error(initializationError);
+  }
 }
+
 
 // --- Exports ---
 // Export potentially null values. Consumers must check for null/error.
@@ -85,12 +97,14 @@ export function ensureFirebaseInitialized(): { initialized: boolean; error: stri
   if (initializationError) {
     return { initialized: false, error: initializationError };
   }
+  // Check if app, auth, and db are all successfully initialized
   if (!app || !auth || !db) {
-     // This might happen if called server-side where client SDK isn't initialized
-     const serverSideError = "Firebase client SDK not initialized. This might occur during server-side rendering or build if client-only code is accessed.";
-     // Avoid setting the global initializationError here as it might be a valid server-side scenario
-     // console.warn(serverSideError);
-     return { initialized: false, error: serverSideError };
+     // This state means either the initial validation failed, app init failed, or service init (auth/db) failed.
+     // The `initializationError` should ideally capture the root cause.
+     // If `initializationError` is somehow still null here, it means an unexpected state.
+     const currentError = initializationError || "Firebase components (app, auth, or db) are not available. Initialization may have failed silently or incompletely.";
+     // console.warn("ensureFirebaseInitialized: Firebase not fully initialized.", currentError); // More context for debugging
+     return { initialized: false, error: currentError };
   }
   return { initialized: true, error: null };
 }
