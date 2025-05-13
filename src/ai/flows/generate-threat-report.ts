@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/ai-instance';
 import {z} from 'genkit';
-// Removed Diagram and getDiagram imports as diagram data is passed directly as JSON
+// Diagram data is passed directly as JSON
 
 const GenerateThreatReportInputSchema = z.object({
   diagramJson: z.string().describe('The JSON representation of the threat model diagram, including components, connections, and model info.'),
@@ -56,26 +56,26 @@ The report must be a single, well-structured HTML string starting with a root <d
 Embed all necessary CSS styles within a <style> tag directly inside this root <div>
 to ensure the report is self-contained for viewing and PDF conversion. Example basic styles:
   <style>
-    body {{ font-family: sans-serif; margin: 20px; line-height: 1.6; }} /* Applied by browser/PDF generator */
-    .threat-report-container {{ /* Styles for the root div if needed */ }}
-    .threat-report-container h1 {{ font-size: 1.8em; margin-bottom: 0.6em; color: #1A237E; /* Dark Blue */ border-bottom: 2px solid #1A237E; padding-bottom: 0.3em; }}
-    .threat-report-container h2 {{ font-size: 1.4em; margin-top: 1.2em; margin-bottom: 0.5em; color: #1A237E; border-bottom: 1px solid #00ACC1; /* Teal */ padding-bottom: 0.2em;}}
-    .threat-report-container h3 {{ font-size: 1.15em; margin-top: 1em; margin-bottom: 0.4em; color: #333; }}
-    .threat-report-container h4 {{ font-size: 1em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.3em; color: #444; }}
-    .threat-report-container p {{ margin-bottom: 0.6em; }}
-    .threat-report-container ul {{ margin-left: 20px; margin-bottom: 0.6em; list-style-type: disc; }}
-    .threat-report-container li {{ margin-bottom: 0.3em; }}
-    .threat-report-container strong {{ font-weight: bold; }}
-    .threat-report-container em {{ font-style: italic; color: #555;}}
-    .threat-report-container .component-block, .threat-report-container .connection-block {{ 
+    body { font-family: sans-serif; margin: 20px; line-height: 1.6; } /* Applied by browser/PDF generator */
+    .threat-report-container { /* Styles for the root div if needed */ }
+    .threat-report-container h1 { font-size: 1.8em; margin-bottom: 0.6em; color: #1A237E; /* Dark Blue */ border-bottom: 2px solid #1A237E; padding-bottom: 0.3em; }
+    .threat-report-container h2 { font-size: 1.4em; margin-top: 1.2em; margin-bottom: 0.5em; color: #1A237E; border-bottom: 1px solid #00ACC1; /* Teal */ padding-bottom: 0.2em;}
+    .threat-report-container h3 { font-size: 1.15em; margin-top: 1em; margin-bottom: 0.4em; color: #333; }
+    .threat-report-container h4 { font-size: 1em; font-weight: bold; margin-top: 0.8em; margin-bottom: 0.3em; color: #444; }
+    .threat-report-container p { margin-bottom: 0.6em; }
+    .threat-report-container ul { margin-left: 20px; margin-bottom: 0.6em; list-style-type: disc; }
+    .threat-report-container li { margin-bottom: 0.3em; }
+    .threat-report-container strong { font-weight: bold; }
+    .threat-report-container em { font-style: italic; color: #555; }
+    .threat-report-container .component-block, .threat-report-container .connection-block { 
         padding: 0.8em; 
         border: 1px solid #E0E0E0; /* Light Gray Border */
         border-radius: 0.5rem; /* Corresponds to --radius */
         background-color: #F9F9F9; /* Very Light Gray Background */
         margin-bottom: 1.2em; 
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }}
-    .threat-report-container .date-generated {{ font-size: 0.9em; color: #777; margin-bottom: 1.5em; text-align: right; }}
+    }
+    .threat-report-container .date-generated { font-size: 0.9em; color: #777; margin-bottom: 1.5em; text-align: right; }
   </style>
 
 Report content structure:
@@ -127,3 +127,4 @@ const generateThreatReportFlow = ai.defineFlow<
 
   return { report: reportWithContainer };
 });
+
