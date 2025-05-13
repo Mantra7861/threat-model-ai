@@ -6,7 +6,7 @@ import {
   Controls,
   Background,
   Panel,
-  useReactFlow, // Keep useReactFlow for internal DiagramCanvas usage like screenToFlowPosition
+  useReactFlow, 
   type Node,
   type Edge,
   type OnConnect,
@@ -46,12 +46,11 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>; 
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
-  viewport?: Viewport; // Changed from defaultViewport to viewport to match ReactFlow's prop
+  viewport?: Viewport; 
   selectedElementId?: string | null; 
   onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
   onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void; 
   onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; 
-  // onRfLoad?: (instance: ReactFlowInstance) => void; // Removed onRfLoad
 }
 
 export function DiagramCanvas({
@@ -63,17 +62,14 @@ export function DiagramCanvas({
   setNodes,
   setEdges, 
   onMoveEnd,
-  viewport, // Changed from defaultViewport
+  viewport, 
   selectedElementId, 
   onNodeClick,
   onEdgeClick, 
   onPaneClick,
-  // onRfLoad, // Removed
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  // useReactFlow hook is available here if needed for canvas-specific logic,
-  // but ProjectClientLayout is now the primary consumer for instance methods.
-  const { screenToFlowPosition, getNodes: rfGetNodesFromHook } = useReactFlow(); 
+  const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow(); 
   const { toast } = useToast();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -94,9 +90,10 @@ export function DiagramCanvas({
         y: event.clientY,
       });
       
-      const currentNodes = rfGetNodesFromHook(); // Use hook here
+      const currentNodes = rfGetNodesFromHook(); 
       const parentBoundary = currentNodes.find(
         (n) => n.type === 'boundary' && n.positionAbsolute && n.width && n.height &&
+        project && // ensure project is defined
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -163,7 +160,7 @@ export function DiagramCanvas({
 
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange]
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
   );
   
 
@@ -179,13 +176,13 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onMoveEnd={onMoveEnd}
-        viewport={viewport} // Changed from defaultViewport
+        viewport={viewport} 
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={true}
+        selectNodesOnDrag={false} // Changed to false to enable direct drag-panning
         multiSelectionKeyCode={['Meta', 'Control']}
         nodeDragThreshold={1}
         fitView 
@@ -193,9 +190,9 @@ export function DiagramCanvas({
         onNodeClick={onNodeClick} 
         onEdgeClick={onEdgeClick} 
         onPaneClick={onPaneClick} 
-        // onLoad prop is effectively what onRfLoad was, but we're using the hook in parent
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
+        panOnDrag={true} // Explicitly ensure panOnDrag is true
       >
         <Controls />
         <Background gap={16} />
@@ -232,3 +229,4 @@ export function DiagramCanvas({
     </div>
   );
 }
+
