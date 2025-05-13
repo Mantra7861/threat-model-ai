@@ -181,11 +181,11 @@ export function DiagramCanvas({
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={false}
+        selectNodesOnDrag={true} // Changed to true for immediate drag feedback
         multiSelectionKeyCode={['Meta', 'Control']}
-        nodeDragThreshold={1}
-        fitView 
-        fitViewOptions={{ padding: 0.2 }} 
+        nodeDragThreshold={0} // Allow drag immediately
+        // fitView prop removed to allow viewport state to be fully controlled by ProjectClientLayout
+        // fitViewOptions={{ padding: 0.2 }} // Can be removed if fitView prop is removed
         onNodeClick={onNodeClick} 
         onEdgeClick={onEdgeClick} 
         onPaneClick={onPaneClick} 
