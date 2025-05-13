@@ -8,7 +8,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
     iconName: 'Server',
     textColor: '#333333',
     stencilType: 'infrastructure',
-    staticPropertiesString: 'OS: Linux\nVersion: Ubuntu 22.04\nIPAddress: 192.168.1.10',
+    properties: { OS: 'Linux', Version: 'Ubuntu 22.04', IPAddress: '192.168.1.10' },
   },
   {
     id: 'database-1',
@@ -16,7 +16,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
     iconName: 'Database',
     textColor: '#333333',
     stencilType: 'infrastructure',
-    staticPropertiesString: 'Type: PostgreSQL\nVersion: 14\nReplication: Enabled',
+    properties: { Type: 'PostgreSQL', Version: '14', Replication: 'Enabled' },
   },
   {
     id: 'cloud-service-1',
@@ -24,7 +24,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
     iconName: 'Cloud',
     textColor: '#333333',
     stencilType: 'infrastructure',
-    staticPropertiesString: 'Provider: AWS\nService: S3\nRegion: us-east-1',
+    properties: { Provider: 'AWS', Service: 'S3', Region: 'us-east-1' },
   },
   {
     id: 'router-1',
@@ -32,7 +32,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
     iconName: 'Router',
     textColor: '#333333',
     stencilType: 'infrastructure',
-    staticPropertiesString: 'Model: Cisco ISR 4000\nFirmware: 17.3.4a',
+    properties: { Model: 'Cisco ISR 4000', Firmware: '17.3.4a' },
   },
   {
     id: 'trust-boundary-1',
@@ -42,7 +42,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
     stencilType: 'infrastructure',
     isBoundary: true,
     boundaryColor: '#D32F2F',
-    staticPropertiesString: 'Description: Internal Network\nAccessControl: Strict',
+    properties: { Description: 'Internal Network', AccessControl: 'Strict' },
   },
 ];
 
@@ -53,7 +53,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
     iconName: 'Square',
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'Description: User Authentication\nSystem: Auth Service',
+    properties: { Description: 'User Authentication', System: 'Auth Service' },
   },
   {
     id: 'start-end-1',
@@ -61,23 +61,23 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
     iconName: 'Circle',
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'Trigger: User Request',
+    properties: { Trigger: 'User Request' },
   },
   {
     id: 'decision-1',
     name: 'Decision',
-    iconName: 'Diamond',
+    iconName: 'Diamond', // Lucide has DiamondIcon, ensure this matches a valid key
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'Condition: Is user valid?\nTruePath: Grant Access\nFalsePath: Deny Access',
+    properties: { Condition: 'Is user valid?', TruePath: 'Grant Access', FalsePath: 'Deny Access' },
   },
   {
-    id: 'flow-1',
-    name: 'Process Flow', // Note: Arrows are typically connections, but listed as per prompt
+    id: 'flow-1', // Note: Arrows/flows are usually connections, not stencils. Keeping for consistency with prompt if it was a draggable stencil.
+    name: 'Process Flow Arrow',
     iconName: 'ArrowRight',
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'DataType: User Credentials',
+    properties: { DataType: 'User Credentials' },
   },
   {
     id: 'input-output-1',
@@ -85,7 +85,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
     iconName: 'Archive',
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'Data: Payment Information\nFormat: JSON',
+    properties: { Data: 'Payment Information', Format: 'JSON' },
   },
   {
     id: 'document-1',
@@ -93,7 +93,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
     iconName: 'FileText',
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'Name: Invoice\nStorage: Document DB',
+    properties: { Name: 'Invoice', Storage: 'Document DB' },
   },
   {
     id: 'manual-input-1',
@@ -101,6 +101,6 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
     iconName: 'Edit3',
     textColor: '#333333',
     stencilType: 'process',
-    staticPropertiesString: 'Data: Customer Address\nSource: Phone Call',
+    properties: { Data: 'Customer Address', Source: 'Phone Call' },
   },
 ];

@@ -1,36 +1,91 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ProcessStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import * as LucideIcons from 'lucide-react';
-import { placeholderProcessStencils } from "@/lib/placeholder-stencils";
-import { useState } from "react";
+// Removed placeholder import: import { placeholderProcessStencils } from "@/lib/placeholder-stencils";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { getStencils, deleteStencil } from "@/services/stencilService";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
-// Dynamically get the Lucide icon component by name
 const DynamicLucideIcon = ({ name, ...props }: { name: keyof typeof LucideIcons; [key: string]: any }) => {
-  // Ensure the name is a valid key and it points to a function (React component)
   if (Object.prototype.hasOwnProperty.call(LucideIcons, name) && typeof LucideIcons[name] === 'function') {
     const IconComponent = LucideIcons[name] as LucideIcons.LucideIcon;
     return <IconComponent {...props} />;
   }
-  // console.warn(`DynamicLucideIcon: Icon "${String(name)}" not found or not a function. Using fallback.`);
-  return <LucideIcons.HelpCircle {...props} />; // Fallback icon
+  return <LucideIcons.HelpCircle {...props} />;
 };
 
 export default function ProcessStencilsPage() {
-  // For Phase 1, use placeholder data. Later, this will come from Firestore.
-  const [stencils, setStencils] = useState<ProcessStencilData[]>(placeholderProcessStencils);
+  const [stencils, setStencils] = useState<ProcessStencilData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleDelete = (stencilId: string) => {
-    // Placeholder delete logic
-    setStencils(prev => prev.filter(s => s.id !== stencilId));
-    toast({ title: "Stencil Deleted", description: `Stencil ID ${stencilId} has been removed (locally).` });
+  useEffect(() => {
+    fetchStencils();
+  }, []);
+
+  const fetchStencils = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedStencils = await getStencils('process') as ProcessStencilData[];
+      setStencils(fetchedStencils);
+    } catch (err) {
+      console.error("Error fetching process stencils:", err);
+      setError(err instanceof Error ? err.message : "Failed to load stencils.");
+      toast({ title: "Error", description: "Could not fetch process stencils.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleDelete = async (stencilId: string, stencilName: string) => {
+    try {
+      await deleteStencil(stencilId);
+      setStencils(prev => prev.filter(s => s.id !== stencilId));
+      toast({ title: "Stencil Deleted", description: `Stencil "${stencilName}" has been removed.` });
+    } catch (err) {
+      console.error("Error deleting stencil:", err);
+      toast({ title: "Error", description: `Could not delete stencil "${stencilName}".`, variant: "destructive" });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+        Loading process stencils...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-destructive">
+        <AlertTriangle className="h-8 w-8 mb-2" />
+        <p className="font-semibold">Error loading stencils</p>
+        <p className="text-sm">{error}</p>
+        <Button onClick={fetchStencils} className="mt-4">Try Again</Button>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -65,9 +120,30 @@ export default function ProcessStencilsPage() {
                       <Edit className="h-4 w-4" />
                     </Link>
                   </Button>
-                   <Button variant="ghost" size="icon" onClick={() => handleDelete(stencil.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the stencil "{stencil.name}".
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDelete(stencil.id, stencil.name)}
+                          className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}
@@ -75,7 +151,7 @@ export default function ProcessStencilsPage() {
         </Table>
       </div>
       {stencils.length === 0 && (
-        <p className="text-center text-muted-foreground mt-4">No process stencils found.</p>
+        <p className="text-center text-muted-foreground mt-4">No process stencils found. Click "Add New" to create one.</p>
       )}
     </div>
   );

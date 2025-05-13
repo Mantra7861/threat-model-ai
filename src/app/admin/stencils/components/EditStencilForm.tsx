@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import type { StencilData, InfrastructureStencilData, ProcessStencilData } from "@/types/stencil";
-import { placeholderInfrastructureStencils, placeholderProcessStencils } from "@/lib/placeholder-stencils";
-import * as LucideIcons from 'lucide-react'; // Import all icons
+import type { StencilData, InfrastructureStencilData, ProcessStencilData, StencilFirestoreData } from "@/types/stencil";
+// Removed placeholder imports
+import * as LucideIcons from 'lucide-react';
+import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 const ALL_LUCIDE_ICON_NAMES = Object.keys(LucideIcons).filter(key => key !== 'createLucideIcon' && key !== 'icons' && typeof LucideIcons[key as keyof typeof LucideIcons] === 'object') as (keyof typeof LucideIcons)[];
-
 
 interface EditStencilFormProps {
   stencilType: 'infrastructure' | 'process';
@@ -27,74 +28,133 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const stencilId = params.stencilId as string;
   
   const isNew = stencilId === 'new';
-  const [formData, setFormData] = useState<Partial<StencilData>>({
-    name: "",
-    iconName: "Package", // Default icon
-    textColor: "#000000",
-    staticPropertiesString: "",
-    stencilType: stencilType,
-    isBoundary: false,
-    boundaryColor: "#ff0000",
-  });
-  const [isLoading, setIsLoading] = useState(true);
+
+  const [name, setName] = useState("");
+  const [iconName, setIconName] = useState<keyof typeof LucideIcons>("Package");
+  const [textColor, setTextColor] = useState("#000000");
+  const [staticPropertiesString, setStaticPropertiesString] = useState("");
+  const [isBoundary, setIsBoundary] = useState(false);
+  const [boundaryColor, setBoundaryColor] = useState("#ff0000");
+  
+  const [isLoading, setIsLoading] = useState(!isNew); // Only load if not new
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
 
   useEffect(() => {
-    if (!isNew) {
-      // In a real app, fetch stencil data from Firestore here.
-      // For Phase 1, find in placeholder data.
-      let foundStencil;
-      if (stencilType === 'infrastructure') {
-        foundStencil = placeholderInfrastructureStencils.find(s => s.id === stencilId);
-      } else {
-        foundStencil = placeholderProcessStencils.find(s => s.id === stencilId);
-      }
-
-      if (foundStencil) {
-        setFormData(foundStencil);
-      } else {
-        toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
-        router.back();
-      }
+    if (!isNew && stencilId) {
+      setIsLoading(true);
+      setError(null);
+      getStencilById(stencilId)
+        .then(stencil => {
+          if (stencil) {
+            setName(stencil.name);
+            setIconName(stencil.iconName);
+            setTextColor(stencil.textColor || "#000000");
+            setStaticPropertiesString(formatStaticPropertiesToString(stencil.properties));
+            if (stencil.stencilType === 'infrastructure') {
+              const infraStencil = stencil as InfrastructureStencilData;
+              setIsBoundary(infraStencil.isBoundary || false);
+              setBoundaryColor(infraStencil.boundaryColor || "#ff0000");
+            }
+          } else {
+            toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
+            router.replace(`/admin/stencils/${stencilType}`); // Use replace to avoid back button to non-existent edit page
+          }
+        })
+        .catch(err => {
+          console.error("Error fetching stencil:", err);
+          setError(err instanceof Error ? err.message : "Failed to load stencil data.");
+          toast({ title: "Error", description: "Could not load stencil data.", variant: "destructive" });
+        })
+        .finally(() => setIsLoading(false));
     }
-    setIsLoading(false);
   }, [stencilId, isNew, stencilType, router, toast]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    if (type === 'checkbox' && e.target instanceof HTMLInputElement) {
-      setFormData(prev => ({ ...prev, [name]: e.target.checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError(null);
+
+    if (!name.trim()) {
+        toast({ title: "Validation Error", description: "Stencil name cannot be empty.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+    }
+
+    const properties = parseStaticPropertiesString(staticPropertiesString);
+    
+    let stencilPayload: StencilFirestoreData = {
+      name: name.trim(),
+      iconName,
+      textColor,
+      properties,
+      stencilType,
+    };
+
+    if (stencilType === 'infrastructure') {
+      (stencilPayload as InfrastructureStencilData).isBoundary = isBoundary;
+      if (isBoundary) {
+        (stencilPayload as InfrastructureStencilData).boundaryColor = boundaryColor;
+      }
+    }
+
+    try {
+      if (isNew) {
+        await addStencil(stencilPayload);
+        toast({ title: "Stencil Created", description: `Stencil "${name}" has been created.` });
+      } else {
+        await updateStencil(stencilId, stencilPayload);
+        toast({ title: "Stencil Updated", description: `Stencil "${name}" has been updated.` });
+      }
+      router.push(`/admin/stencils/${stencilType}`);
+    } catch (err) {
+      console.error("Error saving stencil:", err);
+      const errorMsg = err instanceof Error ? err.message : "Failed to save stencil.";
+      setError(errorMsg);
+      toast({ title: "Error Saving Stencil", description: errorMsg, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    // In Phase 1, just show a toast message. No actual saving to Firestore.
-    console.log("Form data submitted:", formData);
-    toast({
-      title: "Stencil Saved (Locally)",
-      description: `Stencil "${formData.name}" has been saved (simulated).`,
-    });
-    // Optionally, navigate back or to the list page
-    // router.push(`/admin/stencils/${stencilType}`);
-  };
-
-  if (isLoading && !isNew) {
-    return <p>Loading stencil data...</p>;
+  if (isLoading) {
+    return (
+        <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+            Loading stencil data...
+        </div>
+    );
   }
+
+  if (error && !isNew) { // Only show full page error if loading existing failed
+      return (
+          <div className="flex flex-col items-center justify-center py-10 text-destructive">
+              <AlertTriangle className="h-8 w-8 mb-2" />
+              <p className="font-semibold">Error loading stencil</p>
+              <p className="text-sm mb-4">{error}</p>
+              <Button onClick={() => router.back()} variant="outline">Go Back</Button>
+          </div>
+      );
+  }
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {error && isSaving && ( // Show error message at top if saving failed
+          <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/50">
+              <p className="font-medium text-sm">Failed to save: {error}</p>
+          </div>
+      )}
       <div>
         <Label htmlFor="name">Stencil Name</Label>
         <Input
           id="name"
           name="name"
-          value={formData.name || ""}
-          onChange={handleChange}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
           required
+          disabled={isSaving}
         />
       </div>
 
@@ -103,25 +163,27 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         <select
           id="iconName"
           name="iconName"
-          value={formData.iconName || "Package"}
-          onChange={handleChange}
+          value={iconName}
+          onChange={(e) => setIconName(e.target.value as keyof typeof LucideIcons)}
+          disabled={isSaving}
           className="w-full p-2 border rounded-md bg-background text-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           {ALL_LUCIDE_ICON_NAMES.map(iconKey => (
             <option key={iconKey} value={iconKey}>{iconKey}</option>
           ))}
         </select>
-         {formData.iconName && React.createElement(LucideIcons[formData.iconName as keyof typeof LucideIcons] || LucideIcons.HelpCircle, { className: "w-8 h-8 mt-2 inline-block", style: {color: formData.textColor} })}
+         {iconName && React.createElement(LucideIcons[iconName] || LucideIcons.HelpCircle, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor} })}
       </div>
       
       <div>
-        <Label htmlFor="textColor">Text Color</Label>
+        <Label htmlFor="textColor">Icon/Text Color</Label>
         <Input
           id="textColor"
           name="textColor"
           type="color"
-          value={formData.textColor || "#000000"}
-          onChange={handleChange}
+          value={textColor}
+          onChange={(e) => setTextColor(e.target.value)}
+          disabled={isSaving}
         />
       </div>
 
@@ -131,21 +193,23 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             <Checkbox
               id="isBoundary"
               name="isBoundary"
-              checked={(formData as InfrastructureStencilData).isBoundary || false}
-              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isBoundary: Boolean(checked) }))}
+              checked={isBoundary}
+              onCheckedChange={(checked) => setIsBoundary(Boolean(checked))}
+              disabled={isSaving}
             />
             <Label htmlFor="isBoundary">Is Trust Boundary</Label>
           </div>
 
-          {(formData as InfrastructureStencilData).isBoundary && (
+          {isBoundary && (
             <div>
               <Label htmlFor="boundaryColor">Boundary Color</Label>
               <Input
                 id="boundaryColor"
                 name="boundaryColor"
                 type="color"
-                value={(formData as InfrastructureStencilData).boundaryColor || "#ff0000"}
-                onChange={handleChange}
+                value={boundaryColor}
+                onChange={(e) => setBoundaryColor(e.target.value)}
+                disabled={isSaving}
               />
             </div>
           )}
@@ -153,22 +217,27 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
       )}
 
       <div>
-        <Label htmlFor="staticPropertiesString">Static Properties (key: value per line)</Label>
+        <Label htmlFor="staticPropertiesString">Default Properties (key:value per line)</Label>
         <Textarea
           id="staticPropertiesString"
           name="staticPropertiesString"
-          value={formData.staticPropertiesString || ""}
-          onChange={handleChange}
+          value={staticPropertiesString}
+          onChange={(e) => setStaticPropertiesString(e.target.value)}
           rows={5}
-          placeholder="Example:\nOS: Linux\nVersion: Latest"
+          placeholder="Example:\nOS: Linux\nVersion: Latest\nIsEncrypted: true"
+          disabled={isSaving}
         />
+        <p className="text-xs text-muted-foreground mt-1">These are default properties added to new instances of this stencil on the canvas.</p>
       </div>
 
       <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={() => router.back()}>
+        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSaving}>
           Cancel
         </Button>
-        <Button type="submit">Save Stencil</Button>
+        <Button type="submit" disabled={isSaving}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSaving ? (isNew ? 'Creating...' : 'Saving...') : (isNew ? 'Create Stencil' : 'Save Changes')}
+        </Button>
       </div>
     </form>
   );
