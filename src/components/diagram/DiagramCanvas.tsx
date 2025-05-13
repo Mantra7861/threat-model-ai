@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useRef, type DragEvent, type MouseEvent as ReactMouseEvent, type Dispatch, type SetStateAction } from 'react';
@@ -7,7 +6,7 @@ import {
   Controls,
   Background,
   Panel,
-  useReactFlow,
+  useReactFlow, // Keep useReactFlow for internal DiagramCanvas usage like screenToFlowPosition
   type Node,
   type Edge,
   type OnConnect,
@@ -15,7 +14,7 @@ import {
   type OnNodesChange,
   type Viewport,
   type ReactFlowInstance, 
-  type NodeChange, // Added NodeChange
+  type NodeChange, 
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -47,12 +46,12 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>; 
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
-  viewport?: Viewport;
+  viewport?: Viewport; // Changed from defaultViewport to viewport to match ReactFlow's prop
   selectedElementId?: string | null; 
   onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
   onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void; 
   onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; 
-  onRfLoad?: (instance: ReactFlowInstance) => void; 
+  // onRfLoad?: (instance: ReactFlowInstance) => void; // Removed onRfLoad
 }
 
 export function DiagramCanvas({
@@ -64,15 +63,17 @@ export function DiagramCanvas({
   setNodes,
   setEdges, 
   onMoveEnd,
-  viewport,
+  viewport, // Changed from defaultViewport
   selectedElementId, 
   onNodeClick,
   onEdgeClick, 
   onPaneClick,
-  onRfLoad, 
+  // onRfLoad, // Removed
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getNodes: rfGetNodes } = useReactFlow();
+  // useReactFlow hook is available here if needed for canvas-specific logic,
+  // but ProjectClientLayout is now the primary consumer for instance methods.
+  const { screenToFlowPosition, getNodes: rfGetNodesFromHook } = useReactFlow(); 
   const { toast } = useToast();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -93,7 +94,7 @@ export function DiagramCanvas({
         y: event.clientY,
       });
       
-      const currentNodes = rfGetNodes();
+      const currentNodes = rfGetNodesFromHook(); // Use hook here
       const parentBoundary = currentNodes.find(
         (n) => n.type === 'boundary' && n.positionAbsolute && n.width && n.height &&
         flowPosition.x >= n.positionAbsolute.x &&
@@ -110,7 +111,6 @@ export function DiagramCanvas({
       let nodeLabelPrefix = type.charAt(0).toUpperCase() + type.slice(1);
       let nodeLabelSuffix = isBoundaryBox ? 'Box' : 'Component';
       
-      // Adjust for process types
       if (type === 'start-end' || type === 'decision') {
         defaultWidth = 100; defaultHeight = 100; minWidth = 60; minHeight = 60;
         nodeLabelSuffix = type === 'start-end' ? 'Event' : 'Point';
@@ -163,7 +163,7 @@ export function DiagramCanvas({
 
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodes, onNodesChange]
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange]
   );
   
 
@@ -179,7 +179,7 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onMoveEnd={onMoveEnd}
-        defaultViewport={viewport} 
+        viewport={viewport} // Changed from defaultViewport
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
@@ -193,7 +193,7 @@ export function DiagramCanvas({
         onNodeClick={onNodeClick} 
         onEdgeClick={onEdgeClick} 
         onPaneClick={onPaneClick} 
-        onLoad={onRfLoad} 
+        // onLoad prop is effectively what onRfLoad was, but we're using the hook in parent
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
       >
