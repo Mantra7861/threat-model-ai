@@ -9,7 +9,7 @@ import { generateThreatReport } from '@/ai/flows/generate-threat-report';
 import { Loader2, AlertTriangle, ShieldCheck, FileDown, Eye } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { Diagram, ReportEntry } from '@/services/diagram';
-// import html2pdf from 'html2pdf.js'; // Removed static import
+// import html2pdf from 'html2pdf.js'; // Dynamic import now
 import { format } from 'date-fns';
 
 interface ThreatReportPanelProps {
@@ -29,12 +29,11 @@ export function ThreatReportPanel({
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const pdfRenderRef = useRef<HTMLDivElement>(null);
-  const [html2pdf, setHtml2pdf] = useState<any>(null); // State to hold the dynamically imported module
+  const [html2pdf, setHtml2pdf] = useState<any>(null);
 
   useEffect(() => {
-    // Dynamically import html2pdf.js only on the client-side
     import('html2pdf.js').then(module => {
-      setHtml2pdf(() => module.default || module); // Handle default export or module itself
+      setHtml2pdf(() => module.default || module);
     }).catch(err => {
       console.error("Failed to load html2pdf.js", err);
       toast({ title: "PDF Library Error", description: "Could not load PDF generation library.", variant: "destructive" });
@@ -157,10 +156,16 @@ export function ThreatReportPanel({
     const filename = `${reportName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
 
     const opt = {
-      margin:       [0.5, 0.5, 0.5, 0.5],
+      margin:       [0.5, 0.5, 0.5, 0.5], // inches
       filename:     filename,
       image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true, logging: false, width: pdfRenderRef.current.scrollWidth, height: pdfRenderRef.current.scrollHeight },
+      html2canvas:  {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        // Removed explicit width and height to let html2canvas attempt to auto-determine.
+        // This can be more reliable for off-screen elements.
+      },
       jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
 
@@ -188,7 +193,7 @@ export function ThreatReportPanel({
                 Generating...
               </>
             ) : (
-              "Generate Report" // Changed button text
+              "Generate Report"
             )}
           </Button>
       </div>
@@ -207,6 +212,7 @@ export function ThreatReportPanel({
         </Card>
       )}
 
+      {/* Off-screen div for PDF rendering */}
       <div ref={pdfRenderRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '8.5in', padding: '0.5in', background: 'white' }}></div>
 
 
@@ -248,3 +254,4 @@ export function ThreatReportPanel({
     </div>
   );
 }
+
