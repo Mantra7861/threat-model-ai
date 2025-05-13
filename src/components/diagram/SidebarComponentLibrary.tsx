@@ -25,7 +25,7 @@ const DraggableComponent = ({ type, label, icon: Icon }: DraggableComponentProps
       onDragStart={handleDragStart}
       title={label} 
     >
-      <Icon className="w-6 h-6 mb-1 text-sidebar-foreground group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:mb-0" />
+      <Icon className="w-6 h-6 mb-1 text-card-foreground group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:mb-0" />
        <span className="text-xs font-medium text-card-foreground text-center w-full truncate px-1 group-data-[collapsible=icon]:hidden">
         {label}
       </span>
