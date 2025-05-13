@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useRef, type DragEvent, type MouseEvent as ReactMouseEvent, type Dispatch, type SetStateAction } from 'react';
@@ -14,7 +13,6 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
-  type ReactFlowInstance, 
   type NodeChange, 
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
@@ -194,9 +192,9 @@ export function DiagramCanvas({
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
         panOnDrag={true}
-        zoomOnScroll={true} // Explicitly enable zoom on scroll
-        zoomOnPinch={true} // Explicitly enable zoom on pinch
-        panOnScroll={false} // Ensure scroll pans, not zooms, if panOnDrag is enabled
+        zoomOnScroll={true} 
+        zoomOnPinch={true} 
+        panOnScroll={false} 
       >
         <Controls />
         <Background gap={16} />
