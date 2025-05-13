@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type Dispatch, type SetStateAction } from 'react';
@@ -10,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import type { Diagram } from '@/services/diagram'; // Import Diagram type
 
 interface ThreatReportPanelProps {
-  // Removed diagramId, replaced with a function to get current diagram data
   getCurrentDiagramData: () => Diagram | null;
   setIsGenerating: Dispatch<SetStateAction<boolean>>;
 }
@@ -40,7 +40,6 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
       return;
     }
     
-    // Ensure modelType has a default if undefined
     const modelTypeForReport = currentDiagram.modelType || 'infrastructure';
 
     toast({
@@ -49,10 +48,8 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
     });
 
     try {
-      // Serialize the current diagram data to pass to the server-side flow
       const diagramJson = JSON.stringify(currentDiagram);
       
-      // Call the flow with the serialized data and model details
       const result = await generateThreatReport({
         diagramJson,
         modelName: currentDiagram.name,
@@ -82,7 +79,7 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
 
   return (
     <div className="space-y-4 h-full flex flex-col">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center pt-1"> {/* Added pt-1 for a bit more space above */}
         <h3 className="text-lg font-semibold">Threat Report</h3>
         <Button onClick={handleGenerateReport} disabled={isLoading} size="sm">
           {isLoading ? (
@@ -91,7 +88,7 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
               Generating...
             </>
           ) : (
-            "Generate New Report"
+            "Generate Report" // Changed button text
           )}
         </Button>
       </div>
@@ -114,7 +111,7 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
         <div className="flex-1 flex flex-col items-center justify-center text-center p-4 border border-dashed rounded-md">
             <ShieldCheck className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">
-            Click "Generate New Report" to analyze your diagram for potential threats.
+            Click "Generate Report" to analyze your diagram for potential threats.
             <br/>
             The report will be based on the current state of your diagram on the canvas.
             </p>
@@ -122,7 +119,7 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
       )}
       
       {report && !error && (
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 mt-2"> {/* Added mt-2 for space under the button/title row */}
           <Card>
             <CardHeader>
                 <CardTitle className="text-xl">Analysis Complete</CardTitle>
@@ -139,3 +136,4 @@ export function ThreatReportPanel({ getCurrentDiagramData, setIsGenerating }: Th
     </div>
   );
 }
+
