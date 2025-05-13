@@ -45,7 +45,7 @@ interface DiagramCanvasProps {
   onConnect: OnConnect;
   setNodes: Dispatch<SetStateAction<Node[]>>; 
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
-  onMoveEnd?: (event: globalThis.MouseEvent | globalThis.TouchEvent | undefined, viewport: Viewport) => void;
+  onViewportChange?: (viewport: Viewport) => void; // Changed from onMoveEnd
   viewport?: Viewport; 
   selectedElementId?: string | null; 
   onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
@@ -61,7 +61,7 @@ export function DiagramCanvas({
   onConnect,
   setNodes,
   setEdges, 
-  onMoveEnd,
+  onViewportChange, // Changed from onMoveEnd
   viewport, 
   selectedElementId, 
   onNodeClick,
@@ -93,7 +93,7 @@ export function DiagramCanvas({
       const currentNodes = rfGetNodesFromHook(); 
       const parentBoundary = currentNodes.find(
         (n) => n.type === 'boundary' && n.positionAbsolute && n.width && n.height &&
-        project && // ensure project is defined
+        project && 
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -175,14 +175,14 @@ export function DiagramCanvas({
         onDrop={onDrop}
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
-        onMoveEnd={onMoveEnd}
+        onViewportChange={onViewportChange} // Changed from onMoveEnd
         viewport={viewport} 
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={false} // Changed to false to enable direct drag-panning
+        selectNodesOnDrag={false}
         multiSelectionKeyCode={['Meta', 'Control']}
         nodeDragThreshold={1}
         fitView 
@@ -192,7 +192,7 @@ export function DiagramCanvas({
         onPaneClick={onPaneClick} 
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
-        panOnDrag={true} // Explicitly ensure panOnDrag is true
+        panOnDrag={true}
       >
         <Controls />
         <Background gap={16} />
@@ -229,4 +229,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-
