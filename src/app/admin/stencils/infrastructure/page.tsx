@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { InfrastructureStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, HelpCircle as HelpCircleIcon } from "lucide-react"; // Renamed HelpCircle to avoid conflict
-import * as LucideIcons from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil } from "@/services/stencilService";
@@ -21,16 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-const DynamicLucideIcon = ({ name, ...props }: { name: string; [key: string]: any }) => {
-  const iconKey = name as keyof typeof LucideIcons;
-  if (Object.prototype.hasOwnProperty.call(LucideIcons, iconKey) && typeof LucideIcons[iconKey] === 'function') {
-    const IconComponent = LucideIcons[iconKey] as LucideIcons.LucideIcon;
-    return <IconComponent {...props} />;
-  }
-  console.warn(`DynamicLucideIcon: Icon "${name}" not found in LucideIcons. Falling back to HelpCircleIcon.`);
-  return <HelpCircleIcon {...props} />;
-};
+import DynamicLucideIcon from '@/components/ui/DynamicLucideIcon';
 
 
 export default function InfrastructureStencilsPage() {
@@ -112,7 +102,7 @@ export default function InfrastructureStencilsPage() {
             {stencils.map((stencil) => (
               <TableRow key={stencil.id}>
                 <TableCell>
-                  <DynamicLucideIcon name={stencil.iconName} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
+                  <DynamicLucideIcon name={stencil.iconName || 'HelpCircle'} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
                 </TableCell>
                 <TableCell className="font-medium">{stencil.name}</TableCell>
                 <TableCell>{stencil.stencilType}</TableCell>

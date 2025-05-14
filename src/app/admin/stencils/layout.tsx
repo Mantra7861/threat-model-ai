@@ -6,16 +6,18 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo } from 'react'; // Import useMemo
 
 export default function StencilsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  const getCurrentTab = () => {
+  // Memoize currentTab value based on pathname
+  const currentTab = useMemo(() => {
     if (pathname.startsWith('/admin/stencils/process')) {
       return 'process';
     }
     return 'infrastructure';
-  };
+  }, [pathname]);
 
   return (
     <div className="container mx-auto py-10">
@@ -24,7 +26,7 @@ export default function StencilsLayout({ children }: { children: ReactNode }) {
           <CardTitle>Stencil Management</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={getCurrentTab()} className="w-full">
+          <Tabs value={currentTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="infrastructure" asChild>
                 <Link href="/admin/stencils/infrastructure">Infrastructure Stencils</Link>
