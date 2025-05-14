@@ -3,53 +3,44 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if a user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
+
+    // Helper function to get user data
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
     }
 
-    // Helper function to check if the authenticated user is an admin
-    function isAdmin() {
-      // Assumes user documents are in a 'users' collection and admin users have a 'role' field set to 'admin'
-      // This requires the user to be able to read their own user document.
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Rules for the 'users' collection
+    // User profiles:
+    // Allow users to read their own profile
+    // Allow admins to read any profile
+    // Allow users to create their own profile (e.g., on signup)
+    // Allow admins to update any profile (e.g., to change roles)
     match /users/{userId} {
-      // Admins can read any user profile
-      // Users can read their own profile (needed for isAdmin() and general profile display)
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      // Users can create their own profile document (e.g., on signup)
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      // Admins can update any user profile (e.g., to change roles)
-      // Users can update their own profile (e.g., display name, photoURL)
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      // Generally, users should not be able to delete their own profiles directly through client-side requests
-      // Deletion might be handled by an admin or a specific server-side process
-      allow delete: if isAdmin();
+      allow read: if request.auth.uid == userId || getUserData(request.auth.uid).role == 'admin';
+      allow create: if request.auth.uid == userId; // User creates their own profile
+      allow update: if getUserData(request.auth.uid).role == 'admin'; // Only admins can update user profiles (e.g., roles)
+      // Delete typically not allowed or admin only
     }
 
-    // Rules for the 'threatModels' collection
+    // Threat models:
+    // Users can CRUD their own models
+    // Admins could potentially have broader access if needed in future (not implemented here)
     match /threatModels/{modelId} {
-      allow create: if isAuthenticated(); // Any authenticated user can create
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid; // Owner can read
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid; // Owner can update
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid; // Owner can delete
+      allow create: if request.auth != null; // User ID check will be in application logic
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
-    // It's generally better to secure list operations with specific queries if possible,
-    // but if a user needs to list all their own models, the query must include `where('userId', '==', request.auth.uid)`
-    // and the rule here allows any authenticated user to attempt a list, relying on client-side filtering.
+     // Allow listing models for the authenticated user (queries must be secured by `where('userId', '==', request.auth.uid)`)
     match /threatModels {
-      allow list: if isAuthenticated();
+      allow list: if request.auth != null;
     }
 
-    // Rules for the 'stencils' collection
+
+    // Stencils:
+    // Only admins can read, list, create, update, delete stencils
     match /stencils/{stencilId} {
-      // TEMPORARILY PUBLIC FOR DEBUGGING - REVERT THIS
-      allow read, list: if true; 
-      // Original: allow read, list: if isAuthenticated(); // All authenticated users can read/list stencils
-      allow create, update, delete: if isAdmin(); // Only admins can CUD stencils
+      allow read, create, update, delete: if getUserData(request.auth.uid).role == 'admin';
+    }
+    match /stencils {
+      allow list: if getUserData(request.auth.uid).role == 'admin';
     }
   }
 }
