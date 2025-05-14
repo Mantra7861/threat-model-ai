@@ -7,7 +7,6 @@ import type { ProcessStencilData } from "@/types/stencil";
 import Link from "next/link";
 import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import * as LucideIcons from 'lucide-react';
-// Removed placeholder import: import { placeholderProcessStencils } from "@/lib/placeholder-stencils";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil } from "@/services/stencilService";
@@ -24,10 +23,12 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const DynamicLucideIcon = ({ name, ...props }: { name: keyof typeof LucideIcons; [key: string]: any }) => {
+  // Check if the icon name is a valid key in LucideIcons and it's a function (component)
   if (Object.prototype.hasOwnProperty.call(LucideIcons, name) && typeof LucideIcons[name] === 'function') {
     const IconComponent = LucideIcons[name] as LucideIcons.LucideIcon;
     return <IconComponent {...props} />;
   }
+  // Fallback icon if the provided name is not found or not a component
   return <LucideIcons.HelpCircle {...props} />;
 };
 
