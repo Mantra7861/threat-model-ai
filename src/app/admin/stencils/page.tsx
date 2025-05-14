@@ -23,13 +23,15 @@ import {
 import DynamicLucideIcon from '@/components/ui/DynamicLucideIcon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 type StencilType = 'infrastructure' | 'process';
 
 export default function StencilsManagementPage() {
+  const { firebaseReady, isAdmin, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<StencilType>('infrastructure');
   const [stencils, setStencils] = useState<StencilData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Local loading state for fetching stencils
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -41,7 +43,10 @@ export default function StencilsManagementPage() {
       setStencils(fetchedStencils);
     } catch (err) {
       console.error(`Error fetching ${type} stencils:`, err);
-      const message = err instanceof Error ? err.message : `Failed to load ${type} stencils.`;
+      let message = err instanceof Error ? err.message : `Failed to load ${type} stencils.`;
+      if (message.includes("permission-denied") || message.includes("Missing or insufficient permissions")) {
+         message = "You do not have permission to view the stencil list.";
+      }
       setError(message);
       toast({ title: "Error", description: `Could not fetch ${type} stencils. ${message}`, variant: "destructive" });
     } finally {
@@ -50,8 +55,21 @@ export default function StencilsManagementPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchStencilsData(activeTab);
-  }, [activeTab, fetchStencilsData]);
+    // Only attempt to fetch if Firebase is ready, auth check is done, and the user is an admin
+    if (firebaseReady && !authLoading && isAdmin) {
+      fetchStencilsData(activeTab);
+    } else if (!authLoading && !isAdmin && firebaseReady) {
+        setError("Access Denied: Administrator privileges required to view stencils.");
+        setIsLoading(false);
+    } else if (!firebaseReady && !authLoading) {
+        setError("Failed to connect to the database. Please check configuration or network.");
+        setIsLoading(false);
+    } else {
+        // Still waiting for auth or Firebase readiness
+        setIsLoading(true);
+    }
+  }, [activeTab, fetchStencilsData, firebaseReady, isAdmin, authLoading]);
+
 
   const handleDelete = async (stencilId: string, stencilName: string) => {
     try {
@@ -67,11 +85,11 @@ export default function StencilsManagementPage() {
   };
 
   const renderStencilTable = (type: StencilType) => {
-    if (isLoading) {
+    if (authLoading || isLoading) { // Combined loading state
       return (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-          Loading {type} stencils...
+          {authLoading ? "Verifying permissions..." : `Loading ${type} stencils...`}
         </div>
       );
     }
@@ -82,10 +100,21 @@ export default function StencilsManagementPage() {
           <AlertTriangle className="h-8 w-8 mb-2" />
           <p className="font-semibold">Error loading stencils</p>
           <p className="text-sm mb-2">{error}</p>
-          <Button onClick={() => fetchStencilsData(type)} className="mt-4">Try Again</Button>
+          {isAdmin && firebaseReady && <Button onClick={() => fetchStencilsData(type)} className="mt-4">Try Again</Button>}
         </div>
       );
     }
+    
+    if (!isAdmin && firebaseReady) { // Explicit check for non-admin after auth loading
+        return (
+            <div className="flex flex-col items-center justify-center py-10 text-destructive">
+                <AlertTriangle className="h-8 w-8 mb-2" />
+                <p className="font-semibold">Access Denied</p>
+                <p className="text-sm mb-2">You do not have permission to manage stencils.</p>
+            </div>
+        );
+    }
+
 
     return (
       <>
@@ -156,7 +185,7 @@ export default function StencilsManagementPage() {
             </TableBody>
           </Table>
         </div>
-        {stencils.length === 0 && !isLoading && (
+        {stencils.length === 0 && !isLoading && !error && (
           <p className="text-center text-muted-foreground mt-4">No {type} stencils found. Click "Add New" to create one.</p>
         )}
       </>
