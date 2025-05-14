@@ -1,47 +1,50 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user data (still used for /users rules)
+    // Helper function to get user data
     function getUserData(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    // Rules for user profiles
-    match /users/{userId} {
-      // Allow users to read their own profile
-      allow read: if request.auth.uid == userId;
-      // Allow authenticated users to create their own profile
-      allow create: if request.auth.uid == userId;
-      // Allow admins to update any user's role
-      // And allow users to update their own non-role profile information
-      allow update: if getUserData(request.auth.uid).role == 'admin' || 
-                       (request.auth.uid == userId && !('role' in request.resource.data));
-    }
-    match /users/{document=**} {
-      // Allow admins to list all users
-      allow list: if getUserData(request.auth.uid).role == 'admin';
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Rules for threat models
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Allow admin to read/write any user profile
+      allow read, write: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
+      // Allow authenticated users to read their own profile
+      allow get: if isAuthenticated() && request.auth.uid == userId;
+      // Allow authenticated users to create their own profile (on signup)
+      allow create: if isAuthenticated();
+    }
+
+    match /users/{document=**} {
+        allow list: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
+    }
+
+    // Rules for 'threatModels' collection
     match /threatModels/{modelId} {
-      allow create: if request.auth.uid != null; 
-      allow read, update, delete: if request.auth.uid != null && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
+      // User can r/u/d their own models, or admin can r/u/d any model
+      allow read, update, delete: if (isAuthenticated() && resource.data.userId == request.auth.uid) || (isAuthenticated() && getUserData(request.auth.uid).role == 'admin');
     }
-    match /threatModels {
-      allow list: if request.auth.uid != null; 
+    match /threatModels/{document=**} {
+      allow list: if isAuthenticated(); // Client filters by userId
     }
-    
-    // Rules for stencils - Using direct get() for role check
+
+    // Rules for 'stencils' collection
     match /stencils/{stencilId} {
-      // Only admins can manage stencils
-      allow read, write: if request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Admins can read, write, create, delete stencils
+      allow read, write, create, delete: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
     }
-    match /stencils {
-      // Only admins can list stencils
-      allow list: if request.auth.uid != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    match /stencils/{document=**} {
+      // Admins can list all stencils
+      allow list: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
     }
   }
 }
