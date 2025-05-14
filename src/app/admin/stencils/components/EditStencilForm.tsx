@@ -1,6 +1,7 @@
 
 "use client";
 
+import React from "react"; // Added React import
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
