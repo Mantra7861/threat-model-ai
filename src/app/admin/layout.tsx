@@ -4,30 +4,31 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
+import { useRouter, usePathname } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
-import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2, Shapes } from 'lucide-react'; // Added Loader2 and Shapes
+import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2, Shapes } from 'lucide-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Added Alert
-import { AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { userProfile, loading, isAdmin, firebaseReady, signOut } = useAuth(); // Added firebaseReady, signOut
+  const { userProfile, loading: authLoading, isAdmin, firebaseReady, signOut } = useAuth();
   const router = useRouter();
-  const pathname = usePathname(); // Get current path
+  const pathname = usePathname();
 
   useEffect(() => {
-    // Redirect only if Firebase is ready and checks are complete
-    if (firebaseReady && !loading && !isAdmin) {
+    // Redirect only if Firebase is ready and auth checks are complete, and user is not an admin
+    if (firebaseReady && !authLoading && !isAdmin) {
       router.replace('/');
     }
-  }, [firebaseReady, loading, isAdmin, router]);
+  }, [firebaseReady, authLoading, isAdmin, router]);
+
+  let mainContent: ReactNode;
 
   if (!firebaseReady) {
-    // Show a loading or error state if Firebase connection isn't ready
-    return (
-        <div className="flex items-center justify-center h-screen p-4">
+    mainContent = (
+        <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
                <AlertTriangle className="h-4 w-4" />
                <AlertTitle>Initialization Error</AlertTitle>
@@ -37,22 +38,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
              </Alert>
         </div>
     );
-  }
-
-  if (loading) {
-    return (
-        <div className="flex items-center justify-center h-screen">
+  } else if (authLoading) {
+    mainContent = (
+        <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
             Loading admin section...
         </div>
     );
-  }
-
-  // This check should ideally be redundant because of the useEffect, but acts as a final gate
-  if (!isAdmin) {
-     // This state might be briefly visible if redirection is slow, or if somehow bypassed useEffect
-    return (
-        <div className="flex items-center justify-center h-screen p-4">
+  } else if (!isAdmin) {
+    // This state might be briefly visible if redirection is slow.
+    mainContent = (
+        <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
                <AlertTriangle className="h-4 w-4" />
                <AlertTitle>Access Denied</AlertTitle>
@@ -62,9 +58,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
              </Alert>
         </div>
     );
+  } else {
+    // User is an admin, Firebase is ready, and loading is complete
+    mainContent = children;
   }
 
-  // User is an admin, Firebase is ready, and loading is complete
   return (
     <SidebarProvider defaultOpen={true}>
       <Sidebar side="left" variant="sidebar" collapsible="icon">
@@ -133,7 +131,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </Sidebar>
       <SidebarInset className="flex-1 flex flex-col !p-0">
         <main className="flex-1 p-6 bg-background overflow-auto">
-          {children}
+          {mainContent}
         </main>
       </SidebarInset>
     </SidebarProvider>
