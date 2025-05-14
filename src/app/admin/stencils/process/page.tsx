@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ProcessStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle, HelpCircle as HelpCircleIcon } from "lucide-react"; // Renamed HelpCircle
 import * as LucideIcons from 'lucide-react';
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -22,14 +22,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const DynamicLucideIcon = ({ name, ...props }: { name: keyof typeof LucideIcons; [key: string]: any }) => {
-  // Check if the icon name is a valid key in LucideIcons and it's a function (component)
-  if (Object.prototype.hasOwnProperty.call(LucideIcons, name) && typeof LucideIcons[name] === 'function') {
-    const IconComponent = LucideIcons[name] as LucideIcons.LucideIcon;
+const DynamicLucideIcon = ({ name, ...props }: { name: string; [key: string]: any }) => { // Changed name type to string
+  const iconKey = name as keyof typeof LucideIcons;
+  if (Object.prototype.hasOwnProperty.call(LucideIcons, iconKey) && typeof LucideIcons[iconKey] === 'function') {
+    const IconComponent = LucideIcons[iconKey] as LucideIcons.LucideIcon;
     return <IconComponent {...props} />;
   }
-  // Fallback icon if the provided name is not found or not a component
-  return <LucideIcons.HelpCircle {...props} />;
+  console.warn(`DynamicLucideIcon: Icon "${name}" not found in LucideIcons. Falling back to HelpCircleIcon.`);
+  return <HelpCircleIcon {...props} />;
 };
 
 export default function ProcessStencilsPage() {
@@ -111,7 +111,7 @@ export default function ProcessStencilsPage() {
             {stencils.map((stencil) => (
               <TableRow key={stencil.id}>
                 <TableCell>
-                   <DynamicLucideIcon name={stencil.iconName} className="h-5 w-5" style={{ color: stencil.textColor }} />
+                   <DynamicLucideIcon name={stencil.iconName} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
                 </TableCell>
                 <TableCell className="font-medium">{stencil.name}</TableCell>
                 <TableCell>{stencil.stencilType}</TableCell>
@@ -151,7 +151,7 @@ export default function ProcessStencilsPage() {
           </TableBody>
         </Table>
       </div>
-      {stencils.length === 0 && (
+      {stencils.length === 0 && !isLoading && (
         <p className="text-center text-muted-foreground mt-4">No process stencils found. Click "Add New" to create one.</p>
       )}
     </div>

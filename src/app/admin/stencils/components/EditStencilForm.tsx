@@ -12,12 +12,12 @@ import { useToast } from "@/hooks/use-toast";
 import type { StencilData, InfrastructureStencilData, ProcessStencilData, StencilFirestoreData } from "@/types/stencil";
 import * as LucideIcons from 'lucide-react';
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, HelpCircle as HelpCircleIcon } from "lucide-react";
 
 const ALL_LUCIDE_ICON_NAMES = Object.keys(LucideIcons).filter(key => 
     key !== 'createLucideIcon' && 
     key !== 'icons' && 
-    typeof LucideIcons[key as keyof typeof LucideIcons] === 'function' // Ensure it's a component
+    typeof LucideIcons[key as keyof typeof LucideIcons] === 'function'
 ) as (keyof typeof LucideIcons)[];
 
 
@@ -34,7 +34,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<keyof typeof LucideIcons>("Package"); // Default to a common icon
+  const [iconName, setIconName] = useState<keyof typeof LucideIcons>("Package");
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
@@ -46,33 +46,47 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
 
   useEffect(() => {
-    if (!isNew && stencilId) {
+    const loadStencilData = async () => {
       setIsLoading(true);
       setError(null);
-      getStencilById(stencilId)
-        .then(async stencil => {
-          if (stencil) {
-            setName(stencil.name);
-            setIconName(stencil.iconName as keyof typeof LucideIcons); // Cast as it's fetched
-            setTextColor(stencil.textColor || "#000000");
-            const formattedProps = await formatStaticPropertiesToString(stencil.properties);
-            setStaticPropertiesString(formattedProps);
-            if (stencil.stencilType === 'infrastructure') {
-              const infraStencil = stencil as InfrastructureStencilData;
-              setIsBoundary(infraStencil.isBoundary || false);
-              setBoundaryColor(infraStencil.boundaryColor || "#ff0000");
-            }
+      try {
+        const stencil = await getStencilById(stencilId);
+        if (stencil) {
+          setName(stencil.name);
+          
+          const LIcons = LucideIcons as any; // To allow indexing by string
+          if (stencil.iconName && LIcons[stencil.iconName]) {
+            setIconName(stencil.iconName as keyof typeof LucideIcons);
           } else {
-            toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
-            router.replace(`/admin/stencils/${stencilType}`);
+            console.warn(`Invalid icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
+            setIconName("Package"); // Default to a known safe icon
           }
-        })
-        .catch(err => {
-          console.error("Error fetching stencil:", err);
-          setError(err instanceof Error ? err.message : "Failed to load stencil data.");
-          toast({ title: "Error", description: "Could not load stencil data.", variant: "destructive" });
-        })
-        .finally(() => setIsLoading(false));
+          
+          setTextColor(stencil.textColor || "#000000");
+          const formattedProps = await formatStaticPropertiesToString(stencil.properties);
+          setStaticPropertiesString(formattedProps);
+          if (stencil.stencilType === 'infrastructure') {
+            const infraStencil = stencil as InfrastructureStencilData;
+            setIsBoundary(infraStencil.isBoundary || false);
+            setBoundaryColor(infraStencil.boundaryColor || "#ff0000");
+          }
+        } else {
+          toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
+          router.replace(`/admin/stencils/${stencilType}`);
+        }
+      } catch (err) {
+        console.error("Error fetching stencil:", err);
+        setError(err instanceof Error ? err.message : "Failed to load stencil data.");
+        toast({ title: "Error", description: "Could not load stencil data.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (!isNew && stencilId) {
+      loadStencilData();
+    } else {
+      setIsLoading(false); 
     }
   }, [stencilId, isNew, stencilType, router, toast]);
 
@@ -89,7 +103,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
     const properties = await parseStaticPropertiesString(staticPropertiesString);
     
-    let stencilPayload: Omit<StencilData, 'id'> = { // Use Omit for payload
+    let stencilPayload: Omit<StencilData, 'id'> = { 
       name: name.trim(),
       iconName,
       textColor,
@@ -106,10 +120,10 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
     try {
       if (isNew) {
-        await addStencil(stencilPayload as StencilFirestoreData); // Cast for addStencil
+        await addStencil(stencilPayload as StencilFirestoreData); 
         toast({ title: "Stencil Created", description: `Stencil "${name}" has been created.` });
       } else {
-        await updateStencil(stencilId, stencilPayload); // updateStencil takes Partial
+        await updateStencil(stencilId, stencilPayload); 
         toast({ title: "Stencil Updated", description: `Stencil "${name}" has been updated.` });
       }
       router.push(`/admin/stencils/${stencilType}`);
@@ -177,8 +191,8 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             <option key={iconKey} value={iconKey}>{iconKey}</option>
           ))}
         </select>
-         {iconName && LucideIcons[iconName] && React.createElement(LucideIcons[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor} })}
-         {iconName && !LucideIcons[iconName] && <LucideIcons.HelpCircle className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found in Lucide set" />}
+         {iconName && LucideIcons[iconName] && React.createElement(LucideIcons[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
+         {iconName && !LucideIcons[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found in Lucide set" />}
 
       </div>
       
@@ -234,7 +248,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           placeholder="Example:\nOS: Linux\nVersion: Latest\nIsEncrypted: true"
           disabled={isSaving}
         />
-        <p className="text-xs text-muted-foreground mt-1">These are default properties added to new instances of this stencil on the canvas. Values will be stored as strings.</p>
+        <p className="text-xs text-muted-foreground mt-1">These are default properties added to new instances of this stencil on the canvas. Values will be stored as strings by default unless handled by custom parsing logic.</p>
       </div>
 
       <div className="flex justify-end space-x-2">
