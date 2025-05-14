@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation'; // Removed usePathname
+import { useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
 import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2, Shapes } from 'lucide-react';
@@ -15,10 +15,8 @@ import { AlertTriangle } from 'lucide-react';
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { userProfile, loading: authLoading, isAdmin, firebaseReady, signOut } = useAuth();
   const router = useRouter();
-  // const pathname = usePathname(); // Removed usePathname
 
   useEffect(() => {
-    // Redirect only if Firebase is ready and auth checks are complete, and user is not an admin
     if (firebaseReady && !authLoading && !isAdmin) {
       router.replace('/');
     }
@@ -46,7 +44,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
     );
   } else if (!isAdmin) {
-    // This state might be briefly visible if redirection is slow.
     mainContent = (
         <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
@@ -59,7 +56,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
     );
   } else {
-    // User is an admin, Firebase is ready, and loading is complete
     mainContent = children;
   }
 
@@ -78,8 +74,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <SidebarContent className="p-2">
             <SidebarMenu>
                 <SidebarMenuItem>
-                    <Link href="/admin/users" passHref>
-                        {/* Removed isActive prop */}
+                    <Link href="/admin/users">
                         <SidebarMenuButton tooltip="User Management" className="justify-start">
                             <Users />
                             <span className="group-data-[collapsible=icon]:hidden">User Management</span>
@@ -87,8 +82,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </Link>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                    <Link href="/admin/stencils" passHref>
-                        {/* isActive was already removed here */}
+                    <Link href="/admin/stencils">
                         <SidebarMenuButton tooltip="Stencil Management" className="justify-start">
                             <Shapes />
                             <span className="group-data-[collapsible=icon]:hidden">Stencil Management</span>
@@ -108,7 +102,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <SidebarFooter className="mt-auto p-2 border-t border-sidebar-border group-data-[collapsible=icon]:border-none">
            <SidebarMenu>
               <SidebarMenuItem>
-                {/* User info */}
                 <div className="flex items-center gap-2 p-2 rounded-md group-data-[collapsible=icon]:justify-center text-sidebar-foreground">
                     <Avatar className="size-7 group-data-[collapsible=icon]:size-6">
                         <AvatarImage src={userProfile?.photoURL || undefined} data-ai-hint="admin avatar" alt={userProfile?.displayName || 'Admin Avatar'} />
@@ -118,7 +111,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 </div>
               </SidebarMenuItem>
                 <SidebarMenuItem>
-                  {/* Logout button */}
                   <SidebarMenuButton
                     tooltip="Log Out"
                     className="justify-start group-data-[collapsible=icon]:justify-center"
