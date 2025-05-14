@@ -87,7 +87,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                     <Link href="/admin/stencils" passHref>
-                        <SidebarMenuButton tooltip="Stencil Management" className="justify-start" isActive={pathname.startsWith('/admin/stencils')}>
+                        {/* Removed isActive={pathname.startsWith('/admin/stencils')} for testing */}
+                        <SidebarMenuButton tooltip="Stencil Management" className="justify-start">
                             <Shapes />
                             <span className="group-data-[collapsible=icon]:hidden">Stencil Management</span>
                         </SidebarMenuButton>
