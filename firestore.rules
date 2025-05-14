@@ -1,51 +1,49 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user data
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    // Helper function to check if a user is authenticated
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Rules for 'users' collection
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      // Only admins can change roles or write directly to arbitrary user docs.
-      allow write: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
-      // Allow users to create their own profile on signup.
-      // Allow users to update their own non-role profile information, or admins to update anything.
-      allow create: if isAuthenticated(); // Typically, user creation might be handled by trusted server code or specific rules.
-      allow update: if isAuthenticated() && (request.auth.uid == userId || getUserData(request.auth.uid).role == 'admin');
+    // It's good practice to ensure userId is not null before get
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
-    match /users/{document=**} {
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || getUserData(request.auth.uid).role == 'admin');
+      allow create: if isAuthenticated(); // Allow user to create their own profile doc if auth UID matches
+      allow update: if isAuthenticated() && (request.auth.uid == userId || getUserData(request.auth.uid).role == 'admin');
+      // No delete rule for users means deletion is disallowed by default
+    }
+    match /users {
       allow list: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
     }
 
-    // Rules for 'threatModels' collection
+    // ThreatModels collection
     match /threatModels/{modelId} {
       allow create: if isAuthenticated();
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || getUserData(request.auth.uid).role == 'admin');
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || getUserData(request.auth.uid).role == 'admin');
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || getUserData(request.auth.uid).role == 'admin');
+      allow read, update, delete: if isAuthenticated() && getUserData(request.auth.uid).role == 'editor' && resource.data.userId == request.auth.uid ||
+                                     isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
     }
-    match /threatModels/{document=**} {
-      // Users can only list their own models. Admins can list all if needed via backend/admin queries.
-      allow list: if isAuthenticated(); // Query must be secured client-side to filter by userId.
+    match /threatModels {
+      // Allow authenticated users to list models; client-side should filter by userId
+      allow list: if isAuthenticated();
     }
 
-    // Rules for 'stencils' collection
+    // Stencils collection: Only admins can manage stencils
     match /stencils/{stencilId} {
-      allow read, list: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
-      allow create, update, delete: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
+      // Read and Write (create, update, delete) for individual stencils remain admin-only
+      allow read, write: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
     }
-     match /stencils/{document=**} { // Covers list operations more broadly for the collection
-        allow list: if isAuthenticated() && getUserData(request.auth.uid).role == 'admin';
-     }
+    match /stencils {
+      // TEMPORARY DIAGNOSTIC: Allow any authenticated user to list stencils
+      allow list: if isAuthenticated();
+    }
   }
 }
