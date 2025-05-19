@@ -16,18 +16,33 @@ import {
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore';
+import { placeholderInfrastructureStencils as infraPlaceholders, placeholderProcessStencils as processPlaceholders } from '@/lib/placeholder-stencils';
+
 
 const STENCILS_COLLECTION = 'stencils';
 
-// Helper to convert Firestore timestamp to Date for properties if needed
-const convertTimestamps = (data: Record<string, any>): Record<string, any> => {
-  const convertedData = { ...data };
-  for (const key in convertedData) {
-    if (convertedData[key] instanceof Timestamp) {
-      convertedData[key] = convertedData[key].toDate();
-    }
+// Helper to convert Firestore timestamp to a serializable format (ISO string)
+const convertTimestampToString = (timestamp: Timestamp | Date | undefined): string | undefined => {
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate().toISOString();
   }
-  return convertedData;
+  if (timestamp instanceof Date) {
+    return timestamp.toISOString();
+  }
+  return undefined;
+};
+
+// Helper to process stencil data for client-side consumption
+const processStencilForClient = (docSnap: firebase.firestore.DocumentSnapshot | any): StencilData => { // Use any for docSnap due to varying SDK versions/types
+    const data = docSnap.data();
+    const properties = data.properties || {};
+    return {
+      id: docSnap.id,
+      ...data,
+      properties: properties,
+      createdDate: convertTimestampToString(data.createdDate),
+      modifiedDate: convertTimestampToString(data.modifiedDate),
+    } as StencilData; // Cast to StencilData, assuming string dates are handled in type
 };
 
 
@@ -72,28 +87,18 @@ export async function getStencils(modelType: 'infrastructure' | 'process'): Prom
     console.error("getStencils: Firestore not initialized or db is null.", error);
     throw new Error(error || "Firestore not initialized for getStencils");
   }
-  // console.log(`getStencils: Fetching stencils of type "${modelType}"`);
   const stencilsCollectionRef = collection(db, STENCILS_COLLECTION);
   const q = query(stencilsCollectionRef, where('stencilType', '==', modelType));
   
   try {
     const querySnapshot = await getDocs(q);
-    // console.log(`getStencils: Query for type "${modelType}" returned ${querySnapshot.docs.length} documents.`);
-    return querySnapshot.docs.map(docSnap => {
-      const data = docSnap.data();
-      const properties = data.properties || {};
-      return {
-        id: docSnap.id,
-        ...data,
-        properties: properties,
-      } as StencilData;
-    });
+    return querySnapshot.docs.map(processStencilForClient);
   } catch (e) {
     console.error(`getStencils: Error executing query for type "${modelType}":`, e);
     if (e instanceof Error && (e.message.includes("permission-denied") || e.message.includes("Missing or insufficient permissions"))) {
       console.error("getStencils: PERMISSION DENIED. This means Firestore security rules are blocking the read operation for the current user on the 'stencils' collection for type:", modelType);
     }
-    throw e; // Re-throw the error to be caught by the caller
+    throw e; 
   }
 }
 
@@ -106,24 +111,30 @@ export async function getStencilById(stencilId: string): Promise<StencilData | n
   const docSnap = await getDoc(stencilDocRef);
 
   if (docSnap.exists()) {
-    const data = docSnap.data();
-    const properties = data.properties || {};
-    return {
-      id: docSnap.id,
-      ...data,
-      properties: properties,
-    } as StencilData;
+    return processStencilForClient(docSnap);
   }
   return null;
 }
 
-export async function parseStaticPropertiesString(str: string | undefined): Promise<Record<string, string>> {
+export async function parseStaticPropertiesString(str: string | undefined): Promise<Record<string, string | boolean | number | null>> {
   if (!str || typeof str !== 'string') return {};
-  const properties: Record<string, string> = {};
+  const properties: Record<string, string | boolean | number | null> = {};
   str.split('\n').forEach(line => {
     const [key, ...valueParts] = line.split(':');
     if (key && valueParts.length > 0) {
-      properties[key.trim()] = valueParts.join(':').trim();
+      const valueStr = valueParts.join(':').trim();
+      if (valueStr.toLowerCase() === 'true') {
+        properties[key.trim()] = true;
+      } else if (valueStr.toLowerCase() === 'false') {
+        properties[key.trim()] = false;
+      } else if (!isNaN(Number(valueStr)) && valueStr.trim() !== '') {
+        properties[key.trim()] = Number(valueStr);
+      } else if (valueStr.toLowerCase() === 'null') {
+        properties[key.trim()] = null;
+      }
+      else {
+        properties[key.trim()] = valueStr;
+      }
     }
   });
   return properties;
@@ -136,73 +147,7 @@ export async function formatStaticPropertiesToString(props: Record<string, any> 
     .join('\n');
 }
 
-
 // --- Placeholder Stencil Data and Function ---
-
-const placeholderInfrastructureStencils: Omit<InfrastructureStencilData, 'id'>[] = [
-  {
-    name: 'Web Server',
-    iconName: 'Server',
-    textColor: '#2563EB', // Blue-600
-    stencilType: 'infrastructure',
-    properties: { OS: 'Linux', Purpose: 'Handles HTTP requests', DataClassification: 'Public' },
-  },
-  {
-    name: 'Application Database',
-    iconName: 'Database',
-    textColor: '#16A34A', // Green-600
-    stencilType: 'infrastructure',
-    properties: { Type: 'PostgreSQL', Version: '15', Encryption: 'At-rest, In-transit' },
-  },
-  {
-    name: 'User Authentication Service',
-    iconName: 'ShieldCheck',
-    textColor: '#CA8A04', // Yellow-600
-    stencilType: 'infrastructure',
-    properties: { Protocol: 'OAuth 2.0', MFARequired: 'true' },
-  },
-  {
-    name: 'DMZ Network Zone',
-    iconName: 'Network', 
-    textColor: '#DC2626', // Red-600
-    stencilType: 'infrastructure',
-    isBoundary: true,
-    boundaryColor: '#DC2626',
-    properties: { Description: 'Demilitarized Zone Firewall', AccessControl: 'Strict Ingress/Egress' },
-  }
-];
-
-const placeholderProcessStencils: Omit<ProcessStencilData, 'id'>[] = [
-  {
-    name: 'User Login Action',
-    iconName: 'KeyRound', 
-    textColor: '#1D4ED8', // Blue-700
-    stencilType: 'process',
-    properties: { Description: 'User submits credentials for authentication', SystemModule: 'Authentication Service' },
-  },
-  {
-    name: 'Validate Payment Details',
-    iconName: 'CreditCard',
-    textColor: '#059669', // Emerald-600
-    stencilType: 'process',
-    properties: { InputData: 'Credit Card Info', OutputData: 'Validation Status (Success/Fail)' },
-  },
-  {
-    name: 'Order Value > $1000?',
-    iconName: 'Diamond',
-    textColor: '#7C3AED', // Violet-600
-    stencilType: 'process',
-    properties: { TruePath: 'Route to Manual Fraud Review', FalsePath: 'Proceed to Auto-Processing' },
-  },
-  {
-    name: 'Generate Invoice Document',
-    iconName: 'FileText',
-    textColor: '#DB2777', // Pink-600
-    stencilType: 'process',
-    properties: { DocumentType: 'PDF Invoice', Storage: 'Customer Account Portal' },
-  },
-];
-
 export async function addPlaceholderStencils(): Promise<{ infraAdded: number, processAdded: number, errors: string[] }> {
   const { initialized, error } = ensureFirebaseInitialized();
   if (!initialized || !db) {
@@ -214,15 +159,13 @@ export async function addPlaceholderStencils(): Promise<{ infraAdded: number, pr
   let processAdded = 0;
   const errors: string[] = [];
 
-  for (const stencil of placeholderInfrastructureStencils) {
+  for (const stencil of infraPlaceholders) {
     try {
       const q = query(collection(db, STENCILS_COLLECTION), where('name', '==', stencil.name), where('stencilType', '==', 'infrastructure'));
       const existing = await getDocs(q);
       if (existing.empty) {
-        await addStencil(stencil as StencilFirestoreData);
+        await addStencil(stencil as StencilFirestoreData); // Cast is okay as id is not part of StencilFirestoreData
         infraAdded++;
-      } else {
-        // console.log(`Infrastructure stencil "${stencil.name}" already exists. Skipping.`);
       }
     } catch (e) {
       const errorMsg = `Error adding placeholder infrastructure stencil "${stencil.name}": ${e instanceof Error ? e.message : String(e)}`;
@@ -231,15 +174,13 @@ export async function addPlaceholderStencils(): Promise<{ infraAdded: number, pr
     }
   }
 
-  for (const stencil of placeholderProcessStencils) {
+  for (const stencil of processPlaceholders) {
      try {
       const q = query(collection(db, STENCILS_COLLECTION), where('name', '==', stencil.name), where('stencilType', '==', 'process'));
       const existing = await getDocs(q);
       if (existing.empty) {
-        await addStencil(stencil as StencilFirestoreData);
+        await addStencil(stencil as StencilFirestoreData); // Cast is okay
         processAdded++;
-      } else {
-        // console.log(`Process stencil "${stencil.name}" already exists. Skipping.`);
       }
     } catch (e) {
       const errorMsg = `Error adding placeholder process stencil "${stencil.name}": ${e instanceof Error ? e.message : String(e)}`;

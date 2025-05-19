@@ -12,6 +12,8 @@ export interface BaseStencil {
   iconName: keyof typeof import('lucide-react'); // For Lucide icon names
   textColor?: string; // hex color
   properties?: Record<string, string | boolean | number | null>; // For key-value pairs
+  createdDate?: string; // ISO string
+  modifiedDate?: string; // ISO string
 }
 
 export interface InfrastructureStencilData extends BaseStencil {
@@ -27,4 +29,8 @@ export interface ProcessStencilData extends BaseStencil {
 export type StencilData = InfrastructureStencilData | ProcessStencilData;
 
 // Type for data being saved to Firestore, id might be absent for new stencils
-export type StencilFirestoreData = Omit<InfrastructureStencilData, 'id'> | Omit<ProcessStencilData, 'id'>;
+// Dates will be handled as serverTimestamps during write.
+export type StencilFirestoreData = 
+  Omit<InfrastructureStencilData, 'id' | 'createdDate' | 'modifiedDate'> | 
+  Omit<ProcessStencilData, 'id' | 'createdDate' | 'modifiedDate'>;
+
