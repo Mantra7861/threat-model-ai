@@ -1,121 +1,97 @@
 
 'use server';
 
-import { db, ensureFirebaseInitialized } from '@/lib/firebase/firebase';
+import { adminDb } from '@/lib/firebase/firebaseAdmin'; // Use Admin SDK
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'; // Use Admin SDK FieldValue
 import type { StencilData, InfrastructureStencilData, ProcessStencilData, StencilFirestoreData } from '@/types/stencil';
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  deleteDoc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  Timestamp,
-  serverTimestamp,
-} from 'firebase/firestore';
+// Placeholder data import remains the same
 import { placeholderInfrastructureStencils as infraPlaceholders, placeholderProcessStencils as processPlaceholders } from '@/lib/placeholder-stencils';
-
 
 const STENCILS_COLLECTION = 'stencils';
 
-// Helper to convert Firestore timestamp to a serializable format (ISO string)
-const convertTimestampToString = (timestamp: Timestamp | Date | undefined): string | undefined => {
+// Helper to convert Firestore timestamp from Admin SDK to a serializable format (ISO string)
+const convertAdminTimestampToString = (timestamp: Timestamp | undefined): string | undefined => {
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate().toISOString();
-  }
-  if (timestamp instanceof Date) {
-    return timestamp.toISOString();
   }
   return undefined;
 };
 
 // Helper to process stencil data for client-side consumption
-const processStencilForClient = (docSnap: firebase.firestore.DocumentSnapshot | any): StencilData => { // Use any for docSnap due to varying SDK versions/types
-    const data = docSnap.data();
+const processStencilForClient = (docSnap: FirebaseFirestore.DocumentSnapshot): StencilData => {
+    const data = docSnap.data() as StencilFirestoreData; // Cast based on what we store
     const properties = data.properties || {};
+    
+    // Firestore Timestamps from Admin SDK need to be converted
+    const createdDate = data.createdDate instanceof Timestamp ? data.createdDate.toDate().toISOString() : undefined;
+    const modifiedDate = data.modifiedDate instanceof Timestamp ? data.modifiedDate.toDate().toISOString() : undefined;
+
     return {
       id: docSnap.id,
-      ...data,
+      name: data.name,
+      iconName: data.iconName,
+      textColor: data.textColor,
+      stencilType: data.stencilType,
       properties: properties,
-      createdDate: convertTimestampToString(data.createdDate),
-      modifiedDate: convertTimestampToString(data.modifiedDate),
-    } as StencilData; // Cast to StencilData, assuming string dates are handled in type
+      // Handle specific types for InfrastructureStencilData
+      ...(data.stencilType === 'infrastructure' && {
+        boundaryColor: (data as InfrastructureStencilData).boundaryColor,
+        isBoundary: (data as InfrastructureStencilData).isBoundary,
+      }),
+      createdDate,
+      modifiedDate,
+    } as StencilData;
 };
 
 
 export async function addStencil(stencilData: StencilFirestoreData): Promise<string> {
-  const { initialized, error } = ensureFirebaseInitialized();
-  if (!initialized || !db) {
-    throw new Error(error || "Firestore not initialized for addStencil");
-  }
-  const stencilsCollectionRef = collection(db, STENCILS_COLLECTION);
-  const docRef = await addDoc(stencilsCollectionRef, {
+  const stencilsCollectionRef = adminDb.collection(STENCILS_COLLECTION);
+  const docRef = await stencilsCollectionRef.add({
     ...stencilData,
-    createdDate: serverTimestamp(),
-    modifiedDate: serverTimestamp(),
+    createdDate: FieldValue.serverTimestamp(),
+    modifiedDate: FieldValue.serverTimestamp(),
   });
   return docRef.id;
 }
 
 export async function updateStencil(stencilId: string, stencilData: Partial<StencilFirestoreData>): Promise<void> {
-  const { initialized, error } = ensureFirebaseInitialized();
-  if (!initialized || !db) {
-    throw new Error(error || "Firestore not initialized for updateStencil");
-  }
-  const stencilDocRef = doc(db, STENCILS_COLLECTION, stencilId);
-  await updateDoc(stencilDocRef, {
+  const stencilDocRef = adminDb.collection(STENCILS_COLLECTION).doc(stencilId);
+  await stencilDocRef.update({
     ...stencilData,
-    modifiedDate: serverTimestamp(),
+    modifiedDate: FieldValue.serverTimestamp(),
   });
 }
 
 export async function deleteStencil(stencilId: string): Promise<void> {
-  const { initialized, error } = ensureFirebaseInitialized();
-  if (!initialized || !db) {
-    throw new Error(error || "Firestore not initialized for deleteStencil");
-  }
-  const stencilDocRef = doc(db, STENCILS_COLLECTION, stencilId);
-  await deleteDoc(stencilDocRef);
+  const stencilDocRef = adminDb.collection(STENCILS_COLLECTION).doc(stencilId);
+  await stencilDocRef.delete();
 }
 
 export async function getStencils(modelType: 'infrastructure' | 'process'): Promise<StencilData[]> {
-  const { initialized, error } = ensureFirebaseInitialized();
-  if (!initialized || !db) {
-    console.error("getStencils: Firestore not initialized or db is null.", error);
-    throw new Error(error || "Firestore not initialized for getStencils");
-  }
-  const stencilsCollectionRef = collection(db, STENCILS_COLLECTION);
-  const q = query(stencilsCollectionRef, where('stencilType', '==', modelType));
+  const stencilsCollectionRef = adminDb.collection(STENCILS_COLLECTION);
+  const q = stencilsCollectionRef.where('stencilType', '==', modelType);
   
   try {
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await q.get();
     return querySnapshot.docs.map(processStencilForClient);
   } catch (e) {
     console.error(`getStencils: Error executing query for type "${modelType}":`, e);
-    if (e instanceof Error && (e.message.includes("permission-denied") || e.message.includes("Missing or insufficient permissions"))) {
-      console.error("getStencils: PERMISSION DENIED. This means Firestore security rules are blocking the read operation for the current user on the 'stencils' collection for type:", modelType);
-    }
+    // Admin SDK bypasses rules, so permission errors here usually mean something else (e.g., network, config)
     throw e; 
   }
 }
 
 export async function getStencilById(stencilId: string): Promise<StencilData | null> {
-  const { initialized, error } = ensureFirebaseInitialized();
-  if (!initialized || !db) {
-    throw new Error(error || "Firestore not initialized for getStencilById");
-  }
-  const stencilDocRef = doc(db, STENCILS_COLLECTION, stencilId);
-  const docSnap = await getDoc(stencilDocRef);
+  const stencilDocRef = adminDb.collection(STENCILS_COLLECTION).doc(stencilId);
+  const docSnap = await stencilDocRef.get();
 
-  if (docSnap.exists()) {
+  if (docSnap.exists) {
     return processStencilForClient(docSnap);
   }
   return null;
 }
 
+// parseStaticPropertiesString remains the same as it's pure string manipulation
 export async function parseStaticPropertiesString(str: string | undefined): Promise<Record<string, string | boolean | number | null>> {
   if (!str || typeof str !== 'string') return {};
   const properties: Record<string, string | boolean | number | null> = {};
@@ -140,6 +116,7 @@ export async function parseStaticPropertiesString(str: string | undefined): Prom
   return properties;
 }
 
+// formatStaticPropertiesToString remains the same
 export async function formatStaticPropertiesToString(props: Record<string, any> | undefined): Promise<string> {
   if (!props) return "";
   return Object.entries(props)
@@ -147,28 +124,27 @@ export async function formatStaticPropertiesToString(props: Record<string, any> 
     .join('\n');
 }
 
-// --- Placeholder Stencil Data and Function ---
+// addPlaceholderStencils now uses Admin SDK
 export async function addPlaceholderStencils(): Promise<{ infraAdded: number, processAdded: number, errors: string[] }> {
-  const { initialized, error } = ensureFirebaseInitialized();
-  if (!initialized || !db) {
-    throw new Error(error || "Firestore not initialized for addPlaceholderStencils");
-  }
-
-  console.log("Attempting to add placeholder stencils...");
+  console.log("Attempting to add placeholder stencils using Admin SDK...");
   let infraAdded = 0;
   let processAdded = 0;
   const errors: string[] = [];
 
   for (const stencil of infraPlaceholders) {
     try {
-      const q = query(collection(db, STENCILS_COLLECTION), where('name', '==', stencil.name), where('stencilType', '==', 'infrastructure'));
-      const existing = await getDocs(q);
+      const q = adminDb.collection(STENCILS_COLLECTION)
+                      .where('name', '==', stencil.name)
+                      .where('stencilType', '==', 'infrastructure');
+      const existing = await q.get();
       if (existing.empty) {
-        await addStencil(stencil as StencilFirestoreData); // Cast is okay as id is not part of StencilFirestoreData
+        // Remove 'id' if it exists in placeholder, Firestore generates it
+        const { id, ...dataToSave } = stencil;
+        await addStencil(dataToSave as StencilFirestoreData); 
         infraAdded++;
       }
     } catch (e) {
-      const errorMsg = `Error adding placeholder infrastructure stencil "${stencil.name}": ${e instanceof Error ? e.message : String(e)}`;
+      const errorMsg = `Error adding placeholder infrastructure stencil "${stencil.name}" via Admin SDK: ${e instanceof Error ? e.message : String(e)}`;
       console.error(errorMsg);
       errors.push(errorMsg);
     }
@@ -176,23 +152,26 @@ export async function addPlaceholderStencils(): Promise<{ infraAdded: number, pr
 
   for (const stencil of processPlaceholders) {
      try {
-      const q = query(collection(db, STENCILS_COLLECTION), where('name', '==', stencil.name), where('stencilType', '==', 'process'));
-      const existing = await getDocs(q);
+      const q = adminDb.collection(STENCILS_COLLECTION)
+                      .where('name', '==', stencil.name)
+                      .where('stencilType', '==', 'process');
+      const existing = await q.get();
       if (existing.empty) {
-        await addStencil(stencil as StencilFirestoreData); // Cast is okay
+        const { id, ...dataToSave } = stencil;
+        await addStencil(dataToSave as StencilFirestoreData);
         processAdded++;
       }
     } catch (e) {
-      const errorMsg = `Error adding placeholder process stencil "${stencil.name}": ${e instanceof Error ? e.message : String(e)}`;
+      const errorMsg = `Error adding placeholder process stencil "${stencil.name}" via Admin SDK: ${e instanceof Error ? e.message : String(e)}`;
       console.error(errorMsg);
       errors.push(errorMsg);
     }
   }
   
-  const summary = `Added ${infraAdded} infrastructure stencils and ${processAdded} process stencils.`;
+  const summary = `Admin SDK: Added ${infraAdded} infrastructure stencils and ${processAdded} process stencils.`;
   console.log(summary);
   if (errors.length > 0) {
-    console.error("Errors occurred during placeholder addition:", errors);
+    console.error("Admin SDK: Errors occurred during placeholder addition:", errors);
   }
   return { infraAdded, processAdded, errors };
 }

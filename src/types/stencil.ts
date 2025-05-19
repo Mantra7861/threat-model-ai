@@ -1,5 +1,6 @@
 
 import type { Icon as LucideIcon } from 'lucide-react';
+import type { Timestamp } from 'firebase-admin/firestore'; // For Admin SDK types if needed server-side before conversion
 
 export interface StencilProperty {
   key: string;
@@ -7,18 +8,18 @@ export interface StencilProperty {
 }
 
 export interface BaseStencil {
-  id: string; // This can be the Firestore document ID after fetching
+  id: string; 
   name: string;
-  iconName: keyof typeof import('lucide-react'); // For Lucide icon names
-  textColor?: string; // hex color
-  properties?: Record<string, string | boolean | number | null>; // For key-value pairs
-  createdDate?: string; // ISO string
-  modifiedDate?: string; // ISO string
+  iconName: keyof typeof import('lucide-react'); 
+  textColor?: string; 
+  properties?: Record<string, string | boolean | number | null>; 
+  createdDate?: string; // ISO string for client
+  modifiedDate?: string; // ISO string for client
 }
 
 export interface InfrastructureStencilData extends BaseStencil {
   stencilType: 'infrastructure';
-  boundaryColor?: string; // hex color
+  boundaryColor?: string; 
   isBoundary?: boolean;
 }
 
@@ -28,9 +29,9 @@ export interface ProcessStencilData extends BaseStencil {
 
 export type StencilData = InfrastructureStencilData | ProcessStencilData;
 
-// Type for data being saved to Firestore, id might be absent for new stencils
-// Dates will be handled as serverTimestamps during write.
+// Type for data being saved to Firestore using Admin SDK
+// Dates will be FieldValue.serverTimestamp() or actual Timestamp objects on write/update
 export type StencilFirestoreData = 
-  Omit<InfrastructureStencilData, 'id' | 'createdDate' | 'modifiedDate'> | 
-  Omit<ProcessStencilData, 'id' | 'createdDate' | 'modifiedDate'>;
+  Omit<InfrastructureStencilData, 'id' | 'createdDate' | 'modifiedDate'> & { createdDate?: Timestamp | Date, modifiedDate?: Timestamp | Date } | 
+  Omit<ProcessStencilData, 'id' | 'createdDate' | 'modifiedDate'> & { createdDate?: Timestamp | Date, modifiedDate?: Timestamp | Date };
 
