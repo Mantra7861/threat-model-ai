@@ -56,7 +56,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           setName(stencil.name);
           
           const LIcons = LucideIcons as any; // To allow indexing by string
-          if (stencil.iconName && LIcons[stencil.iconName]) {
+          if (stencil.iconName && LIcons[stencil.iconName as string]) {
             setIconName(stencil.iconName as keyof typeof LucideIcons);
           } else {
             console.warn(`Invalid icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
@@ -73,7 +73,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           }
         } else {
           toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
-          router.replace(`/admin/stencils/${stencilType}`);
+          router.replace(`/admin/stencils`); // Go to main stencil page
         }
       } catch (err) {
         console.error("Error fetching stencil:", err);
@@ -89,7 +89,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     } else {
       setIsLoading(false); 
     }
-  }, [stencilId, isNew, stencilType, router, toast]);
+  }, [stencilId, isNew, router, toast]); // Removed stencilType as it's not directly used in this effect's logic after initial prop
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -104,7 +104,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
     const properties = await parseStaticPropertiesString(staticPropertiesString);
     
-    let stencilPayload: Omit<StencilData, 'id'> = { 
+    let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = { 
       name: name.trim(),
       iconName,
       textColor,
@@ -113,9 +113,9 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     };
 
     if (stencilType === 'infrastructure') {
-      (stencilPayload as Omit<InfrastructureStencilData, 'id'>).isBoundary = isBoundary;
+      (stencilPayload as Omit<InfrastructureStencilData, 'id' | 'createdDate' | 'modifiedDate'>).isBoundary = isBoundary;
       if (isBoundary) {
-        (stencilPayload as Omit<InfrastructureStencilData, 'id'>).boundaryColor = boundaryColor;
+        (stencilPayload as Omit<InfrastructureStencilData, 'id' | 'createdDate' | 'modifiedDate'>).boundaryColor = boundaryColor;
       }
     }
 
@@ -127,7 +127,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         await updateStencil(stencilId, stencilPayload); 
         toast({ title: "Stencil Updated", description: `Stencil "${name}" has been updated.` });
       }
-      router.push(`/admin/stencils/${stencilType}`);
+      router.push(`/admin/stencils`); // Redirect to main stencil page
     } catch (err) {
       console.error("Error saving stencil:", err);
       const errorMsg = err instanceof Error ? err.message : "Failed to save stencil.";
@@ -192,8 +192,8 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             <option key={iconKey} value={iconKey}>{iconKey}</option>
           ))}
         </select>
-         {iconName && LucideIcons[iconName] && React.createElement(LucideIcons[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !LucideIcons[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found in Lucide set" />}
+         {iconName && LucideIcons[iconName as string] && React.createElement(LucideIcons[iconName as string] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
+         {iconName && !LucideIcons[iconName as string] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found in Lucide set" />}
 
       </div>
       
