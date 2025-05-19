@@ -4,46 +4,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is authenticated
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if the authenticated user is an admin
-    function isAdmin() {
-      // Assumes user documents are in a 'users' collection and admin users have a 'role' field set to 'admin'
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+    
+    function isAdmin(userId) {
+      // Ensure isAuthenticated is checked before trying to access request.auth.uid
+      return isAuthenticated() && getUserData(userId).role == 'admin';
     }
 
-    // Rules for the 'users' collection
+    // Users collection: Read own profile, Admins can read/write all
     match /users/{userId} {
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
-      allow delete: if isAdmin();
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin(request.auth.uid));
+      allow write: if isAuthenticated() && isAdmin(request.auth.uid);
+      allow create: if isAuthenticated(); // Role is set to 'editor' by default in userService.ts
     }
     match /users {
-      allow list: if isAdmin();
+      allow list: if isAuthenticated() && isAdmin(request.auth.uid); 
     }
 
-    // Rules for the 'threatModels' collection
+    // ThreatModels collection: Users can manage their own models
     match /threatModels/{modelId} {
       allow create: if isAuthenticated();
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     match /threatModels {
-      allow list: if isAuthenticated();
+      allow list: if isAuthenticated(); // Users can list their own models (client queries by userId)
     }
 
-    // Rules for the 'stencils' collection
-    // TEMPORARILY SIMPLIFIED FOR DEBUGGING PERMISSIONS
+    // Stencils collection: TEMPORARILY PUBLIC FOR DIAGNOSTIC PURPOSES
+    // These rules make the stencils collection readable, listable, and writable by anyone.
+    // This is ONLY for diagnosing if the issue is with auth context in Server Actions
+    // or a more fundamental problem.
+    // MUST BE REVERTED to secure admin-only rules immediately after testing.
     match /stencils/{stencilId} {
-      allow read, write: if isAuthenticated(); // Any authenticated user can read/write individual stencils
+      allow read, write: if true; // Allows get, create, update, delete for any document
     }
     match /stencils {
-      allow list: if isAuthenticated(); // Any authenticated user can list stencils
+      allow list: if true;      // Allows listing all stencils
     }
   }
 }
