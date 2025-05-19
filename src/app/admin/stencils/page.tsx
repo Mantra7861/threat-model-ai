@@ -8,7 +8,7 @@ import Link from "next/link";
 import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { getStencils, deleteStencil } from "@/services/stencilService";
+import { getStencils, deleteStencil, addPlaceholderStencils } from "@/services/stencilService"; // Added addPlaceholderStencils
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,7 @@ import {
 import DynamicLucideIcon from '@/components/ui/DynamicLucideIcon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
 
 type StencilType = 'infrastructure' | 'process';
 
@@ -31,7 +31,7 @@ export default function StencilsManagementPage() {
   const { firebaseReady, isAdmin, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<StencilType>('infrastructure');
   const [stencils, setStencils] = useState<StencilData[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Local loading state for fetching stencils
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -55,7 +55,6 @@ export default function StencilsManagementPage() {
   }, [toast]);
 
   useEffect(() => {
-    // Only attempt to fetch if Firebase is ready, auth check is done, and the user is an admin
     if (firebaseReady && !authLoading && isAdmin) {
       fetchStencilsData(activeTab);
     } else if (!authLoading && !isAdmin && firebaseReady) {
@@ -65,7 +64,6 @@ export default function StencilsManagementPage() {
         setError("Failed to connect to the database. Please check configuration or network.");
         setIsLoading(false);
     } else {
-        // Still waiting for auth or Firebase readiness
         setIsLoading(true);
     }
   }, [activeTab, fetchStencilsData, firebaseReady, isAdmin, authLoading]);
@@ -74,7 +72,6 @@ export default function StencilsManagementPage() {
   const handleDelete = async (stencilId: string, stencilName: string) => {
     try {
       await deleteStencil(stencilId);
-      // Refetch stencils for the current tab to update the list
       fetchStencilsData(activeTab);
       toast({ title: "Stencil Deleted", description: `Stencil "${stencilName}" has been removed.` });
     } catch (err) {
@@ -84,8 +81,34 @@ export default function StencilsManagementPage() {
     }
   };
 
+  const handleAddPlaceholders = async () => {
+    const toastId = toast({ title: "Processing...", description: "Adding placeholder stencils." });
+    try {
+      const result = await addPlaceholderStencils();
+      let description = `Added ${result.infraAdded} infrastructure and ${result.processAdded} process stencils.`;
+      if (result.errors.length > 0) {
+        description += ` ${result.errors.length} error(s) occurred. Check console.`;
+      }
+      toast({
+        id: toastId.id, // Update existing toast
+        title: "Placeholders Processed",
+        description: description,
+        variant: result.errors.length > 0 ? "destructive" : "default",
+      });
+      fetchStencilsData(activeTab); // Refresh the list
+    } catch (e) {
+      console.error("Error adding placeholder stencils from UI:", e);
+      toast({
+        id: toastId.id, // Update existing toast
+        title: "Error Adding Placeholders",
+        description: `Could not add placeholder stencils: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const renderStencilTable = (type: StencilType) => {
-    if (authLoading || isLoading) { // Combined loading state
+    if (authLoading || isLoading) {
       return (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
@@ -105,7 +128,7 @@ export default function StencilsManagementPage() {
       );
     }
     
-    if (!isAdmin && firebaseReady) { // Explicit check for non-admin after auth loading
+    if (!isAdmin && firebaseReady) {
         return (
             <div className="flex flex-col items-center justify-center py-10 text-destructive">
                 <AlertTriangle className="h-8 w-8 mb-2" />
@@ -114,7 +137,6 @@ export default function StencilsManagementPage() {
             </div>
         );
     }
-
 
     return (
       <>
@@ -186,7 +208,7 @@ export default function StencilsManagementPage() {
           </Table>
         </div>
         {stencils.length === 0 && !isLoading && !error && (
-          <p className="text-center text-muted-foreground mt-4">No {type} stencils found. Click "Add New" to create one.</p>
+          <p className="text-center text-muted-foreground mt-4">No {type} stencils found. Click "Add New" or "Add Placeholder Stencils" to create some.</p>
         )}
       </>
     );
@@ -197,6 +219,12 @@ export default function StencilsManagementPage() {
         <CardHeader>
             <CardTitle>Stencil Management</CardTitle>
             <CardDescription>Manage stencils for infrastructure and process threat models.</CardDescription>
+             {/* Temporary button for adding placeholders */}
+            {isAdmin && firebaseReady && (
+                <Button onClick={handleAddPlaceholders} variant="outline" size="sm" className="mt-2 w-full sm:w-auto">
+                    Add Placeholder Stencils (Dev Only)
+                </Button>
+            )}
         </CardHeader>
         <CardContent>
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as StencilType)}>
