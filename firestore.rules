@@ -11,50 +11,48 @@ service cloud.firestore {
 
     // Helper function to check if a user is an admin
     function isAdmin(userId) {
-      // Ensure user is authenticated before trying to get data
-      return request.auth != null && request.auth.uid == userId && get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
+      return isAuthenticated() && getUserData(userId).role == 'admin';
     }
-
-    // Helper function to check if a user is authenticated
+    
+    // Helper function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
     // Users collection:
-    // - Authenticated users can read their own profile.
-    // - Admins can read and write any user profile (for role management).
+    // Allow users to read their own profile
+    // Allow admins to read and update any user profile (for role changes)
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin(request.auth.uid));
-      allow list: if isAdmin(request.auth.uid); // Only admins can list all users
-      allow create: if isAuthenticated(); // Allow user creation on signup
-      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin(request.auth.uid));
-      // No delete for now, or make it admin-only
+      allow create: if isAuthenticated(); // Allow creating user profile on signup
+      allow update: if isAuthenticated() && isAdmin(request.auth.uid); // Only admins can update roles
+      // Deny delete by default unless specified
+      allow delete: if false; 
+    }
+    match /users {
+        allow list: if isAuthenticated() && isAdmin(request.auth.uid);
     }
 
     // ThreatModels collection:
-    // - Users can only CRUD their own threat models.
+    // Users can manage their own threat models
     match /threatModels/{modelId} {
       allow create: if isAuthenticated();
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     match /threatModels {
-       // Allow users to list models they own (client queries by userId)
-      allow list: if isAuthenticated();
+        // Allow users to list models where their userId matches (client-side query)
+        allow list: if isAuthenticated();
     }
 
-    // Stencils collection:
-    // - Write operations (create, update, delete) require admin.
-    // - Read operations on individual stencils require admin.
-    // - List operation temporarily allows any authenticated user for diagnostics.
+    // Stencils collection: Only admins can manage stencils
+    // Individual stencil documents (read, create, update, delete)
     match /stencils/{stencilId} {
-      allow read, write: if isAdmin(request.auth.uid);
+      allow read, write: if isAuthenticated() && isAdmin(request.auth.uid);
     }
+    // Listing stencils (collection query)
     match /stencils {
-      // TEMPORARY DIAGNOSTIC RULE: Allow any authenticated user to list stencils.
-      // MUST BE REVERTED to admin-only after testing.
-      allow list: if request.auth != null;
-      // Previous secure rule:
-      // allow list: if isAdmin(request.auth.uid);
+      // TEMPORARY DIAGNOSTIC RULE: Allow anyone to list stencils
+      allow list: if true; 
     }
   }
 }
