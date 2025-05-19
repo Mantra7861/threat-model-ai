@@ -1,58 +1,53 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to get user data
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    // Helper function to check if a user is an admin
-    function isAdmin(userId) {
-      return isAuthenticated() && getUserData(userId).role == 'admin';
-    }
-    
-    // Helper function to check if user is authenticated
+    // Helper function to check if a user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Users collection:
-    // Allow users to read their own profile
-    // Allow admins to read and update any user profile (for role changes)
-    match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin(request.auth.uid));
-      allow create: if isAuthenticated(); // Allow creating user profile on signup
-      allow update: if isAuthenticated() && isAdmin(request.auth.uid); // Only admins can update roles
-      // Deny delete by default unless specified
-      allow delete: if false; 
+    // Helper function to get user data (role)
+    // IMPORTANT: Ensure 'users' collection and 'role' field exist.
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
-    match /users {
-        allow list: if isAuthenticated() && isAdmin(request.auth.uid);
+    
+    // Helper function to check if the authenticated user is an admin
+    // This is the version from your working rules for user management.
+    function isAdmin() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // ThreatModels collection:
-    // Users can manage their own threat models
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+    match /users {
+      allow list: if isAdmin(); 
+    }
+
+    // Rules for the 'threatModels' collection
     match /threatModels/{modelId} {
       allow create: if isAuthenticated();
       allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
     match /threatModels {
-        // Allow users to list models where their userId matches (client-side query)
-        allow list: if isAuthenticated();
+      allow list: if isAuthenticated(); // Client queries with where('userId', '==', request.auth.uid)
     }
 
-    // Stencils collection: Only admins can manage stencils
-    // Individual stencil documents (read, create, update, delete)
+    // Rules for the 'stencils' collection
     match /stencils/{stencilId} {
-      allow read, write: if isAuthenticated() && isAdmin(request.auth.uid);
+      // Admins can read, create, update, delete individual stencils
+      allow read, write: if isAdmin(); // Uses the isAdmin() function defined above
     }
-    // Listing stencils (collection query)
     match /stencils {
-      // TEMPORARY DIAGNOSTIC RULE: Allow anyone to list stencils
-      allow list: if true; 
+      // Admins can list all stencils
+      allow list: if isAdmin(); // Uses the isAdmin() function defined above
     }
   }
 }
