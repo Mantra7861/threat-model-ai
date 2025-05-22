@@ -11,9 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { StencilData, InfrastructureStencilData, StencilFirestoreData } from "@/types/stencil";
-import * as PhosphorIcons from 'phosphor-react'; // Import Phosphor icons
+import * as PhosphorIcons from 'phosphor-react'; 
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
-import { Spinner, WarningTriangle, Question as QuestionIcon } from "phosphor-react"; // Phosphor icons
+import { Spinner, Question as QuestionIcon, Warning } from "phosphor-react"; // Updated icon
 
 // Dynamically get all icon names from phosphor-react, filtering out non-component exports
 const ALL_PHOSPHOR_ICON_NAMES = Object.keys(PhosphorIcons)
@@ -47,7 +47,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<keyof typeof PhosphorIcons>("Package"); // Default icon from Phosphor
+  const [iconName, setIconName] = useState<keyof typeof PhosphorIcons>("Package"); 
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
@@ -135,7 +135,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     
     let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = { 
       name: name.trim(),
-      iconName: iconName as keyof typeof import('phosphor-react'), // Cast to Phosphor keys
+      iconName: iconName as keyof typeof import('phosphor-react'), 
       textColor,
       properties,
       stencilType,
@@ -179,7 +179,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   if (error && !isNew) {
       return (
           <div className="flex flex-col items-center justify-center py-10 text-destructive">
-              <WarningTriangle className="h-8 w-8 mb-2" />
+              <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
               <p className="font-semibold">Error loading stencil</p>
               <p className="text-sm mb-4">{error}</p>
               <Button onClick={() => router.back()} variant="outline">Go Back</Button>

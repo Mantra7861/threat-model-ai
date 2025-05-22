@@ -1,23 +1,22 @@
 
-"use client"; // Make this a Client Component
+"use client"; 
 
 import { useState, useEffect } from 'react';
 import { getAllUsers } from '@/services/userService';
 import { UserManagementTable } from './components/UserManagementTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { WarningTriangle, Spinner } from "phosphor-react"; // Phosphor icons
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { Warning, Spinner } from "phosphor-react"; // Updated icon
+import { useAuth } from '@/contexts/AuthContext'; 
 import type { UserProfile } from '@/types/user';
 
 export default function AdminUsersPage() {
   const { firebaseReady, isAdmin, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true); // Local loading state for fetching users
+  const [loading, setLoading] = useState(true); 
 
   useEffect(() => {
-    // Only attempt to fetch if Firebase is ready, auth check is done, and the user is an admin
     if (firebaseReady && !authLoading && isAdmin) {
       const fetchUsers = async () => {
         setLoading(true);
@@ -28,7 +27,6 @@ export default function AdminUsersPage() {
         } catch (error) {
           console.error("Error fetching users in AdminUsersPage (client component):", error);
           const errorMessage = error instanceof Error ? error.message : "An unknown error occurred while fetching users.";
-          // Check specific error types if needed, e.g., permissions
           if (errorMessage.includes("permission-denied") || errorMessage.includes("Missing or insufficient permissions")) {
              setFetchError("You do not have permission to view the user list.");
           } else {
@@ -40,20 +38,16 @@ export default function AdminUsersPage() {
       };
       fetchUsers();
     } else if (!authLoading && !isAdmin) {
-        // If auth is done but user is not admin (should be handled by layout, but good to check)
         setFetchError("Access Denied: Administrator privileges required.");
         setLoading(false);
     } else if (!firebaseReady && !authLoading) {
-        // If auth is done but Firebase isn't ready
         setFetchError("Failed to connect to the database. Please check configuration or network.");
         setLoading(false);
     } else {
-        // Still waiting for auth or Firebase readiness
         setLoading(true);
     }
-  }, [firebaseReady, isAdmin, authLoading]); // Depend on auth state
+  }, [firebaseReady, isAdmin, authLoading]); 
 
-  // Show loading indicator while auth is resolving or users are fetching
   if (authLoading || loading) {
     return (
         <div className="flex items-center justify-center h-full py-10">
@@ -75,7 +69,7 @@ export default function AdminUsersPage() {
         <CardContent>
           {fetchError ? (
             <Alert variant="destructive">
-              <WarningTriangle className="h-4 w-4" />
+              <Warning className="h-4 w-4" /> {/* Updated icon */}
               <AlertTitle>Error Loading Users</AlertTitle>
               <AlertDescription>{fetchError}</AlertDescription>
             </Alert>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ProcessStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, PencilSimple, Trash, Spinner, WarningTriangle } from "phosphor-react"; // Phosphor icons
+import { PlusCircle, PencilSimple, Trash, Spinner, Warning } from "phosphor-react"; // Updated icon
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil } from "@/services/stencilService";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; 
 
 
 export default function ProcessStencilsPage() {
@@ -71,7 +71,7 @@ export default function ProcessStencilsPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-destructive">
-        <WarningTriangle className="h-8 w-8 mb-2" />
+        <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
         <p className="font-semibold">Error loading stencils</p>
         <p className="text-sm">{error}</p>
         <Button onClick={fetchStencils} className="mt-4">Try Again</Button>

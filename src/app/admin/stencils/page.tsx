@@ -3,9 +3,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { StencilData, InfrastructureStencilData } from "@/types/stencil"; // Removed ProcessStencilData as StencilData covers it
+import type { StencilData, InfrastructureStencilData } from "@/types/stencil"; 
 import Link from "next/link";
-import { PlusCircle, PencilSimple, Trash, Spinner, WarningTriangle } from "phosphor-react"; // Phosphor icons
+import { PlusCircle, PencilSimple, Trash, Spinner, Warning } from "phosphor-react"; // Updated icon
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil, addPlaceholderStencils } from "@/services/stencilService";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,16 +90,16 @@ export default function StencilsManagementPage() {
         description += ` ${result.errors.length} error(s) occurred. Check console.`;
       }
       toast({
-        id: toastId.id, // Update existing toast
+        id: toastId.id, 
         title: "Placeholders Processed",
         description: description,
         variant: result.errors.length > 0 ? "destructive" : "default",
       });
-      fetchStencilsData(activeTab); // Refresh the list
+      fetchStencilsData(activeTab); 
     } catch (e) {
       console.error("Error adding placeholder stencils from UI:", e);
       toast({
-        id: toastId.id, // Update existing toast
+        id: toastId.id, 
         title: "Error Adding Placeholders",
         description: `Could not add placeholder stencils: ${e instanceof Error ? e.message : 'Unknown error'}`,
         variant: "destructive",
@@ -120,7 +120,7 @@ export default function StencilsManagementPage() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-10 text-destructive">
-          <WarningTriangle className="h-8 w-8 mb-2" />
+          <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
           <p className="font-semibold">Error loading stencils</p>
           <p className="text-sm mb-2">{error}</p>
           {isAdmin && firebaseReady && <Button onClick={() => fetchStencilsData(type)} className="mt-4">Try Again</Button>}
@@ -131,7 +131,7 @@ export default function StencilsManagementPage() {
     if (!isAdmin && firebaseReady) {
         return (
             <div className="flex flex-col items-center justify-center py-10 text-destructive">
-                <WarningTriangle className="h-8 w-8 mb-2" />
+                <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
                 <p className="font-semibold">Access Denied</p>
                 <p className="text-sm mb-2">You do not have permission to manage stencils.</p>
             </div>

@@ -1,17 +1,15 @@
 
 "use client";
 
-import { useState, type Dispatch, type SetStateAction, useRef, useEffect } from 'react';
+import { useState, type Dispatch, type SetStateAction, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
-import { Spinner, WarningTriangle, ShieldCheck, Eye } from 'phosphor-react'; // Phosphor icons
+import { Spinner, Warning, ShieldCheck, Eye } from 'phosphor-react'; // Updated icon
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { Diagram, ReportEntry } from '@/services/diagram';
 import { format } from 'date-fns';
-// html2pdf is client-side only, so dynamic import is needed
-// import html2pdf from 'html2pdf.js'; // Removed direct import
 
 interface ThreatReportPanelProps {
   getCurrentDiagramData: () => Diagram | null;
@@ -32,7 +30,6 @@ export function ThreatReportPanel({
   const [html2pdf, setHtml2pdf] = useState<any>(null);
 
   useEffect(() => {
-    // Dynamically import html2pdf.js on the client side
     if (typeof window !== 'undefined') {
       import('html2pdf.js').then(module => {
         setHtml2pdf(() => module.default);
@@ -204,7 +201,7 @@ export function ThreatReportPanel({
         <Card className="border-destructive bg-destructive/10">
             <CardHeader className="pb-2">
                 <CardTitle className="text-destructive text-base flex items-center">
-                    <WarningTriangle className="mr-2 h-5 w-5" />
+                    <Warning className="mr-2 h-5 w-5" /> {/* Updated icon */}
                     Report Generation Failed
                 </CardTitle>
             </CardHeader>
