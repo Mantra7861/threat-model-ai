@@ -3,9 +3,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { StencilData, InfrastructureStencilData } from "@/types/stencil"; 
+import type { StencilData, InfrastructureStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, PencilSimple, Trash, Spinner, Warning } from "phosphor-react"; // Updated icon
+import { PlusCircle, PencilSimple, Trash, Spinner, Warning } from "phosphor-react";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil, addPlaceholderStencils } from "@/services/stencilService";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; 
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,6 +64,7 @@ export default function StencilsManagementPage() {
         setError("Failed to connect to the database. Please check configuration or network.");
         setIsLoading(false);
     } else {
+        // This case handles when authLoading is true, so we set isLoading to true.
         setIsLoading(true);
     }
   }, [activeTab, fetchStencilsData, firebaseReady, isAdmin, authLoading]);
@@ -72,7 +73,7 @@ export default function StencilsManagementPage() {
   const handleDelete = async (stencilId: string, stencilName: string) => {
     try {
       await deleteStencil(stencilId);
-      fetchStencilsData(activeTab);
+      fetchStencilsData(activeTab); // Refetch after delete
       toast({ title: "Stencil Deleted", description: `Stencil "${stencilName}" has been removed.` });
     } catch (err) {
       console.error("Error deleting stencil:", err);
@@ -82,30 +83,33 @@ export default function StencilsManagementPage() {
   };
 
   const handleAddPlaceholders = async () => {
-    const toastId = toast({ title: "Processing...", description: "Adding placeholder stencils." });
+    const toastIdObj = toast({ title: "Processing...", description: "Adding placeholder stencils." });
     try {
       const result = await addPlaceholderStencils();
       let description = `Added ${result.infraAdded} infrastructure and ${result.processAdded} process stencils.`;
       if (result.errors.length > 0) {
         description += ` ${result.errors.length} error(s) occurred. Check console.`;
+        console.error("Errors during placeholder stencil addition:", result.errors);
       }
       toast({
-        id: toastId.id, 
+        id: toastIdObj.id,
         title: "Placeholders Processed",
         description: description,
         variant: result.errors.length > 0 ? "destructive" : "default",
       });
-      fetchStencilsData(activeTab); 
+      fetchStencilsData(activeTab); // Refresh the list
     } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : 'Unknown error';
       console.error("Error adding placeholder stencils from UI:", e);
       toast({
-        id: toastId.id, 
+        id: toastIdObj.id,
         title: "Error Adding Placeholders",
-        description: `Could not add placeholder stencils: ${e instanceof Error ? e.message : 'Unknown error'}`,
+        description: `Could not add placeholder stencils: ${errorMsg}`,
         variant: "destructive",
       });
     }
   };
+
 
   const renderStencilTable = (type: StencilType) => {
     if (authLoading || isLoading) {
@@ -120,18 +124,18 @@ export default function StencilsManagementPage() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-10 text-destructive">
-          <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
+          <Warning className="h-8 w-8 mb-2" />
           <p className="font-semibold">Error loading stencils</p>
           <p className="text-sm mb-2">{error}</p>
           {isAdmin && firebaseReady && <Button onClick={() => fetchStencilsData(type)} className="mt-4">Try Again</Button>}
         </div>
       );
     }
-    
+
     if (!isAdmin && firebaseReady) {
         return (
             <div className="flex flex-col items-center justify-center py-10 text-destructive">
-                <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
+                <Warning className="h-8 w-8 mb-2" />
                 <p className="font-semibold">Access Denied</p>
                 <p className="text-sm mb-2">You do not have permission to manage stencils.</p>
             </div>
@@ -162,7 +166,12 @@ export default function StencilsManagementPage() {
               {stencils.map((stencil) => (
                 <TableRow key={stencil.id}>
                   <TableCell>
-                     <DynamicPhosphorIcon name={stencil.iconName || 'Question'} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
+                     <DynamicPhosphorIcon
+                        name={stencil.iconName || 'Question'}
+                        className="h-5 w-5" // Tailwind class for basic sizing
+                        size={20} // Explicit size prop for Phosphor
+                        style={{ color: stencil.textColor || '#000000' }}
+                      />
                   </TableCell>
                   <TableCell className="font-medium">{stencil.name}</TableCell>
                   <TableCell>{stencil.stencilType}</TableCell>

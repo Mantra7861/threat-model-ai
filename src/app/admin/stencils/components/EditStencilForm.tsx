@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react"; 
+import React from "react";
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { StencilData, InfrastructureStencilData, StencilFirestoreData } from "@/types/stencil";
-import * as PhosphorIcons from 'phosphor-react'; 
+import * as PhosphorIcons from 'phosphor-react';
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
 import { Spinner, Question as QuestionIcon, Warning } from "phosphor-react";
 
-// Removed ALL_PHOSPHOR_ICON_NAMES generation
 
 interface EditStencilFormProps {
   stencilType: 'infrastructure' | 'process';
@@ -26,16 +25,16 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const params = useParams();
   const { toast } = useToast();
   const stencilId = params.stencilId as string;
-  
+
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<string>("Package"); // Changed to string
+  const [iconName, setIconName] = useState<string>("Package");
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
   const [boundaryColor, setBoundaryColor] = useState("#ff0000");
-  
+
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,17 +48,17 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         const stencil = await getStencilById(stencilId);
         if (stencil) {
           setName(stencil.name);
-          
+
           // Check if iconName from Firestore is a valid Phosphor icon
           if (stencil.iconName && (PhosphorIcons as any)[stencil.iconName as keyof typeof PhosphorIcons]) {
-            setIconName(stencil.iconName as keyof typeof PhosphorIcons);
+            setIconName(stencil.iconName);
           } else {
             if (stencil.iconName) {
                 console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
             }
             setIconName("Package"); // Default if not valid or not present
           }
-          
+
           setTextColor(stencil.textColor || "#000000");
           const formattedProps = await formatStaticPropertiesToString(stencil.properties);
           setStaticPropertiesString(formattedProps);
@@ -70,7 +69,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           }
         } else {
           toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
-          router.replace(`/admin/stencils`); 
+          router.replace(`/admin/stencils`);
         }
       } catch (err) {
         console.error("Error fetching stencil:", err);
@@ -84,7 +83,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     if (!isNew && stencilId) {
       loadStencilData();
     } else {
-      setIsLoading(false); 
+      setIsLoading(false);
     }
   }, [stencilId, isNew, router, toast]);
 
@@ -98,7 +97,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         setIsSaving(false);
         return;
     }
-    
+
     if (!iconName.trim()) {
         toast({ title: "Validation Error", description: "Icon name cannot be empty.", variant: "destructive" });
         setIsSaving(false);
@@ -112,10 +111,10 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
 
     const properties = await parseStaticPropertiesString(staticPropertiesString);
-    
-    let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = { 
+
+    let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = {
       name: name.trim(),
-      iconName: iconName.trim() as keyof typeof import('phosphor-react'), 
+      iconName: iconName.trim(), // Will be treated as string
       textColor,
       properties,
       stencilType,
@@ -130,13 +129,13 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
     try {
       if (isNew) {
-        await addStencil(stencilPayload as StencilFirestoreData); 
+        await addStencil(stencilPayload as StencilFirestoreData);
         toast({ title: "Stencil Created", description: `Stencil "${name}" has been created.` });
       } else {
-        await updateStencil(stencilId, stencilPayload); 
+        await updateStencil(stencilId, stencilPayload);
         toast({ title: "Stencil Updated", description: `Stencil "${name}" has been updated.` });
       }
-      router.push(`/admin/stencils`); 
+      router.push(`/admin/stencils`);
     } catch (err) {
       console.error("Error saving stencil:", err);
       const errorMsg = err instanceof Error ? err.message : "Failed to save stencil.";
@@ -170,7 +169,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && isSaving && ( 
+      {error && isSaving && (
           <div className="p-3 rounded-md bg-destructive/10 text-destructive border border-destructive/50">
               <p className="font-medium text-sm">Failed to save: {error}</p>
           </div>
@@ -194,7 +193,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           name="iconName"
           value={iconName}
           onChange={(e) => setIconName(e.target.value)}
-          placeholder="e.g., HardDrive, Circle, Diamond"
+          placeholder="e.g., HardDrive, Circle, Diamond (PascalCase)"
           disabled={isSaving}
           required
         />
@@ -205,11 +204,11 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             </a>.
             The preview below will update.
         </p>
-         {iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] && React.createElement((PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !(PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] && <QuestionIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title={`Icon "${iconName}" not found or invalid. Check Phosphor Icons website.`} />}
-         {!iconName && <QuestionIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon name entered" />}
+         {iconName && (PhosphorIcons as any)[iconName] && React.createElement((PhosphorIcons as any)[iconName] as React.ElementType, { size: 32, className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
+         {iconName && !(PhosphorIcons as any)[iconName] && <QuestionIcon size={32} className="w-8 h-8 mt-2 inline-block text-muted-foreground" title={`Icon "${iconName}" not found or invalid. Check Phosphor Icons website.`} />}
+         {!iconName && <QuestionIcon size={32} className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon name entered" />}
       </div>
-      
+
       <div>
         <Label htmlFor="textColor">Icon/Text Color</Label>
         <Input
@@ -219,7 +218,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           value={textColor}
           onChange={(e) => setTextColor(e.target.value)}
           disabled={isSaving}
-          className="h-10 p-1" // Adjusted for better color input appearance
+          className="h-10 p-1"
         />
       </div>
 
@@ -246,7 +245,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
                 value={boundaryColor}
                 onChange={(e) => setBoundaryColor(e.target.value)}
                 disabled={isSaving}
-                className="h-10 p-1" // Adjusted for better color input appearance
+                className="h-10 p-1"
               />
             </div>
           )}
@@ -279,5 +278,3 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     </form>
   );
 }
-
-
