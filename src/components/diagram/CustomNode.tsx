@@ -15,42 +15,72 @@ const DiamondIconSvg = () => (
 );
 
 export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos, isConnectable, zIndex: rfProvidedZIndex, parentNode }) => {
-  const iconNameFromType = type; // This is effectively the iconName passed from DiagramCanvas's nodeTypes mapping
-  const iconNameFromData = data?.iconName as keyof typeof LucideIcons | undefined; // data.iconName should match type
-  const effectiveIconName = iconNameFromData || iconNameFromType;
+  const iconNameFromData = data?.iconName as keyof typeof LucideIcons | undefined;
+  // 'type' prop from React Flow's nodeTypes usually holds the icon name or a general type.
+  // Prioritize data.iconName if present, otherwise use the node's 'type' prop as the icon name.
+  const effectiveIconName = iconNameFromData || type as keyof typeof LucideIcons;
 
 
   const Icon = (() => {
-    if (effectiveIconName === 'Diamond') return DiamondIconSvg; // Special case for Diamond if needed as SVG
-    const LucideIconComponent = LucideIcons[effectiveIconName as keyof typeof LucideIcons];
-    return LucideIconComponent || LucideIcons.HelpCircle; // Fallback
+    if (effectiveIconName === 'Diamond') return DiamondIconSvg;
+    // Check if effectiveIconName is a valid key in LucideIcons
+    if (effectiveIconName && LucideIcons[effectiveIconName as keyof typeof LucideIcons]) {
+        const LucideIconComponent = LucideIcons[effectiveIconName as keyof typeof LucideIcons];
+        return LucideIconComponent;
+    }
+    return LucideIcons.HelpCircle; // Fallback icon
   })();
 
   const isBoundaryBox = data?.isBoundary === true;
-  const isNodeResizable = data?.resizable === true || isBoundaryBox; // All nodes are resizable, boundaries especially
+  const isNodeResizable = data?.resizable === true || isBoundaryBox;
   const showResizer = selected && isNodeResizable;
 
   if (!data) {
     console.error(`CustomNode (id: ${id}): Missing data prop.`);
     return <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700">Error: Missing Node Data</div>;
   }
-  
-  // For non-boundary nodes, an icon is expected. Boundaries manage their appearance differently.
+
   if (!isBoundaryBox && !effectiveIconName) {
-    console.error(`CustomNode (id: ${id}, type: ${type}): Missing type/iconName prop for non-boundary node.`);
-    return <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700">Error: Missing Node Type/IconName</div>;
+    console.warn(`CustomNode (id: ${id}, type: ${type}): Missing effectiveIconName for non-boundary node. Defaulting to HelpCircle.`);
+    // No longer an error, will use HelpCircle as fallback.
   }
 
   const effectiveZIndex = calculateEffectiveZIndex(id, isBoundaryBox ? 'boundary' : (effectiveIconName || 'default'), selected, rfProvidedZIndex, selected ? id : null);
 
-  let shapeSpecificStyles = {};
-  // Example: if 'Circle' icon is used for stencils that should be circular
-  if (!isBoundaryBox && effectiveIconName === 'Circle') { 
-    shapeSpecificStyles = { borderRadius: '50%' };
-  }
+  // Base classes for the node
+  let nodeClasses = "flex flex-col items-center justify-center p-3 w-full h-full relative group"; // Added group for potential hover effects
+  let nodeSpecificStyles: React.CSSProperties = { zIndex: effectiveZIndex };
+  let labelSpecificStyles: React.CSSProperties = {};
 
-  const boundaryNodeBaseClass = "react-flow__node-boundary"; // From globals.css
-  const regularNodeBaseClass = `react-flow__node-${effectiveIconName?.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+  if (isBoundaryBox) {
+    nodeClasses = cn(nodeClasses, "react-flow__node-boundary"); // Class from globals.css for dashed border, transparent bg
+    const boundaryColor = data.boundaryColor || 'hsl(var(--destructive))'; // Fallback to destructive theme color
+    nodeSpecificStyles.borderColor = boundaryColor;
+    labelSpecificStyles.color = boundaryColor;
+    nodeSpecificStyles.color = boundaryColor; // Ensures text elements inherit if not explicitly styled
+
+  } else {
+    // For regular nodes, construct the type-specific class name (e.g., react-flow__node-server)
+    // This class in globals.css is responsible for the *always-visible* border.
+    const typeClassName = `react-flow__node-${effectiveIconName?.toLowerCase().replace(/[^a-z0-9-]/g, '') || 'default'}`;
+    nodeClasses = cn(nodeClasses, typeClassName);
+
+    if (data.textColor) {
+      nodeSpecificStyles.color = data.textColor; // Icon color, and fallback for label
+      labelSpecificStyles.color = data.textColor; // Explicit label color
+    }
+
+    // Apply selection ring for regular nodes - this is an *additional* visual indicator
+    if (selected) {
+      nodeClasses = cn(nodeClasses, "ring-2 ring-primary ring-offset-1");
+    }
+
+    // Example: if 'Circle' icon is used for stencils that should be circular
+    if (effectiveIconName === 'Circle') {
+      nodeSpecificStyles.borderRadius = '50%';
+    }
+  }
 
   return (
     <>
@@ -62,54 +92,30 @@ export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos
           handleClassName={cn(
             "!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
           )}
-          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} // Ensure resizer handles are on top
+          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
+          isVisible={selected} // Ensure resizer is only visible when selected
         />
       )}
 
       <div
-        className={cn(
-          "flex flex-col items-center justify-center p-3 w-full h-full relative hover:shadow-lg",
-          isBoundaryBox ? boundaryNodeBaseClass : regularNodeBaseClass,
-          // General selection outline for non-boundary nodes
-          selected && !isBoundaryBox && `ring-2 ring-primary ring-offset-1`,
-          // Selection outline for boundary nodes (uses its own border color for ring)
-          selected && isBoundaryBox && `ring-1 ring-offset-0` 
-        )}
-        style={{
-          ...shapeSpecificStyles,
-          zIndex: effectiveZIndex,
-          // For Boundary Boxes:
-          ...(isBoundaryBox && {
-            borderColor: data.boundaryColor || 'hsl(var(--destructive))', // Use specified color or fallback from CSS
-            color: data.boundaryColor || 'hsl(var(--destructive))',       // Text color for boundary label
-            // Background is handled by react-flow__node-boundary class -> !bg-transparent
-          }),
-          // For Regular Nodes:
-          ...(!isBoundaryBox && {
-            color: data.textColor || 'hsl(var(--card-foreground))', // Text color for regular node icon/label
-            // Border color for regular nodes is primarily handled by their specific class in globals.css
-          }),
-        }}
+        className={nodeClasses}
+        style={nodeSpecificStyles}
       >
-
         {!isBoundaryBox && Icon && (
-            <Icon 
+            <Icon
                 className={cn(
                     "w-8 h-8 mb-1",
-                    // Larger icons for specific process shapes if desired
                     (['Square', 'Circle', 'Diamond', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(effectiveIconName || '')) && "w-10 h-10"
-                )} 
-                style={{ color: data?.textColor || 'inherit' }} // Icon color from data or inherit from parent div
+                )}
+                // Icon color directly from data.textColor or inherits from nodeSpecificStyles.color (which also comes from data.textColor)
+                style={{ color: data?.textColor || nodeSpecificStyles.color || 'inherit' }}
             />
         )}
 
         <span className={cn(
             "text-xs font-medium truncate max-w-[90%]",
              isBoundaryBox && "text-sm font-semibold absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-card px-1 py-0.5 rounded shadow-sm"
-        )} style={{ 
-            // Explicitly set text color for boundary label based on boundaryColor
-            color: isBoundaryBox ? (data.boundaryColor || 'hsl(var(--destructive))') : 'inherit' 
-        }}>
+        )} style={labelSpecificStyles}>
           {data.label || 'Unnamed Component'}
         </span>
 
