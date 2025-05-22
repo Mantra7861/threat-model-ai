@@ -13,20 +13,23 @@ interface DynamicPhosphorIconProps {
   [key: string]: any; // For other props like color, weight
 }
 
-const DynamicPhosphorIcon: React.FC<DynamicPhosphorIconProps> = ({ name, size, ...props }) => {
+const DynamicPhosphorIcon: React.FC<DynamicPhosphorIconProps> = ({ name, size = 24, ...props }) => {
+  // Debug log to see what icon name is being attempted
+  console.log(`DynamicPhosphorIcon: Attempting to render icon with name="${name}", size=${size}`);
+
   if (!name || name.trim() === "") {
     console.warn(`DynamicPhosphorIcon: Received empty or invalid name. Falling back to QuestionIcon.`);
-    return <QuestionIcon size={size || 24} {...props} />; // Pass size to fallback
+    return <QuestionIcon size={size} {...props} />;
   }
 
   const IconComponent = (PhosphorIcons as any)[name] as PhosphorIcons.Icon | undefined;
 
   if (IconComponent && typeof IconComponent === 'function') {
-    return <IconComponent size={size || undefined} {...props} />; // Pass size to actual icon
+    return <IconComponent size={size} {...props} />;
   }
 
-  console.warn(`DynamicPhosphorIcon: Icon "${name}" not found or not a valid component in PhosphorIcons. Falling back to QuestionIcon.`);
-  return <QuestionIcon size={size || 24} {...props} />; // Pass size to fallback
+  console.warn(`DynamicPhosphorIcon: Icon name "${name}" not found or not a valid component in PhosphorIcons. Falling back to QuestionIcon.`);
+  return <QuestionIcon size={size} {...props} />;
 };
 
 export default DynamicPhosphorIcon;

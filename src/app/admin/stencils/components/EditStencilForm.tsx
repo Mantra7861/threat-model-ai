@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react";
+import React from "react"; // Ensure React is imported
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<string>("Package");
+  const [iconName, setIconName] = useState<string>(isNew ? "Package" : ""); // Default for new, load for existing
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
@@ -48,17 +48,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         const stencil = await getStencilById(stencilId);
         if (stencil) {
           setName(stencil.name);
-
-          // Check if iconName from Firestore is a valid Phosphor icon
-          if (stencil.iconName && (PhosphorIcons as any)[stencil.iconName as keyof typeof PhosphorIcons]) {
-            setIconName(stencil.iconName);
-          } else {
-            if (stencil.iconName) {
-                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
-            }
-            setIconName("Package"); // Default if not valid or not present
-          }
-
+          setIconName(stencil.iconName || "Package"); // Default to "Package" if not set
           setTextColor(stencil.textColor || "#000000");
           const formattedProps = await formatStaticPropertiesToString(stencil.properties);
           setStaticPropertiesString(formattedProps);
@@ -98,15 +88,18 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         return;
     }
 
-    if (!iconName.trim()) {
+    const finalIconName = iconName.trim() || "Package"; // Default to "Package" if empty
+
+    if (!finalIconName) { // Should not happen with default but good practice
         toast({ title: "Validation Error", description: "Icon name cannot be empty.", variant: "destructive" });
         setIsSaving(false);
         return;
     }
-    // Check if the typed iconName is a valid Phosphor icon component for better UX, though preview helps
-    if (!(PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons]) {
-        toast({ title: "Validation Warning", description: `Icon name "${iconName}" might not be a valid Phosphor icon. Please check the preview and the Phosphor Icons website.`, variant: "default" });
-        // Optionally, do not block saving if admin is sure.
+    
+    if (!(PhosphorIcons as any)[finalIconName as keyof typeof PhosphorIcons]) {
+        toast({ title: "Validation Warning", description: `Icon name "${finalIconName}" might not be a valid Phosphor icon. Preview will show fallback. Please check Phosphor Icons website. Defaulting to 'Package' if save proceeds with invalid name.`, variant: "default" });
+        // Optionally, do not block saving if admin is sure, or force valid selection.
+        // For now, we proceed but the preview indicates the issue.
     }
 
 
@@ -114,7 +107,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
     let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = {
       name: name.trim(),
-      iconName: iconName.trim(), // Will be treated as string
+      iconName: finalIconName, // Use finalIconName which has a default
       textColor,
       properties,
       stencilType,
@@ -166,6 +159,9 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
       );
   }
 
+  const CurrentIconPreview = iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons]
+    ? (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons]
+    : QuestionIcon;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -195,18 +191,20 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           onChange={(e) => setIconName(e.target.value)}
           placeholder="e.g., HardDrive, Circle, Diamond (PascalCase)"
           disabled={isSaving}
-          required
         />
          <p className="text-xs text-muted-foreground mt-1">
             Enter the PascalCase name of an icon from {' '}
             <a href="https://phosphoricons.com/" target="_blank" rel="noopener noreferrer" className="underline text-primary">
                 Phosphor Icons
             </a>.
-            The preview below will update.
+            The preview below will update. If the name is invalid, a question mark icon will be shown.
         </p>
-         {iconName && (PhosphorIcons as any)[iconName] && React.createElement((PhosphorIcons as any)[iconName] as React.ElementType, { size: 32, className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !(PhosphorIcons as any)[iconName] && <QuestionIcon size={32} className="w-8 h-8 mt-2 inline-block text-muted-foreground" title={`Icon "${iconName}" not found or invalid. Check Phosphor Icons website.`} />}
-         {!iconName && <QuestionIcon size={32} className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon name entered" />}
+        <CurrentIconPreview 
+            size={32} 
+            className="w-8 h-8 mt-2 inline-block" 
+            style={{color: textColor || '#000000'}} 
+            title={iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] ? `Preview: ${iconName}` : `Icon "${iconName}" not found or invalid. Defaulting to question mark.`}
+        />
       </div>
 
       <div>
