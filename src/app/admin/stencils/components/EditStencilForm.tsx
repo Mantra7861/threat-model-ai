@@ -15,10 +15,11 @@ import * as LucideIcons from 'lucide-react';
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
 import { Loader2, AlertTriangle, HelpCircle as HelpCircleIcon } from "lucide-react";
 
+// Dynamically get all icon names from lucide-react, filtering out non-component exports
 const ALL_LUCIDE_ICON_NAMES = Object.keys(LucideIcons).filter(key => 
     key !== 'createLucideIcon' && 
     key !== 'icons' && 
-    typeof LucideIcons[key as keyof typeof LucideIcons] === 'function'
+    typeof LucideIcons[key as keyof typeof LucideIcons] === 'function' // Check if it's a component
 ) as (keyof typeof LucideIcons)[];
 
 
@@ -35,7 +36,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<keyof typeof LucideIcons>("Package");
+  const [iconName, setIconName] = useState<keyof typeof LucideIcons>("Package"); // Default icon
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
@@ -55,11 +56,11 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         if (stencil) {
           setName(stencil.name);
           
-          const LIcons = LucideIcons as any; // To allow indexing by string
-          if (stencil.iconName && LIcons[stencil.iconName as string]) {
+          // Check if the iconName from Firestore is a valid Lucide icon component name
+          if (stencil.iconName && ALL_LUCIDE_ICON_NAMES.includes(stencil.iconName as keyof typeof LucideIcons)) {
             setIconName(stencil.iconName as keyof typeof LucideIcons);
           } else {
-            console.warn(`Invalid icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
+            console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
             setIconName("Package"); // Default to a known safe icon
           }
           
@@ -89,7 +90,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     } else {
       setIsLoading(false); 
     }
-  }, [stencilId, isNew, router, toast]); // Removed stencilType as it's not directly used in this effect's logic after initial prop
+  }, [stencilId, isNew, router, toast]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -101,6 +102,15 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         setIsSaving(false);
         return;
     }
+    
+    // Ensure iconName is a valid Lucide icon before saving
+    if (!iconName || !ALL_LUCIDE_ICON_NAMES.includes(iconName)) {
+        toast({ title: "Validation Error", description: "Invalid icon selected. Please choose an icon from the list.", variant: "destructive" });
+        setIconName("Package"); // Reset to default or prompt user
+        setIsSaving(false);
+        return;
+    }
+
 
     const properties = await parseStaticPropertiesString(staticPropertiesString);
     
@@ -188,13 +198,14 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           disabled={isSaving}
           className="w-full p-2 border rounded-md bg-background text-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2"
         >
+          <option value="" disabled>Select an icon</option>
           {ALL_LUCIDE_ICON_NAMES.map(iconKey => (
             <option key={iconKey} value={iconKey}>{iconKey}</option>
           ))}
         </select>
-         {iconName && LucideIcons[iconName as string] && React.createElement(LucideIcons[iconName as string] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !LucideIcons[iconName as string] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found in Lucide set" />}
-
+         {iconName && LucideIcons[iconName] && React.createElement(LucideIcons[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
+         {iconName && !LucideIcons[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found or invalid" />}
+         {!iconName && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon selected" />}
       </div>
       
       <div>
@@ -249,7 +260,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           placeholder="Example:\nOS: Linux\nVersion: Latest\nIsEncrypted: true"
           disabled={isSaving}
         />
-        <p className="text-xs text-muted-foreground mt-1">These are default properties added to new instances of this stencil on the canvas. Values will be stored as strings by default unless handled by custom parsing logic.</p>
+        <p className="text-xs text-muted-foreground mt-1">These are default properties added to new instances of this stencil on the canvas. Values will be stored as strings, booleans, or numbers based on parsing.</p>
       </div>
 
       <div className="flex justify-end space-x-2">
@@ -264,3 +275,5 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     </form>
   );
 }
+
+    
