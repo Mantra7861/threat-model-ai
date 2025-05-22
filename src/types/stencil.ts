@@ -1,6 +1,6 @@
 
-import type { Icon as LucideIcon } from 'lucide-react';
-import type { Timestamp } from 'firebase-admin/firestore'; // For Admin SDK types if needed server-side before conversion
+import type { Icon as PhosphorIcon } from 'phosphor-react'; // Import from phosphor-react
+import type { Timestamp } from 'firebase-admin/firestore'; 
 
 export interface StencilProperty {
   key: string;
@@ -10,11 +10,11 @@ export interface StencilProperty {
 export interface BaseStencil {
   id: string; 
   name: string;
-  iconName: keyof typeof import('lucide-react'); 
+  iconName: keyof typeof import('phosphor-react'); // Updated to phosphor-react
   textColor?: string; 
   properties?: Record<string, string | boolean | number | null>; 
-  createdDate?: string; // ISO string for client
-  modifiedDate?: string; // ISO string for client
+  createdDate?: string; 
+  modifiedDate?: string; 
 }
 
 export interface InfrastructureStencilData extends BaseStencil {
@@ -29,9 +29,6 @@ export interface ProcessStencilData extends BaseStencil {
 
 export type StencilData = InfrastructureStencilData | ProcessStencilData;
 
-// Type for data being saved to Firestore using Admin SDK
-// Dates will be FieldValue.serverTimestamp() or actual Timestamp objects on write/update
 export type StencilFirestoreData = 
   Omit<InfrastructureStencilData, 'id' | 'createdDate' | 'modifiedDate'> & { createdDate?: Timestamp | Date, modifiedDate?: Timestamp | Date } | 
   Omit<ProcessStencilData, 'id' | 'createdDate' | 'modifiedDate'> & { createdDate?: Timestamp | Date, modifiedDate?: Timestamp | Date };
-

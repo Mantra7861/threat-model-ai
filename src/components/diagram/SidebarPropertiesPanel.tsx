@@ -1,7 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Node, Edge } from '@xyflow/react'; // Import Edge type
+import type { Node, Edge } from '@xyflow/react'; 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { suggestComponentProperties } from '@/ai/flows/suggest-component-properties';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Trash2 } from 'lucide-react';
+import { Sparkle, Trash } from 'phosphor-react'; // Phosphor icons
 import { Checkbox } from '../ui/checkbox';
 import {
   AlertDialog,
@@ -24,10 +25,10 @@ import {
 } from "@/components/ui/alert-dialog"
 
 interface SidebarPropertiesPanelProps {
-  selectedElement: Node | Edge | null; // Changed from selectedNode
+  selectedElement: Node | Edge | null; 
   onUpdateProperties: (elementId: string, newProperties: Record<string, any>, isNode: boolean) => void;
   diagramDescription?: string;
-  onDeleteElement: (elementId: string, isNode: boolean) => void; // Changed from onDeleteNode
+  onDeleteElement: (elementId: string, isNode: boolean) => void; 
 }
 
 export function SidebarPropertiesPanel({
@@ -44,7 +45,6 @@ export function SidebarPropertiesPanel({
     if (selectedElement?.data?.properties) {
       setLocalProperties({ ...selectedElement.data.properties });
     } else if (selectedElement?.data && !selectedElement.data.properties && 'source' in selectedElement && 'target' in selectedElement) {
-      // This is likely an edge without pre-defined properties in its data object, common for new edges
       const defaultEdgeProps = {
         name: selectedElement.data.label || 'Data Flow',
         description: 'A data flow connection.',
@@ -53,8 +53,8 @@ export function SidebarPropertiesPanel({
         securityConsiderations: 'Needs review',
       };
       setLocalProperties(defaultEdgeProps);
-    } else if (selectedElement?.data) { // General case for elements with data but maybe no explicit properties obj
-        setLocalProperties({...selectedElement.data}); // Could be a node with simple data
+    } else if (selectedElement?.data) { 
+        setLocalProperties({...selectedElement.data}); 
     }
     else {
       setLocalProperties({});
@@ -70,7 +70,7 @@ export function SidebarPropertiesPanel({
 
   const handleInputChange = (propName: string, value: any) => {
     if (!selectedElement) return;
-    const isNodeElement = 'position' in selectedElement; // Check if it's a Node
+    const isNodeElement = 'position' in selectedElement; 
 
     const newProps = {
       ...localProperties,
@@ -79,7 +79,6 @@ export function SidebarPropertiesPanel({
     setLocalProperties(newProps);
 
     if (propName === 'name') {
-      // For name changes, update immediately as it might affect the label on canvas
       onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement);
     } else {
       debouncedUpdate(selectedElement.id, newProps, isNodeElement);
@@ -87,11 +86,11 @@ export function SidebarPropertiesPanel({
   };
 
   const handleSuggestProperties = async () => {
-    if (!selectedElement || !selectedElement.data || !('position' in selectedElement)) { // Ensure it's a Node
+    if (!selectedElement || !selectedElement.data || !('position' in selectedElement)) { 
         toast({ title: "Info", description: "AI property suggestion is only available for components.", variant: "default"});
         return;
     }
-    const nodeElement = selectedElement as Node; // Type assertion
+    const nodeElement = selectedElement as Node; 
 
     setIsSuggesting(true);
     toast({
@@ -165,9 +164,8 @@ export function SidebarPropertiesPanel({
     );
   }
 
-  const isNode = 'position' in selectedElement; // True if Node, false if Edge
+  const isNode = 'position' in selectedElement; 
   const elementData = selectedElement.data || {};
-  // Determine type and name based on whether it's a node or edge
   const elementType = isNode 
     ? ((selectedElement as Node).data?.type || (selectedElement as Node).type || 'default') 
     : 'Data Flow';
@@ -176,12 +174,9 @@ export function SidebarPropertiesPanel({
 
 
   let currentPropsToIterate = localProperties;
-  // If an edge is selected and its properties haven't been populated into localProperties (e.g., from initial state or selection logic)
-  // we should ensure the properties shown are from selectedElement.data.properties or defaults.
   if (!isNode && selectedElement.data?.properties && Object.keys(localProperties).length === 0) {
      currentPropsToIterate = selectedElement.data.properties;
   } else if (!isNode && Object.keys(localProperties).length === 0) {
-    // Fallback for edges that might not have data.properties but do have data.label
      currentPropsToIterate = {
         name: selectedElement.data?.label || 'Data Flow',
         description: 'A data flow connection.',
@@ -203,13 +198,11 @@ export function SidebarPropertiesPanel({
         <div className="space-y-4">
           {Object.entries(currentPropsToIterate).map(([key, value]) => {
             const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 
-            // Edge specific internal properties if any, e.g. source, target, sourceHandle, targetHandle are not typically user-edited here
             'source', 'target', 'sourceHandle', 'targetHandle' 
             ];
-            if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { // Allow editing name/description even if they overlap
-                 // Allow 'name' and 'description' to be editable regardless
-                 if (key === 'name' && value === elementName) { /* Default name, show input */ }
-                 else if (key === 'description') { /* Allow editing description */ }
+            if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { 
+                 if (key === 'name' && value === elementName) {  }
+                 else if (key === 'description') {  }
                  else return null;
             }
 
@@ -267,9 +260,9 @@ export function SidebarPropertiesPanel({
             )}
         </div>
          
-         {isNode && ( // Only show AI suggest for Nodes (Components)
+         {isNode && ( 
              <Button onClick={handleSuggestProperties} disabled={isSuggesting || !selectedElement.data?.type} variant="outline" size="sm" className="w-full">
-                 <Sparkles className="mr-2 h-4 w-4" />
+                 <Sparkle className="mr-2 h-4 w-4" />
                  {isSuggesting ? "Suggesting..." : "AI Suggest Properties"}
             </Button>
          )}
@@ -277,7 +270,7 @@ export function SidebarPropertiesPanel({
          <AlertDialog>
              <AlertDialogTrigger asChild>
                  <Button variant="destructive" size="sm" className="w-full mt-2">
-                     <Trash2 className="mr-2 h-4 w-4" />
+                     <Trash className="mr-2 h-4 w-4" />
                      Delete {isNode ? 'Component' : 'Connection'}
                  </Button>
              </AlertDialogTrigger>
@@ -309,4 +302,3 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   };
   return debounced as (...args: Parameters<F>) => void;
 }
-

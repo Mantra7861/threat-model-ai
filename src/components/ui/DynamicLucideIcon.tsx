@@ -1,28 +1,29 @@
-
+// This file should be renamed to DynamicPhosphorIcon.tsx
 "use client";
 
-import * as React from 'react'; // Import React for FC type if needed
-import * as LucideIcons from 'lucide-react';
-import { HelpCircle as HelpCircleIcon } from 'lucide-react';
+import * as React from 'react';
+import * as PhosphorIcons from 'phosphor-react';
+import { Question as QuestionIcon } from 'phosphor-react'; // Default fallback icon
 
-interface DynamicLucideIconProps {
-  name: string;
+interface DynamicPhosphorIconProps {
+  name: string; // Keep as string, will validate against PhosphorIcons keys
   className?: string;
   style?: React.CSSProperties;
-  [key: string]: any; // For other props
+  [key: string]: any; // For other props like size, color, weight
 }
 
-const DynamicLucideIcon: React.FC<DynamicLucideIconProps> = ({ name, ...props }) => {
-  const iconKey = name as keyof typeof LucideIcons;
+const DynamicPhosphorIcon: React.FC<DynamicPhosphorIconProps> = ({ name, ...props }) => {
+  // Type assertion to allow string indexing, then check existence
+  const IconComponent = (PhosphorIcons as any)[name] as PhosphorIcons.Icon | undefined; 
   
-  // Check if the icon name exists and is a function (React component)
-  if (Object.prototype.hasOwnProperty.call(LucideIcons, iconKey) && typeof LucideIcons[iconKey] === 'function') {
-    const IconComponent = LucideIcons[iconKey] as LucideIcons.LucideIcon;
+  if (IconComponent && typeof IconComponent === 'function') {
+    // Check if it's a Phosphor Icon component (they are functions)
+    // Phosphor icons are typically rendered as React components directly
     return <IconComponent {...props} />;
   }
   
-  console.warn(`DynamicLucideIcon: Icon "${name}" not found or not a valid component in LucideIcons. Falling back to HelpCircleIcon.`);
-  return <HelpCircleIcon {...props} />;
+  console.warn(`DynamicPhosphorIcon: Icon "${name}" not found or not a valid component in PhosphorIcons. Falling back to QuestionIcon.`);
+  return <QuestionIcon {...props} />;
 };
 
-export default DynamicLucideIcon;
+export default DynamicPhosphorIcon;

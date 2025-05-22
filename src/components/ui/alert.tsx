@@ -1,5 +1,7 @@
+
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+// No specific icons imported here, they are passed as children e.g. <WarningTriangle />
 
 import { cn } from "@/lib/utils"
 

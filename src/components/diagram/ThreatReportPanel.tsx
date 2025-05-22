@@ -1,15 +1,17 @@
 
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { useState, type Dispatch, type SetStateAction, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
-import { Loader2, AlertTriangle, ShieldCheck, Eye } from 'lucide-react'; // Removed FileDown
+import { Spinner, WarningTriangle, ShieldCheck, Eye } from 'phosphor-react'; // Phosphor icons
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { Diagram, ReportEntry } from '@/services/diagram';
 import { format } from 'date-fns';
+// html2pdf is client-side only, so dynamic import is needed
+// import html2pdf from 'html2pdf.js'; // Removed direct import
 
 interface ThreatReportPanelProps {
   getCurrentDiagramData: () => Diagram | null;
@@ -27,6 +29,17 @@ export function ThreatReportPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [html2pdf, setHtml2pdf] = useState<any>(null);
+
+  useEffect(() => {
+    // Dynamically import html2pdf.js on the client side
+    if (typeof window !== 'undefined') {
+      import('html2pdf.js').then(module => {
+        setHtml2pdf(() => module.default);
+      });
+    }
+  }, []);
+
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
@@ -55,12 +68,10 @@ export function ThreatReportPanel({
     });
 
     try {
-      // The diagramJson should be the actual diagram data, not diagramId.
-      // The AI flow 'generate-threat-report.ts' expects diagramJson, modelName, modelType.
       const diagramJson = JSON.stringify(currentDiagram);
 
       const result = await generateThreatReport({
-        diagramJson, // Pass the full diagram data as JSON
+        diagramJson, 
         modelName: modelNameForReport,
         modelType: modelTypeForReport,
       });
@@ -72,7 +83,7 @@ export function ThreatReportPanel({
       const reportName = `${modelNameForReport} Report - ${format(new Date(), 'yyyy-MM-dd HH:mm')}`;
       const newReportEntry: ReportEntry = {
         reportName,
-        reportData: result.report, // This is the HTML string from the AI
+        reportData: result.report, 
         createdDate: new Date(),
       };
       addSessionReport(newReportEntry);
@@ -124,11 +135,11 @@ export function ThreatReportPanel({
                   background-color: #fff;
                 }
                 .browser-pdf-instruction {
-                  background-color: #e0f7fa; /* Light blue background */
-                  color: #1A237E; /* Dark blue text */
+                  background-color: #e0f7fa; 
+                  color: #1A237E; 
                   padding: 15px;
                   margin-bottom: 20px;
-                  border: 1px solid #4fc3f7; /* Light blue border */
+                  border: 1px solid #4fc3f7; 
                   text-align: center;
                   font-weight: bold;
                   border-radius: 0.5rem;
@@ -157,7 +168,6 @@ export function ThreatReportPanel({
                   padding: 2px 4px;
                   white-space: nowrap;
                 }
-                /* Styles for the report content itself are expected to be embedded in htmlContent */
               </style>
             </head>
             <body>
@@ -181,11 +191,11 @@ export function ThreatReportPanel({
         <Button onClick={handleGenerateReport} disabled={isLoading} size="sm">
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner className="mr-2 h-4 w-4 animate-spin" />
                 Generating...
               </>
             ) : (
-              "Generate Report" // Changed from "Generate New Report"
+              "Generate Report" 
             )}
           </Button>
       </div>
@@ -194,7 +204,7 @@ export function ThreatReportPanel({
         <Card className="border-destructive bg-destructive/10">
             <CardHeader className="pb-2">
                 <CardTitle className="text-destructive text-base flex items-center">
-                    <AlertTriangle className="mr-2 h-5 w-5" />
+                    <WarningTriangle className="mr-2 h-5 w-5" />
                     Report Generation Failed
                 </CardTitle>
             </CardHeader>
@@ -230,7 +240,6 @@ export function ThreatReportPanel({
                   <Button variant="outline" size="icon" onClick={() => handleViewInBrowser(report.reportData, report.reportName)} title="View in Browser">
                     <Eye className="h-4 w-4" />
                   </Button>
-                  {/* "Download as PDF" button removed */}
                 </div>
               </li>
             ))}
@@ -240,4 +249,3 @@ export function ThreatReportPanel({
     </div>
   );
 }
-

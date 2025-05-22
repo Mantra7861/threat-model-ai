@@ -1,7 +1,8 @@
+
 "use client"
 
 import * as React from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { CaretLeft, CaretRight } from "phosphor-react" // Phosphor icons
 import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
@@ -54,11 +55,11 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
+        IconLeft: ({ className: cName, ...cProps }) => ( // Renamed className to cName to avoid conflict
+          <CaretLeft className={cn("h-4 w-4", cName)} {...cProps} />
         ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
+        IconRight: ({ className: cName, ...cProps }) => ( // Renamed className to cName
+          <CaretRight className={cn("h-4 w-4", cName)} {...cProps} />
         ),
       }}
       {...props}

@@ -4,32 +4,14 @@
 import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-    Server, 
-    Database, 
-    Cloud, 
-    Router, 
-    ShieldCheck, 
-    Square,
-    Circle,
-    Archive, 
-    StickyNote,
-    TerminalSquare,
-    HelpCircle, // Fallback icon
-    Loader2,
-    AlertTriangle
-} from "lucide-react"; 
+    Spinner, // For loading
+    WarningTriangle, // For errors
+    Question as QuestionIcon // Fallback icon
+} from "phosphor-react"; 
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { getStencils, type StencilData } from "@/services/stencilService";
 import { useToast } from "@/hooks/use-toast";
-import DynamicLucideIcon from '@/components/ui/DynamicLucideIcon';
-
-// Custom SVG for DiamondIcon if Lucide's default isn't preferred or to ensure fill
-// This is kept for local rendering in the palette if needed, CustomNode will use its own logic.
-const CustomDiamondIcon = () => (
-  <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="currentColor" strokeWidth="0.1" className="text-card-foreground">
-    <polygon points="12 2 22 12 12 22 2 12" />
-  </svg>
-);
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
 
 interface DraggableComponentProps {
   stencil: StencilData;
@@ -48,10 +30,11 @@ const DraggableComponent = ({ stencil }: DraggableComponentProps) => {
       onDragStart={handleDragStart}
       title={stencil.name} 
     >
-      <DynamicLucideIcon 
-        name={stencil.iconName || 'HelpCircle'} 
+      <DynamicPhosphorIcon 
+        name={stencil.iconName || 'Question'} // Use Question from Phosphor as fallback
         className="w-6 h-6 mb-1 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:mb-0"
         style={{ color: stencil.textColor || 'var(--card-foreground)' }}
+        size={24} // Default size for Phosphor icons
       />
        <span className="text-xs font-medium text-card-foreground text-center w-full truncate px-1 group-data-[collapsible=icon]:hidden">
         {stencil.name}
@@ -93,7 +76,7 @@ export function SidebarComponentLibrary() {
   if (isLoading) {
     return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-sidebar-foreground/80">
-            <Loader2 className="h-6 w-6 animate-spin mb-2" />
+            <Spinner className="h-6 w-6 animate-spin mb-2" />
             <p className="text-sm">Loading {title}...</p>
         </div>
     );
@@ -102,7 +85,7 @@ export function SidebarComponentLibrary() {
   if (error) {
       return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-destructive">
-            <AlertTriangle className="h-6 w-6 mb-2" />
+            <WarningTriangle className="h-6 w-6 mb-2" />
             <p className="text-sm font-semibold">Error Loading Stencils</p>
             <p className="text-xs text-center">{error}</p>
         </div>
@@ -112,7 +95,7 @@ export function SidebarComponentLibrary() {
   if (stencils.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-sidebar-foreground/70">
-            <HelpCircle className="h-8 w-8 mb-3" />
+            <QuestionIcon className="h-8 w-8 mb-3" />
             <p className="text-sm text-center">No {title} available.</p>
             <p className="text-xs text-center mt-1">Please add some in Admin Panel.</p>
         </div>

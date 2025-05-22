@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { Settings, ShieldAlert, HelpCircle, LogOut, Home } from "lucide-react"; // Added Home icon
+import { Gear, ShieldWarning, Question, SignOut, House } from "phosphor-react"; // Phosphor icons
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarComponentLibrary } from "@/components/diagram/SidebarComponentLibrary";
 import { ProjectClientLayout } from "./ProjectClientLayout";
@@ -25,22 +25,17 @@ import Link from "next/link";
 
 
 export default function ProjectLayout({
-  children, // children might not be strictly necessary if ProjectClientLayout handles everything
+  children, 
   params: paramsPromise,
 }: {
   children: ReactNode;
-  params: Promise<{ projectId: string }>; // Expect projectId from the route
+  params: Promise<{ projectId: string }>; 
 }) {
-  // Use React.use to resolve the promise containing the route parameters
   const params = use(paramsPromise);
   const { currentUser, userProfile, isAdmin, signOut } = useAuth();
 
-  // The projectId from the URL determines which model to load or if it's a new one.
-  // ProjectClientLayout will handle the actual loading logic based on this ID.
-  // If params.projectId is 'new' or some other indicator, ProjectClientLayout starts fresh.
 
   return (
-    // Pass initialProjectId to ProjectProvider, ProjectClientLayout will use it
     <ProjectProvider initialProjectId={params.projectId}>
       <SidebarProvider defaultOpen={true}>
         {/* Left Sidebar (Component Library) */}
@@ -48,7 +43,7 @@ export default function ProjectLayout({
           <SidebarHeader className="p-2">
             <div className="flex items-center gap-2 justify-between">
               <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-                  <ShieldAlert className="text-primary-foreground size-6" />
+                  <ShieldWarning weight="fill" className="text-primary-foreground size-6" />
                   <h1 className="text-xl font-semibold text-primary-foreground">ThreatMapperAI</h1>
               </Link>
               <SidebarTrigger className="text-primary-foreground hover:bg-sidebar-accent" />
@@ -60,18 +55,18 @@ export default function ProjectLayout({
           <SidebarFooter className="mt-auto p-2 border-t border-sidebar-border group-data-[collapsible=icon]:border-none">
             <SidebarMenu>
                <SidebarMenuItem>
-                  <Link href="/dashboard" passHref>
+                  <Link href="/dashboard">
                     <SidebarMenuButton tooltip="Dashboard" className="justify-start group-data-[collapsible=icon]:justify-center">
-                      <Home />
+                      <House />
                       <span className="group-data-[collapsible=icon]:hidden">Dashboard</span>
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
               {isAdmin && (
                 <SidebarMenuItem>
-                  <Link href="/admin/users" passHref>
+                  <Link href="/admin/users">
                     <SidebarMenuButton tooltip="Admin Panel" className="justify-start group-data-[collapsible=icon]:justify-center">
-                      <Settings />
+                      <Gear />
                       <span className="group-data-[collapsible=icon]:hidden">Admin Panel</span>
                     </SidebarMenuButton>
                   </Link>
@@ -79,7 +74,7 @@ export default function ProjectLayout({
               )}
               <SidebarMenuItem>
                 <SidebarMenuButton tooltip="Help" className="justify-start group-data-[collapsible=icon]:justify-center">
-                  <HelpCircle />
+                  <Question />
                   <span className="group-data-[collapsible=icon]:hidden">Help</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -99,7 +94,7 @@ export default function ProjectLayout({
                     className="justify-start group-data-[collapsible=icon]:justify-center"
                     onClick={signOut}
                   >
-                    <LogOut />
+                    <SignOut />
                     <span className="group-data-[collapsible=icon]:hidden">Log Out</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -109,11 +104,9 @@ export default function ProjectLayout({
 
         {/* Main Content Area managed by ProjectClientLayout */}
         <SidebarInset className="flex flex-col !p-0">
-           {/* Pass the resolved projectId to ProjectClientLayout */}
           <ProjectClientLayout projectId={params.projectId} />
         </SidebarInset>
       </SidebarProvider>
     </ProjectProvider>
   );
 }
-

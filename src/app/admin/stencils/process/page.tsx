@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ProcessStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { PlusCircle, PencilSimple, Trash, Spinner, WarningTriangle } from "phosphor-react"; // Phosphor icons
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil } from "@/services/stencilService";
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import DynamicLucideIcon from '@/components/ui/DynamicLucideIcon';
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
 
 
 export default function ProcessStencilsPage() {
@@ -62,7 +62,7 @@ export default function ProcessStencilsPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-10">
-        <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+        <Spinner className="h-6 w-6 animate-spin text-primary mr-2" />
         Loading process stencils...
       </div>
     );
@@ -71,7 +71,7 @@ export default function ProcessStencilsPage() {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-destructive">
-        <AlertTriangle className="h-8 w-8 mb-2" />
+        <WarningTriangle className="h-8 w-8 mb-2" />
         <p className="font-semibold">Error loading stencils</p>
         <p className="text-sm">{error}</p>
         <Button onClick={fetchStencils} className="mt-4">Try Again</Button>
@@ -102,20 +102,20 @@ export default function ProcessStencilsPage() {
             {stencils.map((stencil) => (
               <TableRow key={stencil.id}>
                 <TableCell>
-                   <DynamicLucideIcon name={stencil.iconName || 'HelpCircle'} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
+                   <DynamicPhosphorIcon name={stencil.iconName || 'Question'} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
                 </TableCell>
                 <TableCell className="font-medium">{stencil.name}</TableCell>
                 <TableCell>{stencil.stencilType}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" asChild className="mr-2">
                     <Link href={`/admin/stencils/process/edit/${stencil.id}`}>
-                      <Edit className="h-4 w-4" />
+                      <PencilSimple className="h-4 w-4" />
                     </Link>
                   </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="icon">
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash className="h-4 w-4 text-destructive" />
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>

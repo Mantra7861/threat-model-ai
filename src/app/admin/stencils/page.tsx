@@ -3,12 +3,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { StencilData, InfrastructureStencilData, ProcessStencilData } from "@/types/stencil";
+import type { StencilData, InfrastructureStencilData } from "@/types/stencil"; // Removed ProcessStencilData as StencilData covers it
 import Link from "next/link";
-import { PlusCircle, Edit, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { PlusCircle, PencilSimple, Trash, Spinner, WarningTriangle } from "phosphor-react"; // Phosphor icons
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { getStencils, deleteStencil, addPlaceholderStencils } from "@/services/stencilService"; // Added addPlaceholderStencils
+import { getStencils, deleteStencil, addPlaceholderStencils } from "@/services/stencilService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import DynamicLucideIcon from '@/components/ui/DynamicLucideIcon';
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from '@/contexts/AuthContext';
@@ -111,7 +111,7 @@ export default function StencilsManagementPage() {
     if (authLoading || isLoading) {
       return (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+          <Spinner className="h-6 w-6 animate-spin text-primary mr-2" />
           {authLoading ? "Verifying permissions..." : `Loading ${type} stencils...`}
         </div>
       );
@@ -120,7 +120,7 @@ export default function StencilsManagementPage() {
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center py-10 text-destructive">
-          <AlertTriangle className="h-8 w-8 mb-2" />
+          <WarningTriangle className="h-8 w-8 mb-2" />
           <p className="font-semibold">Error loading stencils</p>
           <p className="text-sm mb-2">{error}</p>
           {isAdmin && firebaseReady && <Button onClick={() => fetchStencilsData(type)} className="mt-4">Try Again</Button>}
@@ -131,7 +131,7 @@ export default function StencilsManagementPage() {
     if (!isAdmin && firebaseReady) {
         return (
             <div className="flex flex-col items-center justify-center py-10 text-destructive">
-                <AlertTriangle className="h-8 w-8 mb-2" />
+                <WarningTriangle className="h-8 w-8 mb-2" />
                 <p className="font-semibold">Access Denied</p>
                 <p className="text-sm mb-2">You do not have permission to manage stencils.</p>
             </div>
@@ -162,7 +162,7 @@ export default function StencilsManagementPage() {
               {stencils.map((stencil) => (
                 <TableRow key={stencil.id}>
                   <TableCell>
-                     <DynamicLucideIcon name={stencil.iconName || 'HelpCircle'} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
+                     <DynamicPhosphorIcon name={stencil.iconName || 'Question'} className="h-5 w-5" style={{ color: stencil.textColor || '#000000' }} />
                   </TableCell>
                   <TableCell className="font-medium">{stencil.name}</TableCell>
                   <TableCell>{stencil.stencilType}</TableCell>
@@ -174,13 +174,13 @@ export default function StencilsManagementPage() {
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" asChild className="mr-2">
                       <Link href={`/admin/stencils/${type}/edit/${stencil.id}`}>
-                        <Edit className="h-4 w-4" />
+                        <PencilSimple className="h-4 w-4" />
                       </Link>
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon">
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Trash className="h-4 w-4 text-destructive" />
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -219,7 +219,6 @@ export default function StencilsManagementPage() {
         <CardHeader>
             <CardTitle>Stencil Management</CardTitle>
             <CardDescription>Manage stencils for infrastructure and process threat models.</CardDescription>
-             {/* Temporary button for adding placeholders */}
             {isAdmin && firebaseReady && (
                 <Button onClick={handleAddPlaceholders} variant="outline" size="sm" className="mt-2 w-full sm:w-auto">
                     Add Placeholder Stencils (Dev Only)

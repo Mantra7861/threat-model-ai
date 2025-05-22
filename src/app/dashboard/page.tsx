@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, PlusCircle, FolderOpen } from 'lucide-react';
+import { Spinner, PlusCircle, FolderOpen } from 'phosphor-react'; // Phosphor icons
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link'; // Import Link for navigation
@@ -64,7 +64,7 @@ export default function DashboardPage() {
   if (authLoading || loadingModels) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+        <Spinner className="h-8 w-8 animate-spin text-primary mr-2" />
         Loading dashboard...
       </div>
     );
@@ -99,7 +99,7 @@ export default function DashboardPage() {
           {error && <p className="text-destructive mb-4">{error}</p>}
           {loadingModels && models.length === 0 && ( // Show loader specifically when loading empty list
               <div className="flex items-center justify-center text-muted-foreground py-8">
-                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading models...
+                 <Spinner className="mr-2 h-4 w-4 animate-spin" /> Loading models...
               </div>
           )}
           {!loadingModels && models.length === 0 && !error && (
@@ -142,4 +142,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

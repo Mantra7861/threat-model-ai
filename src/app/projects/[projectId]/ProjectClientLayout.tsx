@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, type ReactNode, useRef } from 'react';
@@ -45,7 +46,7 @@ import { NewModelDialog } from '@/components/dialogs/NewModelDialog';
 import { LoadModelDialog } from '@/components/dialogs/LoadModelDialog';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from 'phosphor-react'; // Phosphor icon
 import { Button } from '@/components/ui/button';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -83,7 +84,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     );
     const [sessionReports, setSessionReports] = useState<ReportEntry[]>([]);
     
-    const [justCreatedNewModelFromDialog, setJustCreatedNewModelFromDialogRef] = useState(false);
+    const justCreatedNewModelFromDialog = useRef(false); // Use ref
     const lastToastTime = useRef(Date.now());
     const TOAST_DEBOUNCE_DURATION = 2500;
     const initialLoadAttempted = useRef(false);
@@ -92,13 +93,10 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const resetDiagramState = useCallback((name: string, type: ModelType) => {
         console.log(`RESET_DIAGRAM_STATE: Called with Name: ${name}, Type: ${type}. Current canvas modelId: ${modelId}`);
-        // setLoading(true); // setLoading will be handled by the effect/caller
-
-        // Update context first
+        
         setModelName(name); 
         setProjectContextModelType(type);
 
-        // Reset React Flow state
         setNodesInternal([]);
         setEdgesInternal([]);
         
@@ -108,20 +106,18 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         }
         setCurrentViewport(defaultVp);
 
-        // Reset other local state
         setSelectedElementId(null);
-        setModelId(null); // This is crucial for "new" model state
+        setModelId(null); 
         setDiagramDataForAI(getDefaultDiagram(null, name, type));
         setSessionReports([]);
         setError(null);
         
-        // initialLoadAttempted.current will be managed by the main useEffect
     }, [
-        modelId, // To log current modelId
-        setModelName, setProjectContextModelType, // Context setters
-        setNodesInternal, setEdgesInternal, // RF element setters
-        rfSetViewport, setCurrentViewport, // Viewport management
-        setSelectedElementId, setModelId, setDiagramDataForAI, setSessionReports, setError // Local state setters
+        modelId, 
+        setModelName, setProjectContextModelType, 
+        setNodesInternal, setEdgesInternal, 
+        rfSetViewport, setCurrentViewport, 
+        setSelectedElementId, setModelId, setDiagramDataForAI, setSessionReports, setError 
     ]);
 
 
@@ -187,7 +183,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             if (pathname !== `/projects/${loadedModelData.id}`) {
                  router.push(`/projects/${loadedModelData.id}`, { scroll: false });
             }
-            // initialLoadAttempted.current = true; // This will be set by the main effect
 
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error during loadModel';
@@ -196,7 +191,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             toast({ title: 'Error Loading Model', description: `Could not load: ${errorMessage}`, variant: 'destructive' });
         } finally {
             setIsLoadingModel(false);
-            setLoading(false); // Set loading false after load attempt
+            setLoading(false); 
             isDirectlyLoading.current = false;
         }
     }, [
@@ -209,92 +204,84 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         toast, router, pathname, 
         currentViewport
     ]);
-
+    
     useEffect(() => {
-        const currentContextModelName = modelName;
-        const currentContextModelType = modelType;
-
-        console.log(`EFFECT[URL_PROJECT_ID]: Triggered. URL_ID: ${initialProjectIdFromUrl}, Canvas_modelId: ${modelId}, AuthLoading: ${authLoading}, FirebaseReady: ${firebaseReady}, InitialLoadAttempted: ${initialLoadAttempted.current}, JustCreatedDialog: ${justCreatedNewModelFromDialog}, CtxName: ${currentContextModelName}, CtxType: ${currentContextModelType}`);
+        const targetNewName = modelName; 
+        const targetNewType = modelType;
+    
+        console.log(`EFFECT[URL_PROJECT_ID]: Triggered. URL_ID: ${initialProjectIdFromUrl}, Canvas_modelId: ${modelId}, AuthLoading: ${authLoading}, FirebaseReady: ${firebaseReady}, InitialLoadAttempted: ${initialLoadAttempted.current}, JustCreatedDialog: ${justCreatedNewModelFromDialog.current}, CtxName: ${targetNewName}, CtxType: ${targetNewType}`);
     
         if (authLoading || !firebaseReady ) {
             if (!authLoading && !firebaseReady) setError("Firebase connection failed.");
-            setLoading(true); // Keep loading true if prerequisites not met, or could set to false if error is displayed
+            setLoading(true); 
             return;
         }
         if (!currentUser) {
              console.log("EFFECT[URL_PROJECT_ID]: No current user. AuthProvider should handle redirection.");
-             setLoading(false); // Stop loading if no user
+             setLoading(false); 
              return;
         }
         
         if (isDirectlyLoading.current) {
              console.log(`EFFECT[URL_PROJECT_ID]: isDirectlyLoading is true for URL model ${initialProjectIdFromUrl}, deferring effect action.`);
-             return; // Let the direct loadModel call complete
+             return; 
         }
         
-        // If an initial load for the current URL has not been attempted yet OR the modelId on canvas doesn't match URL
         if (!initialLoadAttempted.current || (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new' && initialProjectIdFromUrl !== modelId)) {
             if (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
-                console.log(`EFFECT[URL_PROJECT_ID]: Attempting initial load for model ${initialProjectIdFromUrl}.`);
-                loadModel(initialProjectIdFromUrl);
+                if (!isLoadingModel) { 
+                     console.log(`EFFECT[URL_PROJECT_ID]: Attempting initial load for model ${initialProjectIdFromUrl}.`);
+                     loadModel(initialProjectIdFromUrl); 
+                }
             } else if (initialProjectIdFromUrl === 'new') {
-                if (justCreatedNewModelFromDialog) {
-                    // Context (modelName, modelType) and canvas state were set by resetDiagramState
-                    // called from handleCreateNewModel (via dialog).
-                    // We just need to finalize UI and clear the flag.
-                    console.log(`EFFECT[URL_PROJECT_ID]: Finalizing new model creation from dialog. Context Name: ${currentContextModelName}, Context Type: ${currentContextModelType}`);
+                if (justCreatedNewModelFromDialog.current) {
+                    console.log(`EFFECT[URL_PROJECT_ID]: Finalizing new model creation from dialog. Context Name: ${targetNewName}, Context Type: ${targetNewType}. Canvas is already reset.`);
                     if (typeof fitView === 'function') {
                         setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
                     }
                     setLoading(false);
-                    setJustCreatedNewModelFromDialogRef(false); // Reset flag
+                    justCreatedNewModelFromDialog.current = false; 
                 } else {
-                    // Not immediately after dialog. Could be direct navigation to /new, or subsequent effect run.
                     if (modelId !== null) {
-                        // Canvas has a loaded model (modelId is set), but URL is /projects/new.
-                        // This is an inconsistent state, so reset to a default "new" state.
-                        console.log(`EFFECT[URL_PROJECT_ID]: URL is /projects/new, but modelId (${modelId}) is not null. Resetting to default new model.`);
+                        console.log(`EFFECT[URL_PROJECT_ID]: URL is /projects/new, but modelId (${modelId}) is not null. Resetting to default new model of type 'infrastructure'.`);
                         resetDiagramState("Untitled Model", 'infrastructure'); 
                     } else {
-                        // modelId is null, so canvas is in a "new model" state.
-                        // The context modelName and modelType should reflect the desired type of new model.
-                        console.log(`EFFECT[URL_PROJECT_ID]: On /projects/new and modelId is null. Current context: Name=${currentContextModelName}, Type=${currentContextModelType}. Fitting view.`);
+                        // Already on /new and modelId is null. Context (name/type) should be correct.
+                        console.log(`EFFECT[URL_PROJECT_ID]: On /projects/new, modelId is null, canvas empty, context matches. Current new model (Name: ${targetNewName}, Type: ${targetNewType}) is active. Fitting view.`);
                         if (typeof fitView === 'function') {
-                            setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
+                           setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
                         }
                         setLoading(false);
                     }
                 }
-            } else { // initialProjectIdFromUrl is empty or invalid
-                 console.log(`EFFECT[URL_PROJECT_ID]: No valid project ID in URL ('${initialProjectIdFromUrl}'). Resetting to default new model.`);
+            } else { 
+                 console.log(`EFFECT[URL_PROJECT_ID]: No valid project ID in URL ('${initialProjectIdFromUrl}'). Resetting to default new model 'infrastructure'.`);
                  resetDiagramState("Untitled Model", 'infrastructure');
-                 // Navigate to /projects/new if we reset due to invalid URL
                  if (pathname !== '/projects/new') {
                      router.push('/projects/new', { scroll: false });
                  }
             }
-        } else { // Initial load for this URL was attempted, or URL matches current modelId, or no specific projectId in URL (e.g. root path)
-            console.log(`EFFECT[URL_PROJECT_ID]: Initial load for ${initialProjectIdFromUrl} already attempted or matches current state. Finalizing.`);
-            if (nodes.length === 0 && edges.length === 0 && !error && modelId === initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
-                if (typeof fitView === 'function') {
+            initialLoadAttempted.current = true; 
+        } else { 
+            console.log(`EFFECT[URL_PROJECT_ID]: Initial load for ${initialProjectIdFromUrl} already attempted or matches current state. Context (Name: ${targetNewName}, Type: ${targetNewType}). Finalizing.`);
+            if (modelId === initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new' && (nodes.length > 0 || edges.length > 0)) {
+                // Model is loaded, ensure view is fit if needed (e.g., after direct navigation to loaded model URL)
+                if (typeof fitView === 'function' && !currentViewport) { // Only fit if viewport isn't explicitly set
                    setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
                 }
-            } else if (initialProjectIdFromUrl === 'new' && modelId === null) { // Ensure fitView on new page
+            } else if (initialProjectIdFromUrl === 'new' && modelId === null) { 
                  if (typeof fitView === 'function') {
                     setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
                  }
             }
             setLoading(false);
         }
-        initialLoadAttempted.current = true;
     
     }, [ 
         initialProjectIdFromUrl, currentUser, authLoading, firebaseReady,
-        modelId, // Canvas modelId state
-        modelName, modelType, // Context state for name and type
-        justCreatedNewModelFromDialog,
-        // nodes.length, edges.length // These can cause too many re-runs if other state changes
-        // loadModel, resetDiagramState, fitView, router, pathname // Memoized functions or stable refs
+        modelId, modelName, modelType, 
+        nodes.length, edges.length, // To re-evaluate fitView conditions
+        loadModel, resetDiagramState, fitView, router, pathname, currentViewport
     ]);
 
 
@@ -506,8 +493,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             } else if (!wasNewSaveOrDifferentId) {
                  initialLoadAttempted.current = true; 
             }
+             const now = Date.now();
+            if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
+                 toast({ title: 'Saved', description: `Model '${currentContextModelName}' saved successfully.` });
+                 lastToastTime.current = now;
+            }
 
-            toast({ title: 'Saved', description: `Model '${currentContextModelName}' saved successfully.` });
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Could not save diagram.';
             toast({ title: 'Error Saving Model', description: errorMessage, variant: 'destructive' });
@@ -532,11 +523,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const loadingToast = toast({ title: 'Fetching Models...', description: 'Please wait.' });
         try {
             const models = await getUserThreatModels(currentUser.uid);
-            if (loadingToast.id) dismissToast(loadingToast.id); else dismissToast();
+            if (loadingToast.id) dismissToast(loadingToast.id); 
             setUserModels(models);
             setIsLoadModelDialogOpen(true);
         } catch (err) {
-            if (loadingToast.id) dismissToast(loadingToast.id); else dismissToast();
+             if (loadingToast.id) dismissToast(loadingToast.id);
             toast({ title: 'Error', description: 'Could not fetch your saved models.', variant: 'destructive' });
         }
     };
@@ -546,23 +537,27 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         console.log(`LOAD_MODEL_SELECT: Dialog requested load for model ID: ${selectedModelIdFromDialog}. Current canvas modelId: ${modelId}`);
 
         if (selectedModelIdFromDialog === modelId && nodes.length > 0) {
-            toast({title: "Model Active", description: "This model is already loaded on the canvas."});
+             const now = Date.now();
+            if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
+                toast({title: "Model Active", description: "This model is already loaded on the canvas."});
+                lastToastTime.current = now;
+            }
             return;
         }
         
-        initialLoadAttempted.current = false; // Reset flag so URL effect will try to load
+        initialLoadAttempted.current = false; 
         if (pathname !== `/projects/${selectedModelIdFromDialog}`) {
             console.log(`LOAD_MODEL_SELECT: Navigating to /projects/${selectedModelIdFromDialog} for loading.`);
             router.push(`/projects/${selectedModelIdFromDialog}`, { scroll: false });
         } else {
-            // Already on the correct URL, but model might not be loaded (e.g. modelId mismatch, or empty canvas)
-            // The main useEffect will handle the loading due to initialLoadAttempted.current = false
             console.log(`LOAD_MODEL_SELECT: Already on /projects/${selectedModelIdFromDialog}. Main effect will handle load.`);
-            // Force a re-evaluation by the useEffect if critical dependencies haven't changed,
-            // though changing initialLoadAttempted should be enough.
-            // Forcing a no-op state change on a dependency can also work if needed.
+            // If already on the page, and it's not loaded, the useEffect should pick it up.
+            // Forcing a re-check if needed by changing a dependency.
+            if (modelId !== selectedModelIdFromDialog || nodes.length === 0) {
+                loadModel(selectedModelIdFromDialog); // Directly call loadModel if already on page but not loaded.
+            }
         }
-    }, [modelId, router, setIsLoadModelDialogOpen, pathname, toast, nodes.length]);
+    }, [modelId, router, setIsLoadModelDialogOpen, pathname, toast, nodes.length, loadModel]);
 
 
      const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
@@ -607,15 +602,17 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         setIsNewModelDialogOpen(false);
         console.log(`HANDLE_CREATE_NEW_MODEL: Name: ${newModelName}, Type: ${newModelType}`);
         
-        setJustCreatedNewModelFromDialogRef(true);
+        justCreatedNewModelFromDialog.current = true; // Use ref
         initialLoadAttempted.current = false; 
 
         resetDiagramState(newModelName, newModelType); 
         
         if (pathname !== '/projects/new') {
             router.push(`/projects/new`, { scroll: false });
+        } else {
+            // If already on /projects/new, useEffect might need a nudge or handle this state explicitly
+            // For now, relying on useEffect to pick up justCreatedNewModelFromDialog
         }
-        // The useEffect will handle fitView and setLoading(false) for the new page
         toast({ title: 'New Model Initialized', description: `Switched to new ${newModelType} model: ${newModelName}` });
     };
 
@@ -654,19 +651,19 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     if ((authLoading || loading) && !isNewModelDialogOpen && !isLoadModelDialogOpen && !initialLoadAttempted.current && initialProjectIdFromUrl !== 'new' ) {
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground flex-1 p-4">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <Spinner className="mr-2 h-5 w-5 animate-spin" />
                 {authLoading ? "Authenticating..." : (isLoadingModel ? "Loading Model Data..." : "Initializing Canvas...")}
             </div>
         );
     }
-    if (error && !isLoadingModel && !loading && !isNewModelDialogOpen && !isLoadModelDialogOpen) { // ensure !isLoadingModel as well
+    if (error && !isLoadingModel && !loading && !isNewModelDialogOpen && !isLoadModelDialogOpen) { 
          return (
             <div className="flex flex-col items-center justify-center h-full text-destructive flex-1 p-4 text-center">
                 <p className="font-semibold mb-2">Error Initializing Diagram</p>
                 <p className="text-sm mb-4">{error}</p>
                 <Button onClick={() => { 
                     setError(null); 
-                    initialLoadAttempted.current = false; // Allow re-attempt for new model
+                    initialLoadAttempted.current = false; 
                     handleCreateNewModel("Untitled Model", "infrastructure");
                 }}>Start New Model</Button>
             </div>
@@ -697,6 +694,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         onEdgeClick={onElementClick}
                         onPaneClick={onPaneClick}
                         selectedElementId={selectedElementId}
+                        panOnDrag={true} 
+                        zoomOnScroll={true} 
+                        zoomOnPinch={true}
                     />
                 </main>
 
@@ -739,4 +739,3 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         </>
     );
 }
-

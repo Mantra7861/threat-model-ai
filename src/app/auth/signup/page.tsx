@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShieldAlert, UserPlus } from 'lucide-react';
+import { UserPlus } from 'phosphor-react'; // Phosphor icon
 import { useToast } from '@/hooks/use-toast';
 // createUserProfile from userService will be called by AuthContext after successful Firebase Auth creation
 
@@ -48,7 +48,7 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <UserPlus className="w-12 h-12 text-primary" />
+            <UserPlus weight="fill" className="w-12 h-12 text-primary" />
           </div>
           <CardTitle className="text-3xl font-bold">Create Account</CardTitle>
           <CardDescription>Join ThreatMapperAI to start modeling.</CardDescription>

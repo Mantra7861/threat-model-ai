@@ -7,10 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
-import { Users, LayoutDashboard, ShieldAlert, LogOut, UserCircle, Loader2, Shapes } from 'lucide-react';
+import { Users, Layout, ShieldWarning, SignOut, UserCircle, Spinner, Shapes } from 'phosphor-react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from 'lucide-react';
+import { WarningTriangle } from 'phosphor-react';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { userProfile, loading: authLoading, isAdmin, firebaseReady, signOut } = useAuth();
@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     mainContent = (
         <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
-               <AlertTriangle className="h-4 w-4" />
+               <WarningTriangle className="h-4 w-4" />
                <AlertTitle>Initialization Error</AlertTitle>
                <AlertDescription>
                  Could not connect to backend services. Please ensure Firebase is configured correctly or check your network connection. Admin section cannot be loaded.
@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   } else if (authLoading) {
     mainContent = (
         <div className="flex items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+            <Spinner className="h-8 w-8 animate-spin text-primary mr-2" />
             Loading admin section...
         </div>
     );
@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     mainContent = (
         <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
-               <AlertTriangle className="h-4 w-4" />
+               <WarningTriangle className="h-4 w-4" />
                <AlertTitle>Access Denied</AlertTitle>
                <AlertDescription>
                  You do not have administrator privileges to access this section. Redirecting...
@@ -65,7 +65,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <SidebarHeader className="p-2">
             <div className="flex items-center gap-2 justify-between">
               <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
-                  <ShieldAlert className="text-primary-foreground size-6" />
+                  <ShieldWarning weight="fill" className="text-primary-foreground size-6" />
                   <h1 className="text-xl font-semibold text-primary-foreground">ThreatMapperAI</h1>
               </Link>
               <SidebarTrigger className="text-primary-foreground hover:bg-sidebar-accent" />
@@ -90,9 +90,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </Link>
                 </SidebarMenuItem>
                  <SidebarMenuItem>
-                    <Link href="/" passHref>
+                    <Link href="/">
                         <SidebarMenuButton tooltip="Back to App" className="justify-start">
-                            <LayoutDashboard />
+                            <Layout />
                             <span className="group-data-[collapsible=icon]:hidden">Back to App</span>
                         </SidebarMenuButton>
                     </Link>
@@ -116,7 +116,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     className="justify-start group-data-[collapsible=icon]:justify-center"
                     onClick={signOut}
                   >
-                    <LogOut />
+                    <SignOut />
                     <span className="group-data-[collapsible=icon]:hidden">Log Out</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -6,7 +6,7 @@ import { getAllUsers } from '@/services/userService';
 import { UserManagementTable } from './components/UserManagementTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { WarningTriangle, Spinner } from "phosphor-react"; // Phosphor icons
 import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 import type { UserProfile } from '@/types/user';
 
@@ -57,7 +57,7 @@ export default function AdminUsersPage() {
   if (authLoading || loading) {
     return (
         <div className="flex items-center justify-center h-full py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+            <Spinner className="h-6 w-6 animate-spin text-primary mr-2" />
             Loading user data...
         </div>
     );
@@ -75,7 +75,7 @@ export default function AdminUsersPage() {
         <CardContent>
           {fetchError ? (
             <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
+              <WarningTriangle className="h-4 w-4" />
               <AlertTitle>Error Loading Users</AlertTitle>
               <AlertDescription>{fetchError}</AlertDescription>
             </Alert>
@@ -89,4 +89,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-
