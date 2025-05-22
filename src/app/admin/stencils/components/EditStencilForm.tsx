@@ -18,11 +18,11 @@ import { Loader2, AlertTriangle, HelpCircle as HelpCircleIcon } from "lucide-rea
 // Dynamically get all icon names from lucide-react, filtering out non-component exports
 const ALL_LUCIDE_ICON_NAMES = Object.keys(LucideIcons)
   .filter((key) => {
-    // Ensure the property exists on LucideIcons and is a function (React component)
-    if (Object.prototype.hasOwnProperty.call(LucideIcons, key) && typeof LucideIcons[key as keyof typeof LucideIcons] === 'function') {
+    const iconComponent = (LucideIcons as any)[key]; // Use 'as any' for simpler access in filter
+    if (typeof iconComponent === 'function') {
       // Exclude known non-visual utility functions/types by name.
-      // `icons` is an object, so `typeof` check handles it.
-      if (key === 'createLucideIcon' || key === 'IconNode' || key === 'LucideIcon' || key === 'LucideProps' || key === 'default') {
+      // Also explicitly exclude 'icons' which is an object map.
+      if (key === 'createLucideIcon' || key === 'IconNode' || key === 'LucideIcon' || key === 'LucideProps' || key === 'default' || key === 'icons') {
         return false;
       }
       // Most actual icon components are PascalCase. This is a good heuristic.
@@ -66,11 +66,14 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         if (stencil) {
           setName(stencil.name);
           
+          // Use ALL_LUCIDE_ICON_NAMES for validation here as well
           if (stencil.iconName && ALL_LUCIDE_ICON_NAMES.includes(stencil.iconName as keyof typeof LucideIcons)) {
             setIconName(stencil.iconName as keyof typeof LucideIcons);
           } else {
-            if (stencil.iconName) { // Only warn if an invalid iconName was actually set
-                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
+            if (stencil.iconName && ALL_LUCIDE_ICON_NAMES.length > 0) { // Only warn if an invalid iconName was actually set AND we have icons to compare against
+                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package". Available icons: ${ALL_LUCIDE_ICON_NAMES.length}`);
+            } else if (stencil.iconName) {
+                console.warn(`Icon name "${stencil.iconName}" present in stencil data, but ALL_LUCIDE_ICON_NAMES is empty. Defaulting to "Package".`);
             }
             setIconName("Package"); 
           }
@@ -101,7 +104,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     } else {
       setIsLoading(false); 
     }
-  }, [stencilId, isNew, router, toast]);
+  }, [stencilId, isNew, router, toast]); // ALL_LUCIDE_ICON_NAMES is stable, no need to add as dependency
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -114,11 +117,20 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         return;
     }
     
-    if (!iconName || !ALL_LUCIDE_ICON_NAMES.includes(iconName)) {
-        toast({ title: "Validation Error", description: `Invalid icon "${iconName}" selected. Please choose an icon from the list.`, variant: "destructive" });
-        setIconName("Package"); 
-        setIsSaving(false);
-        return;
+    if (!iconName || (ALL_LUCIDE_ICON_NAMES.length > 0 && !ALL_LUCIDE_ICON_NAMES.includes(iconName))) {
+        // If ALL_LUCIDE_ICON_NAMES is empty, we can't validate against it, so we trust iconName if present
+        if (ALL_LUCIDE_ICON_NAMES.length > 0) {
+             toast({ title: "Validation Error", description: `Invalid icon "${iconName}" selected. Please choose an icon from the list.`, variant: "destructive" });
+        } else if (!iconName) {
+             toast({ title: "Validation Error", description: `No icon selected.`, variant: "destructive" });
+        }
+        // If no icons are loaded, we might allow submission with the current iconName, or default.
+        // For now, if the list is empty but an iconName is set, we proceed. If no iconName, error.
+        if (!iconName && ALL_LUCIDE_ICON_NAMES.length > 0) setIconName("Package"); 
+        if(!iconName) {
+            setIsSaving(false);
+            return;
+        }
     }
 
 
@@ -214,8 +226,8 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             <option key={iconKey} value={iconKey}>{iconKey}</option>
           ))}
         </select>
-         {iconName && LucideIcons[iconName] && React.createElement(LucideIcons[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !LucideIcons[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found or invalid in Lucide set" />}
+         {iconName && (LucideIcons as any)[iconName] && React.createElement((LucideIcons as any)[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
+         {iconName && !(LucideIcons as any)[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found or invalid in Lucide set" />}
          {!iconName && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon selected" />}
       </div>
       
