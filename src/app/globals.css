@@ -102,73 +102,76 @@ body {
 @layer components {
   .react-flow__node {
     @apply rounded-lg shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    @apply border border-transparent; /* Default to transparent border, type-specific classes will override */
+    /* Default border is transparent; type-specific classes will override for always-visible border */
+    @apply border border-transparent;
   }
 
   /* Infrastructure Component Type-specific styles - These provide the ALWAYS VISIBLE border */
-  div.react-flow__node.react-flow__node-server {
+  /* Ensure PascalCase matches node.type */
+  div.react-flow__node.react-flow__node-Server { /* Was react-flow__node-server */
     @apply !border-blue-400 text-blue-800;
   }
-  div.react-flow__node.react-flow__node-database {
+  div.react-flow__node.react-flow__node-Database { /* Was react-flow__node-database */
     @apply !border-green-400 text-green-800;
   }
-  div.react-flow__node.react-flow__node-cloud { /* Added Cloud type styling */
+  div.react-flow__node.react-flow__node-Cloud {
     @apply !border-sky-400 text-sky-800;
   }
-  div.react-flow__node.react-flow__node-service {
+  div.react-flow__node.react-flow__node-Service { /* Was react-flow__node-service */
     @apply !border-purple-400 text-purple-800;
   }
-  div.react-flow__node.react-flow__node-router {
+  div.react-flow__node.react-flow__node-Router { /* Was react-flow__node-router */
     @apply !border-yellow-500 text-yellow-800;
   }
-  div.react-flow__node.react-flow__node-default,
-  div.react-flow__node.react-flow__node-helpcircle { /* Handle default/fallback */
+  div.react-flow__node.react-flow__node-Default, /* For default type */
+  div.react-flow__node.react-flow__node-HelpCircle { /* For HelpCircle iconName fallback type */
      @apply !border-gray-400 text-gray-800;
   }
 
   /* Process Component Type-specific styles - These provide the ALWAYS VISIBLE border */
-  div.react-flow__node.react-flow__node-square { /* For "step" using 'Square' icon */
+  /* Ensure PascalCase matches node.type */
+  div.react-flow__node.react-flow__node-Square { 
     @apply !border-sky-500 text-sky-800;
   }
-  div.react-flow__node.react-flow__node-circle { /* For "start-end" using 'Circle' icon */
-    @apply !border-lime-500 text-lime-800 !rounded-full; /* Ensure it's circular */
+  div.react-flow__node.react-flow__node-Circle { 
+    @apply !border-lime-500 text-lime-800 !rounded-full; 
   }
-  div.react-flow__node.react-flow__node-diamond { /* For "decision" using 'Diamond' icon/SVG */
+  div.react-flow__node.react-flow__node-Diamond { 
     @apply !border-fuchsia-500 text-fuchsia-800;
   }
-  div.react-flow__node.react-flow__node-archive { /* For "input-output" using 'Archive' icon */
+  div.react-flow__node.react-flow__node-Archive { 
     @apply !border-orange-500 text-orange-800;
   }
-  div.react-flow__node.react-flow__node-filetext { /* For "document" using 'FileText' icon */
+  div.react-flow__node.react-flow__node-FileText { 
     @apply !border-indigo-500 text-indigo-800;
   }
-  div.react-flow__node.react-flow__node-edit3 { /* For "manual-input" using 'Edit3' icon */
+  div.react-flow__node.react-flow__node-Edit3 { 
     @apply !border-amber-500 text-amber-800;
   }
-   div.react-flow__node.react-flow__node-stickynote { /* For "StickyNote" icon if used */
+   div.react-flow__node.react-flow__node-StickyNote { 
     @apply !border-pink-500 text-pink-800;
   }
-  div.react-flow__node.react-flow__node-arrowright { /* For "ArrowRight" icon if used as a draggable stencil */
+  div.react-flow__node.react-flow__node-ArrowRight { 
     @apply !border-teal-500 text-teal-800;
+  }
+  div.react-flow__node.react-flow__node-ShieldCheck { /* If ShieldCheck is used as a type for a regular node */
+    @apply !border-red-500 text-red-800;
   }
 
 
-  /* Boundary Box Specific Styling - Always visible dashed border, color set by JS */
-  div.react-flow__node.react-flow__node-boundary {
-     @apply !border-2 !border-dashed !bg-transparent; /* Removed explicit border color, JS will set it */
-     /* Text color will also be set by JS to match border or default */
-     @apply cursor-default;
-     @apply shadow-none hover:shadow-none;
+  /* Boundary Box Specific Styling - node.type will be 'Boundary' */
+  div.react-flow__node.react-flow__node-Boundary {
+     @apply !border-2 !border-dashed !bg-transparent cursor-default shadow-none hover:shadow-none;
+     border-color: var(--dynamic-boundary-color, hsl(var(--border))); /* Uses CSS var for color */
   }
 
   /* General selection outline for non-boundary nodes */
-  .react-flow__node.selected:not(.react-flow__node-boundary) {
-    @apply ring-2 ring-primary ring-offset-1; /* Adjusted offset for better visibility */
+  .react-flow__node.selected:not(.react-flow__node-Boundary) { /* Ensure -Boundary matches type */
+    @apply ring-2 ring-primary ring-offset-1; 
   }
 
   /* Selection outline for boundary nodes */
-  .react-flow__node-boundary.selected {
-    /* Ring color can be generic or match data.boundaryColor if needed, for now generic primary */
+  .react-flow__node-Boundary.selected { /* Ensure -Boundary matches type */
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
@@ -223,3 +226,4 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+

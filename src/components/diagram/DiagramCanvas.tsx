@@ -20,27 +20,27 @@ import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
 import type { StencilData, InfrastructureStencilData } from '@/services/stencilService';
 
+// nodeTypes map keys should be PascalCase, matching node.type set from stencil.iconName or "Boundary"
 const nodeTypes = {
-  // Infrastructure Stencil IconNames (PascalCase from Lucide)
   Server: CustomNode,
   Database: CustomNode,
   Cloud: CustomNode,
   Router: CustomNode,
-  ShieldCheck: CustomNode, // For boundary
-
-  // Process Stencil IconNames (PascalCase from Lucide)
-  Square: CustomNode,        // For "step"
-  Circle: CustomNode,        // For "start-end"
-  Diamond: CustomNode,       // For "decision" (CustomNode handles if it's SVG or Lucide's Diamond)
-  Archive: CustomNode,       // For "input-output"
-  FileText: CustomNode,      // For "document" (lucide-react uses FileText)
-  Edit3: CustomNode,         // For "manual-input" (lucide-react uses Edit3)
-  StickyNote: CustomNode,    // Alternative for Document if 'StickyNote' is used as iconName
-  ArrowRight: CustomNode,    // For Process Flow Arrow example
-
-  // Fallback/Default
-  HelpCircle: CustomNode,    // Fallback if iconName is not mapped
-  default: CustomNode,       // React Flow's internal default
+  Service: CustomNode, // Added Service, if distinct from general Server/Cloud
+  ShieldCheck: CustomNode, // Can be icon for Boundary, or a regular type if needed
+  Square: CustomNode,      
+  Circle: CustomNode,     
+  Diamond: CustomNode,   
+  Archive: CustomNode,    
+  FileText: CustomNode,   
+  Edit3: CustomNode,  
+  StickyNote: CustomNode,
+  ArrowRight: CustomNode,
+  Boundary: CustomNode,     // Specific type for boundary nodes
+  HelpCircle: CustomNode, 
+  Default: CustomNode, // React Flow's internal default node type name is 'default' (lowercase)
+                       // but if we set node.type to 'Default' (PascalCase), we map it here.
+                       // It's safer to have a specific fallback if iconName is unknown.
 };
 
 interface DiagramCanvasProps {
@@ -100,10 +100,16 @@ export function DiagramCanvas({
         console.error("Failed to parse dropped stencil data:", e);
         return;
       }
+      
+      const nodeIconName = droppedStencil.iconName || 'HelpCircle'; // Original icon, e.g., "Server", "ShieldCheck"
+      const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
+      
+      // Determine the React Flow node type: "Boundary" for boundaries, otherwise use the iconName.
+      const reactFlowNodeStyleType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
-      const nodeIconName = droppedStencil.iconName || 'HelpCircle';
-      if (!(nodeIconName in nodeTypes)) {
-        console.warn(`Dropped stencil type/iconName "${nodeIconName}" not found in nodeTypes. Defaulting to HelpCircle. Consider adding "${nodeIconName}: CustomNode" to DiagramCanvas nodeTypes.`);
+      if (!(reactFlowNodeStyleType in nodeTypes)) {
+        console.warn(`Dropped stencil's effective type "${reactFlowNodeStyleType}" not found in nodeTypes. Defaulting to HelpCircle type for rendering. Consider adding "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes.`);
+        // Potentially set reactFlowNodeStyleType to 'HelpCircle' or a generic 'Default' if preferred.
       }
 
       const flowPosition = screenToFlowPosition({
@@ -121,7 +127,6 @@ export function DiagramCanvas({
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
 
-      const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
 
       let defaultWidth = 150;
       let defaultHeight = 80;
@@ -146,37 +151,40 @@ export function DiagramCanvas({
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName,
+        iconName: nodeIconName, // Store the original icon name for CustomNode to use
         textColor: droppedStencil.textColor,
         resizable: true,
-        minWidth: minWidthForNode, // Use calculated minWidth
-        minHeight: minHeightForNode, // Use calculated minHeight
+        minWidth: minWidthForNode, 
+        minHeight: minHeightForNode, 
         stencilId: droppedStencil.id,
+        isBoundary: isDroppedStencilBoundary, // Explicitly set isBoundary flag
       };
 
-      if (droppedStencil.stencilType === 'infrastructure') {
-        const infraStencil = droppedStencil as InfrastructureStencilData;
-        newNodeData.isBoundary = infraStencil.isBoundary || false;
-        if (newNodeData.isBoundary) {
-          newNodeData.boundaryColor = infraStencil.boundaryColor;
-        }
-      } else {
-        newNodeData.isBoundary = false; // Process stencils are not boundaries
+      if (isDroppedStencilBoundary) {
+        newNodeData.boundaryColor = (droppedStencil as InfrastructureStencilData).boundaryColor;
       }
+
+
+      const newNodeStyle: React.CSSProperties = { width: defaultWidth, height: defaultHeight };
+      if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
+        // Set CSS variable for boundary color on the node itself
+        newNodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
+      }
+
 
       const newNode: Node = {
         id: newNodeId,
-        type: nodeIconName,
+        type: reactFlowNodeStyleType, // Use "Boundary" or specific iconName like "Server"
         position: flowPosition,
         data: newNodeData,
-        style: { width: defaultWidth, height: defaultHeight },
+        style: newNodeStyle,
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        ...(newNodeData.isBoundary && {
-            selectable: true,
-            connectable: false,
+        ...(isDroppedStencilBoundary && { // isBoundary flag in data now controls this in CustomNode
+            selectable: true, 
+            connectable: false, // Boundary nodes are not connectable
         }),
         selected: true,
       };
@@ -210,7 +218,7 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onViewportChange={onViewportChange}
-        className="bg-background"
+        className="bg-background" // Base background for the flow area
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
@@ -221,7 +229,7 @@ export function DiagramCanvas({
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        elevateNodesOnSelect={false}
+        elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
         panOnDrag={true}
         zoomOnScroll={true}
@@ -263,3 +271,4 @@ export function DiagramCanvas({
     </div>
   );
 }
+
