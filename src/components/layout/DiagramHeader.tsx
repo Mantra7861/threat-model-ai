@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Share2, PlusCircle, FolderOpen, Save, Loader2 } from "lucide-react";
+import { ShareNetwork, PlusCircle, FolderOpen, FloppyDisk, Spinner } from "phosphor-react"; // Updated imports
 import { useToast } from "@/hooks/use-toast";
 import { useProjectContext } from '@/contexts/ProjectContext';
 
@@ -26,7 +26,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     }
     timeout = setTimeout(() => func(...args), waitFor);
   };
-  debounced.cancel = () => {
+  (debounced as any).cancel = () => { // Type assertion for cancel
     if (timeout !== null) {
       clearTimeout(timeout);
       timeout = null;
@@ -43,47 +43,29 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
 
   // Effect to sync localDiagramName FROM context modelName
   useEffect(() => {
-    // If the context modelName is different from localDiagramName, update localDiagramName.
-    // This happens when a model is loaded or a new model is created externally to this input field.
     if (modelName !== localDiagramName) {
       setLocalDiagramName(modelName);
     }
-    // IMPORTANT: Cancel any pending debounced update if the context modelName has changed from an external source.
-    // This prevents a stale localDiagramName (e.g., "Untitled Model" from a previous input state)
-    // from overwriting a newly set context modelName (e.g., "My Custom Model" from dialog or load).
-    // Note: debouncedSetModelName itself is recreated if setModelName or modelName changes, so direct cancel might be tricky
-    // if its identity changes. The structure below with dependencies should handle it.
-    // However, explicitly calling cancel on the *current* debounced function instance is safer.
-    // We'll rely on the dependencies of the debounced function and its useEffect to manage this.
-  }, [modelName]); // Only modelName, as localDiagramName is what we're setting.
+  }, [modelName, localDiagramName]);
 
-  // Debounced function to update context modelName FROM localDiagramName
   const debouncedSetModelName = useCallback(
     debounce((name: string) => {
       if (name.trim() === "") {
-        // This case should ideally be handled by onBlur/onKeyDown first.
-        // If it still reaches here, it means an empty name was somehow committed.
-        // Reverting might be too late if context is already empty, so we use current modelName from context as fallback.
         toast({ title: "Info", description: "Model name cannot be empty.", variant: "default" });
-        setLocalDiagramName(modelName); // Revert local input to current valid context name.
-        // No need to call setModelName here as we are reverting to current context value.
+        setLocalDiagramName(modelName); 
       } else {
-        setModelName(name); // Update context
+        setModelName(name); 
       }
     }, 500),
-    [setModelName, toast, modelName] // modelName needed for revert logic
+    [setModelName, toast, modelName] 
   );
 
-  // Effect to trigger debounced update when localDiagramName changes (user input)
   useEffect(() => {
-    // Only schedule an update if localDiagramName is genuinely different from context modelName
-    // and localDiagramName is not empty. This prevents unnecessary updates or updates with empty strings.
     if (localDiagramName !== modelName && localDiagramName.trim() !== "") {
       debouncedSetModelName(localDiagramName);
     }
-    // Cleanup: cancel any pending debounced update when localDiagramName changes or component unmounts.
     return () => {
-      debouncedSetModelName.cancel?.();
+      (debouncedSetModelName as any).cancel?.(); // Type assertion for cancel
     };
   }, [localDiagramName, modelName, debouncedSetModelName]);
 
@@ -93,28 +75,28 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
   };
 
   const handleNameInputBlur = () => {
-    debouncedSetModelName.cancel?.(); // Cancel any pending debounce
+    (debouncedSetModelName as any).cancel?.(); 
     if (localDiagramName.trim() === "") {
       toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-      setLocalDiagramName(modelName); // Revert local input to current context name
+      setLocalDiagramName(modelName); 
     } else if (localDiagramName !== modelName) {
-      setModelName(localDiagramName); // Set context name immediately if different and valid
+      setModelName(localDiagramName); 
     }
   };
 
   const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      debouncedSetModelName.cancel?.(); // Cancel pending debounce
+      (debouncedSetModelName as any).cancel?.(); 
       if (localDiagramName.trim() === "") {
         toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-        setLocalDiagramName(modelName); // Revert local to context
+        setLocalDiagramName(modelName); 
       } else if (localDiagramName !== modelName) {
-        setModelName(localDiagramName); // Set context immediately
+        setModelName(localDiagramName); 
       }
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
-      debouncedSetModelName.cancel?.(); // Cancel pending debounce
-      setLocalDiagramName(modelName); // Revert local input to current context name on Escape
+      (debouncedSetModelName as any).cancel?.(); 
+      setLocalDiagramName(modelName); 
       e.currentTarget.blur();
     }
   };
@@ -163,7 +145,7 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving}>
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isSaving ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : <FloppyDisk className="mr-2 h-4 w-4" />}
                 {isSaving ? 'Saving...' : 'Save Model'}
               </Button>
             </TooltipTrigger>
@@ -172,7 +154,7 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline" size="icon" onClick={handleShare}>
-                <Share2 className="h-4 w-4" />
+                <ShareNetwork className="h-4 w-4" />
                 <span className="sr-only">Share</span>
               </Button>
             </TooltipTrigger>
