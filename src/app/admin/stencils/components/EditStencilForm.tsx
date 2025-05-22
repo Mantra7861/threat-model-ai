@@ -70,7 +70,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             setIconName(stencil.iconName as keyof typeof LucideIcons);
           } else {
             if (stencil.iconName) { // Only warn if an invalid iconName was actually set
-                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package". Available icons:`, ALL_LUCIDE_ICON_NAMES.slice(0,10));
+                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
             }
             setIconName("Package"); 
           }
@@ -286,3 +286,4 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     </form>
   );
 }
+
