@@ -7,27 +7,27 @@ import {
   Controls,
   Background,
   Panel,
-  useReactFlow, 
+  useReactFlow,
   type Node,
   type Edge,
   type OnConnect,
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
-  type NodeChange, 
+  type NodeChange,
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
-import type { StencilData, InfrastructureStencilData } from '@/services/stencilService'; // Added InfrastructureStencilData
+import type { StencilData, InfrastructureStencilData } from '@/services/stencilService';
 
 const nodeTypes = {
   // Infrastructure Stencil IconNames (PascalCase from Lucide)
   Server: CustomNode,
   Database: CustomNode,
-  Cloud: CustomNode, 
+  Cloud: CustomNode,
   Router: CustomNode,
   ShieldCheck: CustomNode, // For boundary
-  
+
   // Process Stencil IconNames (PascalCase from Lucide)
   Square: CustomNode,        // For "step"
   Circle: CustomNode,        // For "start-end"
@@ -46,34 +46,34 @@ const nodeTypes = {
 interface DiagramCanvasProps {
   nodes: Node[];
   edges: Edge[];
-  onNodesChange: OnNodesChange; 
+  onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setNodes: Dispatch<SetStateAction<Node[]>>; 
-  setEdges: Dispatch<SetStateAction<Edge[]>>; 
+  setNodes: Dispatch<SetStateAction<Node[]>>;
+  setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
-  selectedElementId?: string | null; 
-  onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
-  onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void; 
-  onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void; 
+  selectedElementId?: string | null;
+  onNodeClick?: (event: ReactMouseEvent, node: Node) => void;
+  onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void;
+  onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void;
 }
 
 export function DiagramCanvas({
   nodes,
   edges,
-  onNodesChange, 
+  onNodesChange,
   onEdgesChange,
   onConnect,
   setNodes,
-  setEdges, 
+  setEdges,
   onViewportChange,
-  selectedElementId, 
+  selectedElementId,
   onNodeClick,
-  onEdgeClick, 
+  onEdgeClick,
   onPaneClick,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project, getViewport } = useReactFlow(); 
+  const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
   const { toast } = useToast();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -100,22 +100,21 @@ export function DiagramCanvas({
         console.error("Failed to parse dropped stencil data:", e);
         return;
       }
-      
+
       const nodeIconName = droppedStencil.iconName || 'HelpCircle';
       if (!(nodeIconName in nodeTypes)) {
         console.warn(`Dropped stencil type/iconName "${nodeIconName}" not found in nodeTypes. Defaulting to HelpCircle. Consider adding "${nodeIconName}: CustomNode" to DiagramCanvas nodeTypes.`);
       }
 
-
       const flowPosition = screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
-      
-      const currentNodes = rfGetNodesFromHook(); 
+
+      const currentNodes = rfGetNodesFromHook();
       const parentBoundaryNode = currentNodes.find(
-        (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height && 
-        project && 
+        (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
+        project &&
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -123,32 +122,36 @@ export function DiagramCanvas({
       );
 
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
-      
-      let defaultWidth = isDroppedStencilBoundary ? 400 : 150; 
-      let defaultHeight = isDroppedStencilBoundary ? 300 : 80;
-      let minWidth = isDroppedStencilBoundary ? 200 : 100; 
-      let minHeight = isDroppedStencilBoundary ? 150 : 50;
-      
-      if (!isDroppedStencilBoundary) { // Only apply specific sizes if NOT a boundary
-        if (['Circle', 'Diamond'].includes(nodeIconName)) { 
-          defaultWidth = 100; defaultHeight = 100; minWidth = 60; minHeight = 60;
-        } else if (['Square', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(nodeIconName)) { 
-          defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
+
+      let defaultWidth = 150;
+      let defaultHeight = 80;
+      let minWidthForNode = 100;
+      let minHeightForNode = 50;
+
+      if (isDroppedStencilBoundary) {
+          defaultWidth = 400;
+          defaultHeight = 300;
+          minWidthForNode = 200;
+          minHeightForNode = 150;
+      } else {
+        if (['Circle', 'Diamond'].includes(nodeIconName)) {
+          defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
+        } else if (['Square', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(nodeIconName)) {
+          defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
         }
       }
 
-
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
-        properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name }, 
-        iconName: nodeIconName, 
+        properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
+        iconName: nodeIconName,
         textColor: droppedStencil.textColor,
-        resizable: true, 
-        minWidth: minWidth,
-        minHeight: minHeight,
-        stencilId: droppedStencil.id, 
+        resizable: true,
+        minWidth: minWidthForNode, // Use calculated minWidth
+        minHeight: minHeightForNode, // Use calculated minHeight
+        stencilId: droppedStencil.id,
       };
 
       if (droppedStencil.stencilType === 'infrastructure') {
@@ -163,27 +166,27 @@ export function DiagramCanvas({
 
       const newNode: Node = {
         id: newNodeId,
-        type: nodeIconName, // Use the iconName as the node type for CustomNode mapping
+        type: nodeIconName,
         position: flowPosition,
         data: newNodeData,
         style: { width: defaultWidth, height: defaultHeight },
-        ...(parentBoundaryNode && !isDroppedStencilBoundary && { 
+        ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        ...(newNodeData.isBoundary && { 
-            selectable: true, 
-            connectable: false, // Boundaries typically aren't connectable themselves
+        ...(newNodeData.isBoundary && {
+            selectable: true,
+            connectable: false,
         }),
-        selected: true, 
+        selected: true,
       };
 
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
-      setEdges((eds) => eds.map(e => ({...e, selected: false}))); 
-      
+      setEdges((eds) => eds.map(e => ({...e, selected: false})));
+
       if (onNodesChange) {
          onNodesChange([
-          {type: 'add', item: newNode}, 
+          {type: 'add', item: newNode},
           ...currentNodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false } as NodeChange)),
           {type: 'select', id: newNode.id, selected: true} as NodeChange
         ]);
@@ -193,14 +196,14 @@ export function DiagramCanvas({
     },
     [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
   );
-  
+
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
-        nodes={nodes} 
-        edges={edges} 
-        onNodesChange={onNodesChange} 
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onDrop={onDrop}
@@ -211,19 +214,19 @@ export function DiagramCanvas({
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
-        elementsSelectable={true} 
-        selectNodesOnDrag={true} 
+        elementsSelectable={true}
+        selectNodesOnDrag={true}
         multiSelectionKeyCode={['Meta', 'Control']}
-        nodeDragThreshold={0} 
-        onNodeClick={onNodeClick} 
-        onEdgeClick={onEdgeClick} 
-        onPaneClick={onPaneClick} 
-        elevateNodesOnSelect={false} 
+        nodeDragThreshold={0}
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onPaneClick={onPaneClick}
+        elevateNodesOnSelect={false}
         elevateEdgesOnSelect={true}
-        panOnDrag={true} 
-        zoomOnScroll={true} 
-        zoomOnPinch={true} 
-        panOnScroll={false} 
+        panOnDrag={true}
+        zoomOnScroll={true}
+        zoomOnPinch={true}
+        panOnScroll={false}
       >
         <Controls />
         <Background gap={16} />
@@ -260,4 +263,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-
