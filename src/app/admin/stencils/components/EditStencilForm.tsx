@@ -13,26 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { StencilData, InfrastructureStencilData, StencilFirestoreData } from "@/types/stencil";
 import * as PhosphorIcons from 'phosphor-react'; 
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
-import { Spinner, Question as QuestionIcon, Warning } from "phosphor-react"; // Updated icon
+import { Spinner, Question as QuestionIcon, Warning } from "phosphor-react";
 
-// Dynamically get all icon names from phosphor-react, filtering out non-component exports
-const ALL_PHOSPHOR_ICON_NAMES = Object.keys(PhosphorIcons)
-  .filter((key) => {
-    const iconComponent = (PhosphorIcons as any)[key];
-    // Filter out known non-component exports and ensure it's a function (React component)
-    if (typeof iconComponent === 'function') {
-      // Common non-visual exports from phosphor-react
-      const excludedExports = ['Icon', 'IconProps', 'IconWeight', 'IconContext', 'default'];
-      if (excludedExports.includes(key)) {
-        return false;
-      }
-      // Most actual icon components are PascalCase
-      return key[0] === key[0].toUpperCase();
-    }
-    return false;
-  })
-  .sort() as (keyof typeof PhosphorIcons)[];
-
+// Removed ALL_PHOSPHOR_ICON_NAMES generation
 
 interface EditStencilFormProps {
   stencilType: 'infrastructure' | 'process';
@@ -47,7 +30,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<keyof typeof PhosphorIcons>("Package"); 
+  const [iconName, setIconName] = useState<string>("Package"); // Changed to string
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
@@ -67,15 +50,14 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         if (stencil) {
           setName(stencil.name);
           
-          if (stencil.iconName && ALL_PHOSPHOR_ICON_NAMES.includes(stencil.iconName as keyof typeof PhosphorIcons)) {
+          // Check if iconName from Firestore is a valid Phosphor icon
+          if (stencil.iconName && (PhosphorIcons as any)[stencil.iconName as keyof typeof PhosphorIcons]) {
             setIconName(stencil.iconName as keyof typeof PhosphorIcons);
           } else {
-            if (stencil.iconName && ALL_PHOSPHOR_ICON_NAMES.length > 0) {
-                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package". Available Phosphor icons: ${ALL_PHOSPHOR_ICON_NAMES.length}`);
-            } else if (stencil.iconName) {
-                console.warn(`Icon name "${stencil.iconName}" present in stencil data, but ALL_PHOSPHOR_ICON_NAMES is empty. Defaulting to "Package".`);
+            if (stencil.iconName) {
+                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
             }
-            setIconName("Package"); 
+            setIconName("Package"); // Default if not valid or not present
           }
           
           setTextColor(stencil.textColor || "#000000");
@@ -117,17 +99,15 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         return;
     }
     
-    if (!iconName || (ALL_PHOSPHOR_ICON_NAMES.length > 0 && !ALL_PHOSPHOR_ICON_NAMES.includes(iconName))) {
-        if (ALL_PHOSPHOR_ICON_NAMES.length > 0) {
-             toast({ title: "Validation Error", description: `Invalid icon "${iconName}" selected. Please choose an icon from the list.`, variant: "destructive" });
-        } else if (!iconName) {
-             toast({ title: "Validation Error", description: `No icon selected.`, variant: "destructive" });
-        }
-        if (!iconName && ALL_PHOSPHOR_ICON_NAMES.length > 0) setIconName("Package"); 
-        if(!iconName) {
-            setIsSaving(false);
-            return;
-        }
+    if (!iconName.trim()) {
+        toast({ title: "Validation Error", description: "Icon name cannot be empty.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+    }
+    // Check if the typed iconName is a valid Phosphor icon component for better UX, though preview helps
+    if (!(PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons]) {
+        toast({ title: "Validation Warning", description: `Icon name "${iconName}" might not be a valid Phosphor icon. Please check the preview and the Phosphor Icons website.`, variant: "default" });
+        // Optionally, do not block saving if admin is sure.
     }
 
 
@@ -135,7 +115,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     
     let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = { 
       name: name.trim(),
-      iconName: iconName as keyof typeof import('phosphor-react'), 
+      iconName: iconName.trim() as keyof typeof import('phosphor-react'), 
       textColor,
       properties,
       stencilType,
@@ -179,7 +159,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   if (error && !isNew) {
       return (
           <div className="flex flex-col items-center justify-center py-10 text-destructive">
-              <Warning className="h-8 w-8 mb-2" /> {/* Updated icon */}
+              <Warning className="h-8 w-8 mb-2" />
               <p className="font-semibold">Error loading stencil</p>
               <p className="text-sm mb-4">{error}</p>
               <Button onClick={() => router.back()} variant="outline">Go Back</Button>
@@ -208,24 +188,26 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
       </div>
 
       <div>
-        <Label htmlFor="iconName">Icon (Phosphor Name)</Label>
-        {ALL_PHOSPHOR_ICON_NAMES.length === 0 && <p className="text-sm text-destructive">No Phosphor icons found or loaded.</p>}
-        <select
+        <Label htmlFor="iconName">Icon Name (Phosphor Icons)</Label>
+        <Input
           id="iconName"
           name="iconName"
           value={iconName}
-          onChange={(e) => setIconName(e.target.value as keyof typeof PhosphorIcons)}
-          disabled={isSaving || ALL_PHOSPHOR_ICON_NAMES.length === 0}
-          className="w-full p-2 border rounded-md bg-background text-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2"
-        >
-          <option value="" disabled>Select an icon</option>
-          {ALL_PHOSPHOR_ICON_NAMES.map(iconKey => (
-            <option key={iconKey} value={iconKey}>{iconKey}</option>
-          ))}
-        </select>
-         {iconName && (PhosphorIcons as any)[iconName] && React.createElement((PhosphorIcons as any)[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !(PhosphorIcons as any)[iconName] && <QuestionIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found or invalid in Phosphor set" />}
-         {!iconName && <QuestionIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon selected" />}
+          onChange={(e) => setIconName(e.target.value)}
+          placeholder="e.g., HardDrive, Circle, Diamond"
+          disabled={isSaving}
+          required
+        />
+         <p className="text-xs text-muted-foreground mt-1">
+            Enter the PascalCase name of an icon from {' '}
+            <a href="https://phosphoricons.com/" target="_blank" rel="noopener noreferrer" className="underline text-primary">
+                Phosphor Icons
+            </a>.
+            The preview below will update.
+        </p>
+         {iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] && React.createElement((PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
+         {iconName && !(PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] && <QuestionIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title={`Icon "${iconName}" not found or invalid. Check Phosphor Icons website.`} />}
+         {!iconName && <QuestionIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon name entered" />}
       </div>
       
       <div>
@@ -237,6 +219,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           value={textColor}
           onChange={(e) => setTextColor(e.target.value)}
           disabled={isSaving}
+          className="h-10 p-1" // Adjusted for better color input appearance
         />
       </div>
 
@@ -250,7 +233,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
               onCheckedChange={(checked) => setIsBoundary(Boolean(checked))}
               disabled={isSaving}
             />
-            <Label htmlFor="isBoundary">Is Trust Boundary</Label>
+            <Label htmlFor="isBoundary" className="font-normal">Is Trust Boundary</Label>
           </div>
 
           {isBoundary && (
@@ -263,6 +246,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
                 value={boundaryColor}
                 onChange={(e) => setBoundaryColor(e.target.value)}
                 disabled={isSaving}
+                className="h-10 p-1" // Adjusted for better color input appearance
               />
             </div>
           )}
@@ -295,3 +279,5 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     </form>
   );
 }
+
+
