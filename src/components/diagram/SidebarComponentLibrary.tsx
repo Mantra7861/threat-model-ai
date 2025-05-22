@@ -5,13 +5,13 @@ import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
     Spinner, // For loading
-    WarningTriangle, // For errors
+    Warning, // For errors - Changed from WarningTriangle
     Question as QuestionIcon // Fallback icon
 } from "phosphor-react"; 
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { getStencils, type StencilData } from "@/services/stencilService";
 import { useToast } from "@/hooks/use-toast";
-import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon';
 
 interface DraggableComponentProps {
   stencil: StencilData;
@@ -31,10 +31,10 @@ const DraggableComponent = ({ stencil }: DraggableComponentProps) => {
       title={stencil.name} 
     >
       <DynamicPhosphorIcon 
-        name={stencil.iconName || 'Question'} // Use Question from Phosphor as fallback
+        name={stencil.iconName || 'Question'} 
         className="w-6 h-6 mb-1 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:mb-0"
         style={{ color: stencil.textColor || 'var(--card-foreground)' }}
-        size={24} // Default size for Phosphor icons
+        size={24} 
       />
        <span className="text-xs font-medium text-card-foreground text-center w-full truncate px-1 group-data-[collapsible=icon]:hidden">
         {stencil.name}
@@ -85,7 +85,7 @@ export function SidebarComponentLibrary() {
   if (error) {
       return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-destructive">
-            <WarningTriangle className="h-6 w-6 mb-2" />
+            <Warning className="h-6 w-6 mb-2" /> {/* Changed from WarningTriangle */}
             <p className="text-sm font-semibold">Error Loading Stencils</p>
             <p className="text-xs text-center">{error}</p>
         </div>
