@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react"; // Added React import
+import React from "react"; 
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,21 @@ import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString,
 import { Loader2, AlertTriangle, HelpCircle as HelpCircleIcon } from "lucide-react";
 
 // Dynamically get all icon names from lucide-react, filtering out non-component exports
-const ALL_LUCIDE_ICON_NAMES = Object.keys(LucideIcons).filter(key => 
-    key !== 'createLucideIcon' && 
-    key !== 'icons' && 
-    typeof LucideIcons[key as keyof typeof LucideIcons] === 'function' // Check if it's a component
-) as (keyof typeof LucideIcons)[];
+const ALL_LUCIDE_ICON_NAMES = Object.keys(LucideIcons)
+  .filter((key) => {
+    // Ensure the property exists on LucideIcons and is a function (React component)
+    if (Object.prototype.hasOwnProperty.call(LucideIcons, key) && typeof LucideIcons[key as keyof typeof LucideIcons] === 'function') {
+      // Exclude known non-visual utility functions/types by name.
+      // `icons` is an object, so `typeof` check handles it.
+      if (key === 'createLucideIcon' || key === 'IconNode' || key === 'LucideIcon' || key === 'LucideProps' || key === 'default') {
+        return false;
+      }
+      // Most actual icon components are PascalCase. This is a good heuristic.
+      return key[0] === key[0].toUpperCase();
+    }
+    return false;
+  })
+  .sort() as (keyof typeof LucideIcons)[];
 
 
 interface EditStencilFormProps {
@@ -56,12 +66,13 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         if (stencil) {
           setName(stencil.name);
           
-          // Check if the iconName from Firestore is a valid Lucide icon component name
           if (stencil.iconName && ALL_LUCIDE_ICON_NAMES.includes(stencil.iconName as keyof typeof LucideIcons)) {
             setIconName(stencil.iconName as keyof typeof LucideIcons);
           } else {
-            console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package".`);
-            setIconName("Package"); // Default to a known safe icon
+            if (stencil.iconName) { // Only warn if an invalid iconName was actually set
+                console.warn(`Invalid or non-component icon name "${stencil.iconName}" from Firestore for stencil ID ${stencilId}. Defaulting to "Package". Available icons:`, ALL_LUCIDE_ICON_NAMES.slice(0,10));
+            }
+            setIconName("Package"); 
           }
           
           setTextColor(stencil.textColor || "#000000");
@@ -74,7 +85,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           }
         } else {
           toast({ title: "Error", description: "Stencil not found.", variant: "destructive" });
-          router.replace(`/admin/stencils`); // Go to main stencil page
+          router.replace(`/admin/stencils`); 
         }
       } catch (err) {
         console.error("Error fetching stencil:", err);
@@ -103,10 +114,9 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         return;
     }
     
-    // Ensure iconName is a valid Lucide icon before saving
     if (!iconName || !ALL_LUCIDE_ICON_NAMES.includes(iconName)) {
-        toast({ title: "Validation Error", description: "Invalid icon selected. Please choose an icon from the list.", variant: "destructive" });
-        setIconName("Package"); // Reset to default or prompt user
+        toast({ title: "Validation Error", description: `Invalid icon "${iconName}" selected. Please choose an icon from the list.`, variant: "destructive" });
+        setIconName("Package"); 
         setIsSaving(false);
         return;
     }
@@ -137,7 +147,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         await updateStencil(stencilId, stencilPayload); 
         toast({ title: "Stencil Updated", description: `Stencil "${name}" has been updated.` });
       }
-      router.push(`/admin/stencils`); // Redirect to main stencil page
+      router.push(`/admin/stencils`); 
     } catch (err) {
       console.error("Error saving stencil:", err);
       const errorMsg = err instanceof Error ? err.message : "Failed to save stencil.";
@@ -190,12 +200,13 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
       <div>
         <Label htmlFor="iconName">Icon (Lucide Name)</Label>
+        {ALL_LUCIDE_ICON_NAMES.length === 0 && <p className="text-sm text-destructive">No Lucide icons found or loaded.</p>}
         <select
           id="iconName"
           name="iconName"
           value={iconName}
           onChange={(e) => setIconName(e.target.value as keyof typeof LucideIcons)}
-          disabled={isSaving}
+          disabled={isSaving || ALL_LUCIDE_ICON_NAMES.length === 0}
           className="w-full p-2 border rounded-md bg-background text-foreground focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2"
         >
           <option value="" disabled>Select an icon</option>
@@ -204,7 +215,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           ))}
         </select>
          {iconName && LucideIcons[iconName] && React.createElement(LucideIcons[iconName] as React.ElementType, { className: "w-8 h-8 mt-2 inline-block", style: {color: textColor || '#000000'} })}
-         {iconName && !LucideIcons[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found or invalid" />}
+         {iconName && !LucideIcons[iconName] && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="Selected icon not found or invalid in Lucide set" />}
          {!iconName && <HelpCircleIcon className="w-8 h-8 mt-2 inline-block text-muted-foreground" title="No icon selected" />}
       </div>
       
@@ -275,5 +286,3 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     </form>
   );
 }
-
-    
