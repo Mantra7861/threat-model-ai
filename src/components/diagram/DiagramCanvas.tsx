@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useRef, type DragEvent, type MouseEvent as ReactMouseEvent, type Dispatch, type SetStateAction } from 'react';
@@ -17,23 +18,28 @@ import {
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
+import type { StencilData } from '@/services/stencilService';
 
 const nodeTypes = {
-  // Infrastructure
-  server: CustomNode,
-  database: CustomNode,
-  service: CustomNode,
-  router: CustomNode,
-  boundary: CustomNode, 
-  // Process
-  step: CustomNode,
-  'start-end': CustomNode,
-  decision: CustomNode,
-  'input-output': CustomNode,
-  document: CustomNode,
-  'manual-input': CustomNode,
-  // Default
-  default: CustomNode, 
+  // Infrastructure Stencil IconNames (PascalCase from Lucide)
+  Server: CustomNode,
+  Database: CustomNode,
+  Cloud: CustomNode, 
+  Router: CustomNode,
+  ShieldCheck: CustomNode, // For boundary
+  
+  // Process Stencil IconNames (PascalCase from Lucide)
+  Square: CustomNode,        // For "step"
+  Circle: CustomNode,        // For "start-end"
+  Diamond: CustomNode,       // For "decision" (CustomNode handles if it's SVG or Lucide's Diamond)
+  Archive: CustomNode,       // For "input-output"
+  FileText: CustomNode,      // For "document" (lucide-react uses FileText)
+  Edit3: CustomNode,         // For "manual-input" (lucide-react uses Edit3)
+  StickyNote: CustomNode,    // Alternative for Document if 'StickyNote' is used as iconName
+
+  // Fallback/Default
+  HelpCircle: CustomNode,    // Fallback if iconName is not mapped
+  default: CustomNode,       // React Flow's internal default
 };
 
 interface DiagramCanvasProps {
@@ -45,7 +51,6 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>; 
   setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onViewportChange?: (viewport: Viewport) => void;
-  viewport?: Viewport; 
   selectedElementId?: string | null; 
   onNodeClick?: (event: ReactMouseEvent, node: Node) => void; 
   onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void; 
@@ -61,14 +66,13 @@ export function DiagramCanvas({
   setNodes,
   setEdges, 
   onViewportChange,
-  viewport, 
   selectedElementId, 
   onNodeClick,
   onEdgeClick, 
   onPaneClick,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow(); 
+  const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project, getViewport } = useReactFlow(); 
   const { toast } = useToast();
 
   const onDragOver = useCallback((event: DragEvent) => {
@@ -81,8 +85,29 @@ export function DiagramCanvas({
       event.preventDefault();
       if (!reactFlowWrapper.current) return;
 
-      const type = event.dataTransfer.getData('application/reactflow');
-      if (typeof type === 'undefined' || !type) return;
+      const stencilDataString = event.dataTransfer.getData('application/reactflow');
+      if (!stencilDataString) {
+        toast({ title: "Error", description: "Could not get stencil data on drop.", variant: "destructive"});
+        return;
+      }
+
+      let droppedStencil: StencilData;
+      try {
+        droppedStencil = JSON.parse(stencilDataString);
+      } catch (e) {
+        toast({ title: "Error", description: "Invalid stencil data format.", variant: "destructive"});
+        console.error("Failed to parse dropped stencil data:", e);
+        return;
+      }
+      
+      // Ensure iconName exists, default if not
+      const nodeIconName = droppedStencil.iconName || 'HelpCircle';
+      // Ensure CustomNode can handle this type (iconName)
+      if (!(nodeIconName in nodeTypes)) {
+        console.warn(`Dropped stencil type "${nodeIconName}" not found in nodeTypes. Defaulting. Consider adding "${nodeIconName}: CustomNode" to DiagramCanvas nodeTypes.`);
+        // Potentially default to 'HelpCircle' or handle as an error
+      }
+
 
       const flowPosition = screenToFlowPosition({
         x: event.clientX,
@@ -91,7 +116,7 @@ export function DiagramCanvas({
       
       const currentNodes = rfGetNodesFromHook(); 
       const parentBoundary = currentNodes.find(
-        (n) => n.type === 'boundary' && n.positionAbsolute && n.width && n.height &&
+        (n) => n.type === 'ShieldCheck' && n.positionAbsolute && n.width && n.height && // Assuming boundary type uses ShieldCheck iconName
         project && 
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
@@ -99,40 +124,38 @@ export function DiagramCanvas({
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
 
-      const isBoundaryBox = type === 'boundary';
+      const isBoundaryBox = nodeIconName === 'ShieldCheck'; // Check based on iconName
       let defaultWidth = isBoundaryBox ? 400 : 150; 
       let defaultHeight = isBoundaryBox ? 300 : 80;
       let minWidth = isBoundaryBox ? 200 : 100; 
       let minHeight = isBoundaryBox ? 150 : 50;
-      let nodeLabelPrefix = type.charAt(0).toUpperCase() + type.slice(1);
-      let nodeLabelSuffix = isBoundaryBox ? 'Box' : 'Component';
       
-      if (type === 'start-end' || type === 'decision') {
+      // Specific default sizes for certain process shapes based on their iconName
+      if (['Circle', 'Diamond'].includes(nodeIconName)) { // Circle (start-end), Diamond (decision)
         defaultWidth = 100; defaultHeight = 100; minWidth = 60; minHeight = 60;
-        nodeLabelSuffix = type === 'start-end' ? 'Event' : 'Point';
-      } else if (type === 'step') {
+      } else if (['Square', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(nodeIconName)) { 
+        // Square (step), Archive (input-output), FileText/StickyNote (document), Edit3 (manual-input)
         defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
-        nodeLabelSuffix = 'Action';
-      } else if (type === 'input-output' || type === 'document' || type === 'manual-input') {
-        defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
-        nodeLabelSuffix = type === 'input-output' ? 'Data' : (type === 'document' ? 'Item' : 'Step');
       }
 
 
-      const newNodeId = `${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const nodeLabel = `${nodeLabelPrefix} ${nodeLabelSuffix}`;
-
+      const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
       const newNode: Node = {
         id: newNodeId,
-        type,
+        type: nodeIconName, // Use the iconName as the node type for CustomNode mapping
         position: flowPosition,
         data: {
-          label: nodeLabel,
-          properties: { name: nodeLabel, type: type, description: `A new ${type} element.` }, 
-          type: type, 
+          label: droppedStencil.name,
+          properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name }, 
+          iconName: nodeIconName, // Pass iconName for CustomNode to use
+          textColor: droppedStencil.textColor,
+          boundaryColor: droppedStencil.stencilType === 'infrastructure' ? (droppedStencil as any).boundaryColor : undefined,
+          isBoundary: droppedStencil.stencilType === 'infrastructure' ? (droppedStencil as any).isBoundary : undefined,
           resizable: true, 
           minWidth: minWidth,
           minHeight: minHeight,
+          stencilId: droppedStencil.id, // Original stencil ID for reference
         },
         style: { width: defaultWidth, height: defaultHeight },
         ...(parentBoundary && !isBoundaryBox && { 
@@ -175,26 +198,24 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onViewportChange={onViewportChange}
-        viewport={viewport} 
+        // viewport controlled by ProjectClientLayout
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true} 
-        selectNodesOnDrag={true} // Changed to true for immediate drag feedback
+        selectNodesOnDrag={true} 
         multiSelectionKeyCode={['Meta', 'Control']}
-        nodeDragThreshold={0} // Allow drag immediately
-        // fitView prop removed to allow viewport state to be fully controlled by ProjectClientLayout
-        // fitViewOptions={{ padding: 0.2 }} // Can be removed if fitView prop is removed
+        nodeDragThreshold={0} 
         onNodeClick={onNodeClick} 
         onEdgeClick={onEdgeClick} 
         onPaneClick={onPaneClick} 
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
-        panOnDrag={true}
+        panOnDrag={true} // Enable built-in pan on drag
         zoomOnScroll={true} 
         zoomOnPinch={true} 
-        panOnScroll={false} 
+        panOnScroll={false} // Usually false if panOnDrag is true
       >
         <Controls />
         <Background gap={16} />
