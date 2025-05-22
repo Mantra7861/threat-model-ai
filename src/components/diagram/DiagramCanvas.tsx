@@ -18,7 +18,7 @@ import {
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
-import type { StencilData } from '@/services/stencilService';
+import type { StencilData, InfrastructureStencilData } from '@/services/stencilService'; // Added InfrastructureStencilData
 
 const nodeTypes = {
   // Infrastructure Stencil IconNames (PascalCase from Lucide)
@@ -36,6 +36,7 @@ const nodeTypes = {
   FileText: CustomNode,      // For "document" (lucide-react uses FileText)
   Edit3: CustomNode,         // For "manual-input" (lucide-react uses Edit3)
   StickyNote: CustomNode,    // Alternative for Document if 'StickyNote' is used as iconName
+  ArrowRight: CustomNode,    // For Process Flow Arrow example
 
   // Fallback/Default
   HelpCircle: CustomNode,    // Fallback if iconName is not mapped
@@ -100,12 +101,9 @@ export function DiagramCanvas({
         return;
       }
       
-      // Ensure iconName exists, default if not
       const nodeIconName = droppedStencil.iconName || 'HelpCircle';
-      // Ensure CustomNode can handle this type (iconName)
       if (!(nodeIconName in nodeTypes)) {
-        console.warn(`Dropped stencil type "${nodeIconName}" not found in nodeTypes. Defaulting. Consider adding "${nodeIconName}: CustomNode" to DiagramCanvas nodeTypes.`);
-        // Potentially default to 'HelpCircle' or handle as an error
+        console.warn(`Dropped stencil type/iconName "${nodeIconName}" not found in nodeTypes. Defaulting to HelpCircle. Consider adding "${nodeIconName}: CustomNode" to DiagramCanvas nodeTypes.`);
       }
 
 
@@ -115,8 +113,8 @@ export function DiagramCanvas({
       });
       
       const currentNodes = rfGetNodesFromHook(); 
-      const parentBoundary = currentNodes.find(
-        (n) => n.type === 'ShieldCheck' && n.positionAbsolute && n.width && n.height && // Assuming boundary type uses ShieldCheck iconName
+      const parentBoundaryNode = currentNodes.find(
+        (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height && 
         project && 
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
@@ -124,47 +122,58 @@ export function DiagramCanvas({
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
 
-      const isBoundaryBox = nodeIconName === 'ShieldCheck'; // Check based on iconName
-      let defaultWidth = isBoundaryBox ? 400 : 150; 
-      let defaultHeight = isBoundaryBox ? 300 : 80;
-      let minWidth = isBoundaryBox ? 200 : 100; 
-      let minHeight = isBoundaryBox ? 150 : 50;
+      const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
       
-      // Specific default sizes for certain process shapes based on their iconName
-      if (['Circle', 'Diamond'].includes(nodeIconName)) { // Circle (start-end), Diamond (decision)
-        defaultWidth = 100; defaultHeight = 100; minWidth = 60; minHeight = 60;
-      } else if (['Square', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(nodeIconName)) { 
-        // Square (step), Archive (input-output), FileText/StickyNote (document), Edit3 (manual-input)
-        defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
+      let defaultWidth = isDroppedStencilBoundary ? 400 : 150; 
+      let defaultHeight = isDroppedStencilBoundary ? 300 : 80;
+      let minWidth = isDroppedStencilBoundary ? 200 : 100; 
+      let minHeight = isDroppedStencilBoundary ? 150 : 50;
+      
+      if (!isDroppedStencilBoundary) { // Only apply specific sizes if NOT a boundary
+        if (['Circle', 'Diamond'].includes(nodeIconName)) { 
+          defaultWidth = 100; defaultHeight = 100; minWidth = 60; minHeight = 60;
+        } else if (['Square', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(nodeIconName)) { 
+          defaultWidth = 160; defaultHeight = 70; minWidth = 100; minHeight = 50;
+        }
       }
 
 
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
+      const newNodeData: Record<string, any> = {
+        label: droppedStencil.name,
+        properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name }, 
+        iconName: nodeIconName, 
+        textColor: droppedStencil.textColor,
+        resizable: true, 
+        minWidth: minWidth,
+        minHeight: minHeight,
+        stencilId: droppedStencil.id, 
+      };
+
+      if (droppedStencil.stencilType === 'infrastructure') {
+        const infraStencil = droppedStencil as InfrastructureStencilData;
+        newNodeData.isBoundary = infraStencil.isBoundary || false;
+        if (newNodeData.isBoundary) {
+          newNodeData.boundaryColor = infraStencil.boundaryColor;
+        }
+      } else {
+        newNodeData.isBoundary = false; // Process stencils are not boundaries
+      }
+
       const newNode: Node = {
         id: newNodeId,
         type: nodeIconName, // Use the iconName as the node type for CustomNode mapping
         position: flowPosition,
-        data: {
-          label: droppedStencil.name,
-          properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name }, 
-          iconName: nodeIconName, // Pass iconName for CustomNode to use
-          textColor: droppedStencil.textColor,
-          boundaryColor: droppedStencil.stencilType === 'infrastructure' ? (droppedStencil as any).boundaryColor : undefined,
-          isBoundary: droppedStencil.stencilType === 'infrastructure' ? (droppedStencil as any).isBoundary : undefined,
-          resizable: true, 
-          minWidth: minWidth,
-          minHeight: minHeight,
-          stencilId: droppedStencil.id, // Original stencil ID for reference
-        },
+        data: newNodeData,
         style: { width: defaultWidth, height: defaultHeight },
-        ...(parentBoundary && !isBoundaryBox && { 
-            parentNode: parentBoundary.id,
+        ...(parentBoundaryNode && !isDroppedStencilBoundary && { 
+            parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        ...(isBoundaryBox && { 
+        ...(newNodeData.isBoundary && { 
             selectable: true, 
-            connectable: false, 
+            connectable: false, // Boundaries typically aren't connectable themselves
         }),
         selected: true, 
       };
@@ -198,7 +207,6 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onViewportChange={onViewportChange}
-        // viewport controlled by ProjectClientLayout
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
@@ -212,10 +220,10 @@ export function DiagramCanvas({
         onPaneClick={onPaneClick} 
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
-        panOnDrag={true} // Enable built-in pan on drag
+        panOnDrag={true} 
         zoomOnScroll={true} 
         zoomOnPinch={true} 
-        panOnScroll={false} // Usually false if panOnDrag is true
+        panOnScroll={false} 
       >
         <Controls />
         <Background gap={16} />
