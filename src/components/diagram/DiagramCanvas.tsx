@@ -26,21 +26,20 @@ const nodeTypes = {
   Database: CustomNode,
   Cloud: CustomNode,
   Router: CustomNode,
-  Service: CustomNode, // Added Service, if distinct from general Server/Cloud
-  ShieldCheck: CustomNode, // Can be icon for Boundary, or a regular type if needed
-  Square: CustomNode,      
-  Circle: CustomNode,     
-  Diamond: CustomNode,   
-  Archive: CustomNode,    
-  FileText: CustomNode,   
-  Edit3: CustomNode,  
-  StickyNote: CustomNode,
-  ArrowRight: CustomNode,
-  Boundary: CustomNode,     // Specific type for boundary nodes
+  Service: CustomNode, 
+  ShieldCheck: CustomNode, 
+  Rectangle: CustomNode, // For Process Step/Action (Square/Rectangle)
+  Circle: CustomNode,     // For Process Start/End
+  Diamond: CustomNode,    // For Process Decision
+  ArchiveBox: CustomNode, // For Process Input/Output (Parallelogram)
+  FileText: CustomNode,   // For Process Document
+  PencilSimpleLine: CustomNode, // For Process Manual Input (Trapezoid)
+  StickyNote: CustomNode, // For Process Annotation
+  ArrowRight: CustomNode, // For Process Flow
+  Boundary: CustomNode,
   HelpCircle: CustomNode, 
-  Default: CustomNode, // React Flow's internal default node type name is 'default' (lowercase)
-                       // but if we set node.type to 'Default' (PascalCase), we map it here.
-                       // It's safer to have a specific fallback if iconName is unknown.
+  Package: CustomNode, // Default icon if one is not found
+  Default: CustomNode,
 };
 
 interface DiagramCanvasProps {
@@ -101,15 +100,13 @@ export function DiagramCanvas({
         return;
       }
       
-      const nodeIconName = droppedStencil.iconName || 'HelpCircle'; // Original icon, e.g., "Server", "ShieldCheck"
+      const nodeIconName = droppedStencil.iconName || 'Package'; 
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
       
-      // Determine the React Flow node type: "Boundary" for boundaries, otherwise use the iconName.
       const reactFlowNodeStyleType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(reactFlowNodeStyleType in nodeTypes)) {
-        console.warn(`Dropped stencil's effective type "${reactFlowNodeStyleType}" not found in nodeTypes. Defaulting to HelpCircle type for rendering. Consider adding "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes.`);
-        // Potentially set reactFlowNodeStyleType to 'HelpCircle' or a generic 'Default' if preferred.
+        console.warn(`Dropped stencil's effective type "${reactFlowNodeStyleType}" (from iconName: ${nodeIconName}) not found in nodeTypes. Defaulting to 'Package' type for rendering. Consider adding "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes.`);
       }
 
       const flowPosition = screenToFlowPosition({
@@ -127,37 +124,49 @@ export function DiagramCanvas({
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
 
-
       let defaultWidth = 150;
       let defaultHeight = 80;
-      let minWidthForNode = 100;
-      let minHeightForNode = 50;
+      let minWidthForNode = 80; 
+      let minHeightForNode = 40;
+      let nodeIsResizable = true; 
 
       if (isDroppedStencilBoundary) {
           defaultWidth = 400;
           defaultHeight = 300;
           minWidthForNode = 200;
           minHeightForNode = 150;
-      } else {
-        if (['Circle', 'Diamond'].includes(nodeIconName)) {
-          defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
-        } else if (['Square', 'Archive', 'FileText', 'Edit3', 'StickyNote'].includes(nodeIconName)) {
-          defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
-        }
+          nodeIsResizable = true; 
+      } else if (droppedStencil.stencilType === 'process') {
+          // Specific sizes and ensure resizable for process stencils
+          nodeIsResizable = true; // All process stencils are resizable
+          if (['Circle', 'Diamond'].includes(nodeIconName)) { 
+              defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
+          } else if (['Rectangle', 'ArchiveBox', 'FileText', 'PencilSimpleLine', 'StickyNote'].includes(nodeIconName)) { 
+              defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
+          } else if (nodeIconName === 'ArrowRight') { 
+              defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
+          } else {
+              // Default for any other process stencils
+              defaultWidth = 150; defaultHeight = 80; minWidthForNode = 80; minHeightForNode = 40;
+          }
+      } else { // Infrastructure (non-boundary)
+          nodeIsResizable = true; 
+          // Default sizes (150x80) and min sizes (80x40) from initial declaration are suitable.
       }
+
 
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName, // Store the original icon name for CustomNode to use
+        iconName: nodeIconName, 
         textColor: droppedStencil.textColor,
-        resizable: true,
+        resizable: nodeIsResizable,
         minWidth: minWidthForNode, 
         minHeight: minHeightForNode, 
         stencilId: droppedStencil.id,
-        isBoundary: isDroppedStencilBoundary, // Explicitly set isBoundary flag
+        isBoundary: isDroppedStencilBoundary, 
       };
 
       if (isDroppedStencilBoundary) {
@@ -167,24 +176,19 @@ export function DiagramCanvas({
 
       const newNodeStyle: React.CSSProperties = { width: defaultWidth, height: defaultHeight };
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
-        // Set CSS variable for boundary color on the node itself
         newNodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
 
 
       const newNode: Node = {
         id: newNodeId,
-        type: reactFlowNodeStyleType, // Use "Boundary" or specific iconName like "Server"
+        type: reactFlowNodeStyleType, 
         position: flowPosition,
         data: newNodeData,
         style: newNodeStyle,
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
-        }),
-        ...(isDroppedStencilBoundary && { // isBoundary flag in data now controls this in CustomNode
-            selectable: true, 
-            connectable: false, // Boundary nodes are not connectable
         }),
         selected: true,
       };
@@ -218,7 +222,7 @@ export function DiagramCanvas({
         onDragOver={onDragOver}
         nodeTypes={nodeTypes}
         onViewportChange={onViewportChange}
-        className="bg-background" // Base background for the flow area
+        className="bg-background" 
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
         nodesConnectable={true}
