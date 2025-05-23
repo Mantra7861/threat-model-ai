@@ -101,75 +101,56 @@ body {
 /* Custom styles for react-flow nodes and edges */
 @layer components {
   .react-flow__node {
-    @apply rounded-lg shadow-sm cursor-grab hover:shadow-md transition-shadow bg-card text-card-foreground active:cursor-grabbing;
-    /* Default border is transparent; type-specific classes will override for always-visible border */
-    @apply border border-transparent;
+    /* Default node wrapper is now transparent and borderless */
+    @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible; /* Allow shapes/icons to extend slightly if needed for visuals */
   }
 
-  /* Infrastructure Component Type-specific styles - These provide the ALWAYS VISIBLE border */
+  /* Infrastructure Component Type-specific styles - These now primarily set TEXT color for icons */
   /* Ensure PascalCase matches node.type */
-  div.react-flow__node.react-flow__node-Server {
-    @apply !border-blue-400 text-blue-800;
-  }
-  div.react-flow__node.react-flow__node-Database {
-    @apply !border-green-400 text-green-800;
-  }
-  div.react-flow__node.react-flow__node-Cloud {
-    @apply !border-sky-400 text-sky-800;
-  }
-  div.react-flow__node.react-flow__node-Service {
-    @apply !border-purple-400 text-purple-800;
-  }
-  div.react-flow__node.react-flow__node-Router {
-    @apply !border-yellow-500 text-yellow-800;
-  }
+  div.react-flow__node.react-flow__node-Server { @apply text-blue-700; }
+  div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
+  div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
+  div.react-flow__node.react-flow__node-Service { @apply text-purple-700; }
+  div.react-flow__node.react-flow__node-Router { @apply text-yellow-700; }
   div.react-flow__node.react-flow__node-Default, /* For default type */
   div.react-flow__node.react-flow__node-HelpCircle, /* For HelpCircle iconName fallback type */
   div.react-flow__node.react-flow__node-Package { /* For Package iconName fallback type */
-     @apply !border-gray-400 text-gray-800;
+     @apply text-gray-700;
   }
 
-  /* Process Component Type-specific styles - These provide the ALWAYS VISIBLE border */
+  /* Process Component Type-specific styles - These now primarily set TEXT color for icons/shapes */
   /* Ensure PascalCase matches node.type */
-  div.react-flow__node.react-flow__node-Rectangle { 
-    @apply !border-sky-500 text-sky-800;
-  }
-  div.react-flow__node.react-flow__node-Circle { 
-    @apply !border-lime-500 text-lime-800 !rounded-full; 
-  }
-  div.react-flow__node.react-flow__node-Diamond { 
-    @apply !border-fuchsia-500 text-fuchsia-800;
-     /* For Diamond, you might want to adjust shape using clip-path if the node itself isn't diamond-shaped */
-  }
-  div.react-flow__node.react-flow__node-ArchiveBox { /* Placeholder for Parallelogram, Input/Output*/
-    @apply !border-orange-500 text-orange-800;
-  }
-  div.react-flow__node.react-flow__node-FileText { /* Document */
-    @apply !border-indigo-500 text-indigo-800;
-  }
-  div.react-flow__node.react-flow__node-PencilSimpleLine { /* Placeholder for Trapezoid, Manual Input */
-    @apply !border-amber-500 text-amber-800;
-  }
-   div.react-flow__node.react-flow__node-StickyNote { 
-    @apply !border-pink-500 text-pink-800;
-  }
-  div.react-flow__node.react-flow__node-ArrowRight { 
-    @apply !border-teal-500 text-teal-800;
-  }
-  div.react-flow__node.react-flow__node-ShieldCheck { /* If ShieldCheck is used as a type for a regular node OR for old boundary icon */
-    @apply !border-red-500 text-red-800;
-  }
+  /* For shapes like Rectangle, Circle, Diamond, CustomNode will draw a border using data.textColor */
+  div.react-flow__node.react-flow__node-Rectangle { @apply text-sky-700; }
+  div.react-flow__node.react-flow__node-Circle { @apply text-lime-700; }
+  div.react-flow__node.react-flow__node-Diamond { @apply text-fuchsia-700; }
+  div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
+  div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
+  div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
+  div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
+  div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
+  
+  /* ShieldCheck might be used as a type for an icon-only node OR for old boundary icon. Ensure it gets a color. */
+  div.react-flow__node.react-flow__node-ShieldCheck { @apply text-red-700; }
 
 
   /* Boundary Box Specific Styling - node.type will be 'Boundary' */
+  /* This class is applied by React Flow to its wrapper div for nodes of type "Boundary" */
   div.react-flow__node.react-flow__node-Boundary {
      @apply !border-2 !border-dashed !bg-transparent cursor-default shadow-none hover:shadow-none;
-     border-color: var(--dynamic-boundary-color, hsl(var(--border))); /* Uses CSS var for color, with fallback */
+     /* Dynamic color for the border is set via CSS variable in CustomNode.tsx style prop */
+     border-color: var(--dynamic-boundary-color, hsl(var(--border)));
   }
 
   /* General selection outline for non-boundary nodes */
+  /* This applies an outline to the bounding box of the selected node */
   .react-flow__node.selected:not(.react-flow__node-Boundary) {
-    @apply ring-2 ring-primary ring-offset-1; 
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+    /* Ensure the background of the ring offset is the canvas background */
   }
 
   /* Selection outline for boundary nodes */
@@ -228,3 +209,4 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
