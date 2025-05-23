@@ -108,29 +108,30 @@ body {
 
   /* Infrastructure Component Type-specific styles - These provide the ALWAYS VISIBLE border */
   /* Ensure PascalCase matches node.type */
-  div.react-flow__node.react-flow__node-Server { /* Was react-flow__node-server */
+  div.react-flow__node.react-flow__node-Server {
     @apply !border-blue-400 text-blue-800;
   }
-  div.react-flow__node.react-flow__node-Database { /* Was react-flow__node-database */
+  div.react-flow__node.react-flow__node-Database {
     @apply !border-green-400 text-green-800;
   }
   div.react-flow__node.react-flow__node-Cloud {
     @apply !border-sky-400 text-sky-800;
   }
-  div.react-flow__node.react-flow__node-Service { /* Was react-flow__node-service */
+  div.react-flow__node.react-flow__node-Service {
     @apply !border-purple-400 text-purple-800;
   }
-  div.react-flow__node.react-flow__node-Router { /* Was react-flow__node-router */
+  div.react-flow__node.react-flow__node-Router {
     @apply !border-yellow-500 text-yellow-800;
   }
   div.react-flow__node.react-flow__node-Default, /* For default type */
-  div.react-flow__node.react-flow__node-HelpCircle { /* For HelpCircle iconName fallback type */
+  div.react-flow__node.react-flow__node-HelpCircle, /* For HelpCircle iconName fallback type */
+  div.react-flow__node.react-flow__node-Package { /* For Package iconName fallback type */
      @apply !border-gray-400 text-gray-800;
   }
 
   /* Process Component Type-specific styles - These provide the ALWAYS VISIBLE border */
   /* Ensure PascalCase matches node.type */
-  div.react-flow__node.react-flow__node-Square { 
+  div.react-flow__node.react-flow__node-Rectangle { 
     @apply !border-sky-500 text-sky-800;
   }
   div.react-flow__node.react-flow__node-Circle { 
@@ -138,14 +139,15 @@ body {
   }
   div.react-flow__node.react-flow__node-Diamond { 
     @apply !border-fuchsia-500 text-fuchsia-800;
+     /* For Diamond, you might want to adjust shape using clip-path if the node itself isn't diamond-shaped */
   }
-  div.react-flow__node.react-flow__node-Archive { 
+  div.react-flow__node.react-flow__node-ArchiveBox { /* Placeholder for Parallelogram, Input/Output*/
     @apply !border-orange-500 text-orange-800;
   }
-  div.react-flow__node.react-flow__node-FileText { 
+  div.react-flow__node.react-flow__node-FileText { /* Document */
     @apply !border-indigo-500 text-indigo-800;
   }
-  div.react-flow__node.react-flow__node-Edit3 { 
+  div.react-flow__node.react-flow__node-PencilSimpleLine { /* Placeholder for Trapezoid, Manual Input */
     @apply !border-amber-500 text-amber-800;
   }
    div.react-flow__node.react-flow__node-StickyNote { 
@@ -154,7 +156,7 @@ body {
   div.react-flow__node.react-flow__node-ArrowRight { 
     @apply !border-teal-500 text-teal-800;
   }
-  div.react-flow__node.react-flow__node-ShieldCheck { /* If ShieldCheck is used as a type for a regular node */
+  div.react-flow__node.react-flow__node-ShieldCheck { /* If ShieldCheck is used as a type for a regular node OR for old boundary icon */
     @apply !border-red-500 text-red-800;
   }
 
@@ -162,16 +164,16 @@ body {
   /* Boundary Box Specific Styling - node.type will be 'Boundary' */
   div.react-flow__node.react-flow__node-Boundary {
      @apply !border-2 !border-dashed !bg-transparent cursor-default shadow-none hover:shadow-none;
-     border-color: var(--dynamic-boundary-color, hsl(var(--border))); /* Uses CSS var for color */
+     border-color: var(--dynamic-boundary-color, hsl(var(--border))); /* Uses CSS var for color, with fallback */
   }
 
   /* General selection outline for non-boundary nodes */
-  .react-flow__node.selected:not(.react-flow__node-Boundary) { /* Ensure -Boundary matches type */
+  .react-flow__node.selected:not(.react-flow__node-Boundary) {
     @apply ring-2 ring-primary ring-offset-1; 
   }
 
   /* Selection outline for boundary nodes */
-  .react-flow__node-Boundary.selected { /* Ensure -Boundary matches type */
+  .react-flow__node-Boundary.selected {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
@@ -226,4 +228,3 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
-

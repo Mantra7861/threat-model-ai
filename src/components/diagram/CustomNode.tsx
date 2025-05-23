@@ -2,98 +2,101 @@
 "use client";
 
 import type { FC } from 'react';
-import React from 'react'; // Ensure React is imported for React.createElement
+import React from 'react'; // Ensure React is imported
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import * as PhosphorIcons from 'phosphor-react'; // Import Phosphor icons
+import * as PhosphorIcons from 'phosphor-react';
+import { Question as QuestionIcon } from 'phosphor-react';
 import { cn } from '@/lib/utils';
 import { calculateEffectiveZIndex } from '@/lib/diagram-utils';
 
-// SVG for Diamond if needed, though Phosphor has Diamond
-// const DiamondIconSvg = () => (
-//   <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" stroke="currentColor" strokeWidth="0.1">
-//     <polygon points="12 2 22 12 12 22 2 12" />
-//   </svg>
-// );
-
 export const CustomNode: FC<NodeProps> = ({ id, data, selected, type, xPos, yPos, isConnectable, zIndex: rfProvidedZIndex, parentNode }) => {
-  // data.iconName is the original icon from the stencil (e.g., "HardDrive", "Database")
-  // type prop is what React Flow uses based on nodeTypes map (e.g., "HardDrive", "Boundary")
   
-  const isBoundary = data?.isBoundary === true;
-  // For non-boundary nodes, iconToRenderName is data.iconName. For boundaries, icon is usually not shown or is fixed.
-  const iconToRenderName = !isBoundary ? (data?.iconName as keyof typeof PhosphorIcons | undefined) : undefined;
+  if (!data) {
+    console.warn(`CustomNode (id: ${id}): Missing data prop. Rendering fallback.`);
+    return (
+        <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700 w-20 h-10 flex items-center justify-center">
+            No Data
+        </div>
+    );
+  }
 
-  const Icon = (() => {
-    if (iconToRenderName && (PhosphorIcons as any)[iconToRenderName]) {
-        return (PhosphorIcons as any)[iconToRenderName];
+  const isBoundary = data.isBoundary === true;
+  const iconToRenderName = !isBoundary ? (data.iconName as keyof typeof PhosphorIcons | undefined) : undefined;
+
+  const IconComponent = (() => {
+    if (!iconToRenderName) return null; 
+
+    let phosphorIcon: PhosphorIcons.Icon | React.ForwardRefExoticComponent<any> | undefined | null = null;
+    if (Object.prototype.hasOwnProperty.call(PhosphorIcons, iconToRenderName)) {
+        phosphorIcon = (PhosphorIcons as any)[iconToRenderName];
+    } else if (PhosphorIcons.default && typeof PhosphorIcons.default === 'object' && Object.prototype.hasOwnProperty.call(PhosphorIcons.default, iconToRenderName)) {
+        phosphorIcon = (PhosphorIcons.default as any)[iconToRenderName];
     }
-    // For boundaries, we don't render a typical icon from the library in the center.
-    // If it's not a boundary and icon is missing, fall back to Question.
-    return !isBoundary ? PhosphorIcons.Question : null; 
+    
+    return phosphorIcon || QuestionIcon;
   })();
 
-  const isNodeResizable = data?.resizable === true || isBoundary;
+
+  const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
 
-  if (!data) {
-    console.error(`CustomNode (id: ${id}): Missing data prop.`);
-    return <div className="border border-red-500 bg-red-100 p-2 text-xs text-red-700">Error: Missing Node Data</div>;
-  }
-
-  const effectiveZIndex = calculateEffectiveZIndex(id, isBoundary ? 'boundary' : (type || 'default'), selected, rfProvidedZIndex, selected ? id : null);
+  const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
   
-  const rootNodeStyle: React.CSSProperties = { 
+  const customNodeRootStyle: React.CSSProperties = { 
     zIndex: effectiveZIndex,
+    width: '100%', 
+    height: '100%', 
   };
+  
+  // Set CSS variable for dynamic boundary color, used by globals.css
+  // This style is applied to the div CustomNode returns. React Flow wraps this div with its own
+  // that gets the .react-flow__node-Boundary class.
   if (isBoundary && data.boundaryColor) {
-    // This CSS variable is used by the .react-flow__node-Boundary class in globals.css
-    rootNodeStyle['--dynamic-boundary-color' as any] = data.boundaryColor;
+    customNodeRootStyle['--dynamic-boundary-color' as any] = data.boundaryColor;
   }
-
 
   // Base classes for the internal content div
   let contentDivClasses = "flex flex-col items-center justify-center w-full h-full relative group";
-  let labelClasses = "text-xs font-medium truncate max-w-[90%]";
+  let labelClasses = "text-xs font-medium truncate max-w-[90%]"; // Default for regular nodes
   let labelStyle: React.CSSProperties = {};
   let iconStyle: React.CSSProperties = {};
 
   if (isBoundary) {
-    contentDivClasses = cn(contentDivClasses, "p-1"); 
-    labelClasses = cn(labelClasses, "text-sm font-semibold absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-card px-1 py-0.5 rounded shadow-sm");
+    // Boundary nodes: label is positioned absolutely at the top.
+    // The dashed border and transparent background are applied by `.react-flow__node-Boundary` in globals.css.
+    contentDivClasses = cn("w-full h-full relative"); // No internal padding for boundary content area
+    labelClasses = cn("text-sm font-semibold absolute top-1 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1rem)] bg-card px-1 py-0.5 rounded shadow-sm");
     labelStyle.color = data.boundaryColor || 'hsl(var(--border))'; 
   } else {
-    contentDivClasses = cn(contentDivClasses, "p-3"); 
+    // Regular nodes: padding for icon and label.
+    // Border and background are applied by `.react-flow__node` and type-specific classes in globals.css.
+    contentDivClasses = cn(contentDivClasses, "p-2"); 
     const regularNodeColor = data.textColor || 'currentColor'; 
     iconStyle.color = regularNodeColor;
     labelStyle.color = regularNodeColor;
   }
 
   return (
-    // This outer div gets the dynamic CSS variable for boundary color if applicable.
-    // React Flow wraps this in its own div with classes like .react-flow__node and .react-flow__node-[type]
-    <div style={rootNodeStyle} className="w-full h-full"> 
+    <div style={customNodeRootStyle}> 
       {showResizer && (
         <NodeResizer
-          minWidth={data.minWidth || (isBoundary ? 200 : (['Circle', 'Diamond'].includes(iconToRenderName || '') ? 60 : 80) )}
-          minHeight={data.minHeight || (isBoundary ? 200 : (['Circle', 'Diamond'].includes(iconToRenderName || '') ? 60 : 40) )}
+          minWidth={data.minWidth || (isBoundary ? 150 : 60)}
+          minHeight={data.minHeight || (isBoundary ? 100 : 40)}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
-          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} 
           isVisible={selected}
+          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} 
         />
       )}
 
       <div className={contentDivClasses}>
-        {!isBoundary && Icon && (
-            <Icon
-                className={cn(
-                    "w-8 h-8 mb-1",
-                     // Phosphor specific sizing or general, adapt if needed
-                    (['Rectangle', 'Circle', 'Diamond', 'ArchiveBox', 'FileText', 'PencilSimpleLine', 'StickyNote'].includes(iconToRenderName || '')) && "w-10 h-10"
-                )}
-                style={iconStyle}
-                size={(['Rectangle', 'Circle', 'Diamond', 'ArchiveBox', 'FileText', 'PencilSimpleLine', 'StickyNote'].includes(iconToRenderName || '')) ? 32 : 24} // Example size prop for Phosphor
-            />
+        {!isBoundary && IconComponent && (
+            React.createElement(IconComponent, {
+                className: cn("w-7 h-7 mb-1", data.iconName === 'Circle' || data.iconName === 'Diamond' ? "w-8 h-8" : ""),
+                style: iconStyle,
+                size: data.iconName === 'Circle' || data.iconName === 'Diamond' ? 32 : 28,
+                weight: "regular" 
+            })
         )}
         <span className={labelClasses} style={labelStyle}>
           {data.label || 'Unnamed'}
