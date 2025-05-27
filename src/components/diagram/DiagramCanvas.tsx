@@ -35,6 +35,7 @@ const nodeTypes = {
   Rectangle: CustomNode, 
   Circle: CustomNode,    
   Diamond: CustomNode,   
+  Parallelogram: CustomNode, // Added Parallelogram type
   ArchiveBox: CustomNode, 
   FileText: CustomNode,  
   PencilSimpleLine: CustomNode, 
@@ -95,10 +96,9 @@ export function DiagramCanvas({
 
       const stencilDataString = event.dataTransfer.getData('application/reactflow');
       
-      // Critical Check: Only proceed if we are actually dropping a stencil from the library
       if (!stencilDataString) {
-        console.warn("onDrop called without 'application/reactflow' data. This might be an internal React Flow drag operation (like connecting nodes) rather than a stencil drop. Aborting onDrop handler for this event.");
-        return; // Exit if this is not a stencil drop
+        console.warn("onDrop called without 'application/reactflow' data. Likely an internal React Flow drag (e.g., connecting nodes). Aborting onDrop handler.");
+        return; 
       }
 
       let droppedStencil: StencilData;
@@ -145,19 +145,19 @@ export function DiagramCanvas({
           defaultHeight = 300;
           minWidthForNode = 200;
           minHeightForNode = 150;
-          nodeIsResizable = true; // Boundaries are resizable
+          nodeIsResizable = true;
       } else if (droppedStencil.stencilType === 'process') {
           nodeIsResizable = true; 
           if (['Circle', 'Diamond'].includes(nodeIconName)) { 
               defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
-          } else if (['Rectangle', 'ArchiveBox', 'FileText', 'PencilSimpleLine', 'StickyNote'].includes(nodeIconName)) { 
+          } else if (['Rectangle', 'ArchiveBox', 'FileText', 'PencilSimpleLine', 'StickyNote', 'Parallelogram'].includes(nodeIconName)) { 
               defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
           } else if (nodeIconName === 'ArrowRight') { 
               defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
-          } else { // Other process stencils (treated as icon-only if not a defined shape)
+          } else { 
               defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
-      } else { // Infrastructure (non-boundary, icon-only by default now)
+      } else { 
           nodeIsResizable = true; 
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
@@ -183,12 +183,13 @@ export function DiagramCanvas({
         newNodeData.boundaryColor = (droppedStencil as InfrastructureStencilData).boundaryColor;
       }
       
-      const newNodeStyle: React.CSSProperties = {
+      const nodeStyle: React.CSSProperties = {
         width: defaultWidth,
         height: defaultHeight,
       };
+
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
-        newNodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
+        nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
 
 
@@ -197,7 +198,7 @@ export function DiagramCanvas({
         type: reactFlowNodeStyleType, 
         position: flowPosition,
         data: newNodeData,
-        style: newNodeStyle,
+        style: nodeStyle,
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
