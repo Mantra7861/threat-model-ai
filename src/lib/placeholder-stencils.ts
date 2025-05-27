@@ -41,10 +41,10 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
     id: 'trust-boundary-1',
     name: 'Trust Boundary',
     iconName: 'ShieldCheck', 
-    textColor: '#D32F2F',
+    textColor: '#D32F2F', // Default color for the border/text of the boundary label
     stencilType: 'infrastructure',
     isBoundary: true,
-    boundaryColor: '#D32F2F',
+    boundaryColor: '#D32F2F', // This is the color applied to the dashed border
     properties: { Description: 'Internal Network', AccessControl: 'Strict' },
   },
 ];
@@ -85,7 +85,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'input-output-1',
     name: 'Input/Output',
-    iconName: 'ArchiveBox', 
+    iconName: 'Parallelogram', // Changed from ArchiveBox to Parallelogram
     textColor: '#333333',
     stencilType: 'process',
     properties: { Data: 'Payment Information', Format: 'JSON' },
