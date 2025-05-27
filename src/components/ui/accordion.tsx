@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import * as AccordionPrimitive from "@radix-ui/react-accordion"
-import { CaretDown } from "phosphor-react" // Phosphor icon
+import { CaretDown } from "@phosphor-icons/react" // Corrected import
 
 import { cn } from "@/lib/utils"
 

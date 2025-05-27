@@ -4,14 +4,14 @@
 import { useState, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-    Spinner, // For loading
-    Warning, // For errors - Changed from WarningTriangle
-    Question as QuestionIcon // Fallback icon
-} from "phosphor-react"; 
+    Spinner, 
+    Warning, 
+    Question as QuestionIcon 
+} from "@phosphor-icons/react"; // Corrected import
 import { useProjectContext } from "@/contexts/ProjectContext";
 import { getStencils, type StencilData } from "@/services/stencilService";
 import { useToast } from "@/hooks/use-toast";
-import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon';
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Updated import
 
 interface DraggableComponentProps {
   stencil: StencilData;
@@ -85,7 +85,7 @@ export function SidebarComponentLibrary() {
   if (error) {
       return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-destructive">
-            <Warning className="h-6 w-6 mb-2" /> {/* Changed from WarningTriangle */}
+            <Warning className="h-6 w-6 mb-2" /> 
             <p className="text-sm font-semibold">Error Loading Stencils</p>
             <p className="text-xs text-center">{error}</p>
         </div>

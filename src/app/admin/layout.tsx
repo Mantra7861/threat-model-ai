@@ -7,10 +7,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
-import { Users, Layout, ShieldWarning, SignOut, UserCircle, Spinner, SquaresFour, Warning } from 'phosphor-react'; // Updated import
+import { Users, Layout, ShieldWarning, SignOut, UserCircle, Spinner, SquaresFour, Warning } from '@phosphor-icons/react'; // Corrected import
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-// import { WarningTriangle } from 'phosphor-react'; // Removed incorrect import
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { userProfile, loading: authLoading, isAdmin, firebaseReady, signOut } = useAuth();
@@ -28,7 +27,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     mainContent = (
         <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
-               <Warning className="h-4 w-4" /> {/* Updated icon */}
+               <Warning className="h-4 w-4" /> 
                <AlertTitle>Initialization Error</AlertTitle>
                <AlertDescription>
                  Could not connect to backend services. Please ensure Firebase is configured correctly or check your network connection. Admin section cannot be loaded.
@@ -47,7 +46,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     mainContent = (
         <div className="flex items-center justify-center h-full p-4">
              <Alert variant="destructive" className="w-full max-w-md">
-               <Warning className="h-4 w-4" /> {/* Updated icon */}
+               <Warning className="h-4 w-4" /> 
                <AlertTitle>Access Denied</AlertTitle>
                <AlertDescription>
                  You do not have administrator privileges to access this section. Redirecting...

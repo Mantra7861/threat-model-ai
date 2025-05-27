@@ -11,9 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { StencilData, InfrastructureStencilData, StencilFirestoreData } from "@/types/stencil";
-import * as PhosphorIcons from 'phosphor-react';
+import * as PhosphorIcons from '@phosphor-icons/react'; // Corrected import
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
-import { Spinner, Question as QuestionIcon, Warning } from "phosphor-react";
+import { Spinner, Question as QuestionIcon, Warning } from "@phosphor-icons/react"; // Corrected import
 
 
 interface EditStencilFormProps {
@@ -48,7 +48,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         const stencil = await getStencilById(stencilId);
         if (stencil) {
           setName(stencil.name);
-          setIconName(stencil.iconName || "Package"); // Default to "Package" if not set
+          setIconName(stencil.iconName || "Package"); 
           setTextColor(stencil.textColor || "#000000");
           const formattedProps = await formatStaticPropertiesToString(stencil.properties);
           setStaticPropertiesString(formattedProps);
@@ -88,18 +88,10 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
         return;
     }
 
-    const finalIconName = iconName.trim() || "Package"; // Default to "Package" if empty
+    const finalIconName = iconName.trim() || "Package"; 
 
-    if (!finalIconName) { // Should not happen with default but good practice
-        toast({ title: "Validation Error", description: "Icon name cannot be empty.", variant: "destructive" });
-        setIsSaving(false);
-        return;
-    }
-    
     if (!(PhosphorIcons as any)[finalIconName as keyof typeof PhosphorIcons]) {
-        toast({ title: "Validation Warning", description: `Icon name "${finalIconName}" might not be a valid Phosphor icon. Preview will show fallback. Please check Phosphor Icons website. Defaulting to 'Package' if save proceeds with invalid name.`, variant: "default" });
-        // Optionally, do not block saving if admin is sure, or force valid selection.
-        // For now, we proceed but the preview indicates the issue.
+        toast({ title: "Validation Warning", description: `Icon name "${finalIconName}" might not be a valid Phosphor icon. Preview will show fallback. Please check Phosphor Icons website.`, variant: "default" });
     }
 
 
@@ -107,7 +99,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
     let stencilPayload: Omit<StencilData, 'id' | 'createdDate' | 'modifiedDate'> = {
       name: name.trim(),
-      iconName: finalIconName, // Use finalIconName which has a default
+      iconName: finalIconName as keyof typeof PhosphorIcons,
       textColor,
       properties,
       stencilType,
@@ -159,9 +151,8 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
       );
   }
 
-  const CurrentIconPreview = iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons]
-    ? (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons]
-    : QuestionIcon;
+  const IconComponentToPreview = (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] || QuestionIcon;
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -199,11 +190,11 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             </a>.
             The preview below will update. If the name is invalid, a question mark icon will be shown.
         </p>
-        <CurrentIconPreview 
+        <IconComponentToPreview 
             size={32} 
             className="w-8 h-8 mt-2 inline-block" 
             style={{color: textColor || '#000000'}} 
-            title={iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] ? `Preview: ${iconName}` : `Icon "${iconName}" not found or invalid. Defaulting to question mark.`}
+            title={iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] ? `Preview: ${iconName}` : `Icon "${iconName}" not found. Defaulting to question mark.`}
         />
       </div>
 
@@ -269,7 +260,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={isSaving}>
-          {isSaving ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSaving ? <PhosphorIcons.Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
           {isSaving ? (isNew ? 'Creating...' : 'Saving...') : (isNew ? 'Create Stencil' : 'Save Changes')}
         </Button>
       </div>

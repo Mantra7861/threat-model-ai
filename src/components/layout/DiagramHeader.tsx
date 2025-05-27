@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ShareNetwork, PlusCircle, FolderOpen, FloppyDisk, Spinner } from "phosphor-react"; // Updated imports
+import { ShareNetwork, PlusCircle, FolderOpen, FloppyDisk, Spinner } from "@phosphor-icons/react"; // Corrected import
 import { useToast } from "@/hooks/use-toast";
 import { useProjectContext } from '@/contexts/ProjectContext';
 

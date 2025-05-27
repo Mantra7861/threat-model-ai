@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, type ReactNode, useRef } from 'react';
@@ -47,7 +46,7 @@ import { NewModelDialog } from '@/components/dialogs/NewModelDialog';
 import { LoadModelDialog } from '@/components/dialogs/LoadModelDialog';
 import { useProjectContext } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Spinner } from 'phosphor-react'; 
+import { Spinner } from '@phosphor-icons/react'; // Corrected import
 import { Button } from '@/components/ui/button';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -87,7 +86,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     
     const justCreatedNewModelFromDialog = useRef(false); 
     const lastToastTime = useRef(Date.now());
-    const TOAST_DEBOUNCE_DURATION = 2500;
+    const TOAST_DEBOUNCE_DURATION = 2500; // 2.5 seconds
     const initialLoadAttempted = useRef(false);
     const isDirectlyLoading = useRef(false);
 
@@ -525,11 +524,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const tempLoadingToastId = loadingToast.id; 
         try {
             const models = await getUserThreatModels(currentUser.uid);
-            if (tempLoadingToastId) dismissToast(tempLoadingToastId); 
+            if (tempLoadingToastId && typeof dismissToast === 'function') dismissToast(tempLoadingToastId); 
             setUserModels(models);
             setIsLoadModelDialogOpen(true);
         } catch (err) {
-             if (tempLoadingToastId) dismissToast(tempLoadingToastId);
+             if (tempLoadingToastId && typeof dismissToast === 'function') dismissToast(tempLoadingToastId);
             toast({ title: 'Error', description: 'Could not fetch your saved models.', variant: 'destructive' });
         }
     };
@@ -561,6 +560,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
 
      const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
+        // When an element (node or edge) is clicked directly, React Flow selects it.
+        // We just need to update our selectedElementId state if it changed.
         if (element.id !== selectedElementId) {
             setSelectedElementId(element.id);
         }

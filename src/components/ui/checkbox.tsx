@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
-import { Check } from "phosphor-react" // Phosphor icon
+import { Check } from "@phosphor-icons/react" // Corrected import
 
 import { cn } from "@/lib/utils"
 

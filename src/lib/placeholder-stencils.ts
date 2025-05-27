@@ -1,5 +1,6 @@
 
 import type { InfrastructureStencilData, ProcessStencilData } from '@/types/stencil';
+import type { Icon as PhosphorIconType } from '@phosphor-icons/react'; // Corrected import for type checking
 
 // Updated with Phosphor icon names where direct equivalents exist,
 // or suitable alternatives. User can customize further in admin.
@@ -7,7 +8,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
   {
     id: 'server-1',
     name: 'Server',
-    iconName: 'HardDrive', // Phosphor: HardDrive or ServerSimple
+    iconName: 'HardDrive', 
     textColor: '#333333',
     stencilType: 'infrastructure',
     properties: { OS: 'Linux', Version: 'Ubuntu 22.04', IPAddress: '192.168.1.10' },
@@ -15,7 +16,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
   {
     id: 'database-1',
     name: 'Database',
-    iconName: 'Database', // Phosphor: Database
+    iconName: 'Database', 
     textColor: '#333333',
     stencilType: 'infrastructure',
     properties: { Type: 'PostgreSQL', Version: '14', Replication: 'Enabled' },
@@ -23,7 +24,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
   {
     id: 'cloud-service-1',
     name: 'Cloud Service',
-    iconName: 'Cloud', // Phosphor: Cloud
+    iconName: 'Cloud', 
     textColor: '#333333',
     stencilType: 'infrastructure',
     properties: { Provider: 'AWS', Service: 'S3', Region: 'us-east-1' },
@@ -31,7 +32,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
   {
     id: 'router-1',
     name: 'Router',
-    iconName: 'Router', // Phosphor: Router
+    iconName: 'Router', 
     textColor: '#333333',
     stencilType: 'infrastructure',
     properties: { Model: 'Cisco ISR 4000', Firmware: '17.3.4a' },
@@ -39,7 +40,7 @@ export const placeholderInfrastructureStencils: InfrastructureStencilData[] = [
   {
     id: 'trust-boundary-1',
     name: 'Trust Boundary',
-    iconName: 'ShieldCheck', // Phosphor: ShieldCheck
+    iconName: 'ShieldCheck', 
     textColor: '#D32F2F',
     stencilType: 'infrastructure',
     isBoundary: true,
@@ -52,7 +53,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'step-1',
     name: 'Step/Action',
-    iconName: 'Rectangle', // Phosphor: Rectangle (for Square)
+    iconName: 'Rectangle', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { Description: 'User Authentication', System: 'Auth Service' },
@@ -60,7 +61,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'start-end-1',
     name: 'Process Start',
-    iconName: 'Circle', // Phosphor: Circle
+    iconName: 'Circle', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { Trigger: 'User Request' },
@@ -68,7 +69,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'decision-1',
     name: 'Decision',
-    iconName: 'Diamond', // Phosphor: Diamond
+    iconName: 'Diamond', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { Condition: 'Is user valid?', TruePath: 'Grant Access', FalsePath: 'Deny Access' },
@@ -76,7 +77,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'flow-1', 
     name: 'Process Flow Arrow',
-    iconName: 'ArrowRight', // Phosphor: ArrowRight
+    iconName: 'ArrowRight', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { DataType: 'User Credentials' },
@@ -84,8 +85,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'input-output-1',
     name: 'Input/Output',
-    // Phosphor doesn't have Parallelogram. Using Rectangle or a generic data icon.
-    iconName: 'ArchiveBox', // Phosphor: ArchiveBox or Files or Rectangle
+    iconName: 'ArchiveBox', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { Data: 'Payment Information', Format: 'JSON' },
@@ -93,7 +93,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'document-1',
     name: 'Document',
-    iconName: 'FileText', // Phosphor: FileText
+    iconName: 'FileText', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { Name: 'Invoice', Storage: 'Document DB' },
@@ -101,8 +101,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'manual-input-1',
     name: 'Manual Input',
-    // Phosphor doesn't have Trapezoid. Using an edit-related icon or generic shape.
-    iconName: 'PencilSimpleLine', // Phosphor: PencilSimpleLine or Keyboard or Rectangle
+    iconName: 'PencilSimpleLine', 
     textColor: '#333333',
     stencilType: 'process',
     properties: { Data: 'Customer Address', Source: 'Phone Call' },
@@ -110,7 +109,7 @@ export const placeholderProcessStencils: ProcessStencilData[] = [
   {
     id: 'sticky-note-1',
     name: 'Annotation',
-    iconName: 'StickyNote', // Phosphor: StickyNote
+    iconName: 'StickyNote', 
     textColor: '#E67E22',
     stencilType: 'process',
     properties: { Note: 'Review this process step for compliance.'}

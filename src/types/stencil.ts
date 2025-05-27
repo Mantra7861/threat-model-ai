@@ -1,5 +1,5 @@
 
-import type { Icon as PhosphorIcon } from 'phosphor-react'; // Import from phosphor-react
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react'; // Corrected import
 import type { Timestamp } from 'firebase-admin/firestore'; 
 
 export interface StencilProperty {
@@ -10,7 +10,7 @@ export interface StencilProperty {
 export interface BaseStencil {
   id: string; 
   name: string;
-  iconName: keyof typeof import('phosphor-react'); // Updated to phosphor-react
+  iconName: keyof typeof import('@phosphor-icons/react'); // Corrected import
   textColor?: string; 
   properties?: Record<string, string | boolean | number | null>; 
   createdDate?: string; 

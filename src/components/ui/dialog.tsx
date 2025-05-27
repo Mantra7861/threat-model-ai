@@ -3,7 +3,7 @@
 
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { X } from "phosphor-react" // Phosphor icon
+import { X } from "@phosphor-icons/react" // Corrected import
 
 import { cn } from "@/lib/utils"
 

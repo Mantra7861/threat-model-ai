@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { suggestComponentProperties } from '@/ai/flows/suggest-component-properties';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkle, Trash } from 'phosphor-react'; // Phosphor icons
+import { Sparkle, Trash } from '@phosphor-icons/react'; // Corrected import
 import { Checkbox } from '../ui/checkbox';
 import {
   AlertDialog,

@@ -6,7 +6,7 @@ import { getAllUsers } from '@/services/userService';
 import { UserManagementTable } from './components/UserManagementTable';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Warning, Spinner } from "phosphor-react"; // Updated icon
+import { Warning, Spinner } from "@phosphor-icons/react"; // Corrected import
 import { useAuth } from '@/contexts/AuthContext'; 
 import type { UserProfile } from '@/types/user';
 
@@ -69,7 +69,7 @@ export default function AdminUsersPage() {
         <CardContent>
           {fetchError ? (
             <Alert variant="destructive">
-              <Warning className="h-4 w-4" /> {/* Updated icon */}
+              <Warning className="h-4 w-4" /> 
               <AlertTitle>Error Loading Users</AlertTitle>
               <AlertDescription>{fetchError}</AlertDescription>
             </Alert>

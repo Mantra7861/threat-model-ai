@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Spinner, PlusCircle, FolderOpen } from 'phosphor-react'; // Phosphor icons
+import { Spinner, PlusCircle, FolderOpen } from '@phosphor-icons/react'; // Corrected import
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link'; // Import Link for navigation

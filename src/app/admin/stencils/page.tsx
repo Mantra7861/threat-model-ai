@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { StencilData, InfrastructureStencilData } from "@/types/stencil";
 import Link from "next/link";
-import { PlusCircle, PencilSimple, Trash, Spinner, Warning } from "phosphor-react";
+import { PlusCircle, PencilSimple, Trash, Spinner, Warning } from "@phosphor-icons/react"; // Corrected import
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { getStencils, deleteStencil, addPlaceholderStencils } from "@/services/stencilService";

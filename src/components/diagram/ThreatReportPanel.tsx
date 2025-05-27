@@ -1,12 +1,12 @@
 
 "use client";
 
-import { useState, type Dispatch, type SetStateAction, useEffect } from 'react';
+import { useState, type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { generateThreatReport } from '@/ai/flows/generate-threat-report';
-import { Spinner, Warning, ShieldCheck, Eye } from 'phosphor-react'; // Updated icon
+import { Spinner, Warning, ShieldCheck, Eye } from '@phosphor-icons/react'; // Corrected import
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import type { Diagram, ReportEntry } from '@/services/diagram';
 import { format } from 'date-fns';
@@ -28,6 +28,7 @@ export function ThreatReportPanel({
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [html2pdf, setHtml2pdf] = useState<any>(null);
+  const pdfRenderRef = useRef<HTMLDivElement>(null); // Ref for the hidden div
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -201,7 +202,7 @@ export function ThreatReportPanel({
         <Card className="border-destructive bg-destructive/10">
             <CardHeader className="pb-2">
                 <CardTitle className="text-destructive text-base flex items-center">
-                    <Warning className="mr-2 h-5 w-5" /> {/* Updated icon */}
+                    <Warning className="mr-2 h-5 w-5" /> 
                     Report Generation Failed
                 </CardTitle>
             </CardHeader>
@@ -243,6 +244,8 @@ export function ThreatReportPanel({
           </ul>
         </ScrollArea>
       )}
+      {/* Hidden div for html2pdf rendering */}
+      <div ref={pdfRenderRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} />
     </div>
   );
 }

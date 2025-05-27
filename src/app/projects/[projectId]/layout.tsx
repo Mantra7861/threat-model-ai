@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
-import { Gear, ShieldWarning, Question, SignOut, House } from "phosphor-react"; // Phosphor icons
+import { Gear, ShieldWarning, Question, SignOut, House } from "@phosphor-icons/react"; // Corrected import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarComponentLibrary } from "@/components/diagram/SidebarComponentLibrary";
 import { ProjectClientLayout } from "./ProjectClientLayout";

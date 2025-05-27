@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserPlus } from 'phosphor-react'; // Phosphor icon
+import { UserPlus } from '@phosphor-icons/react'; // Corrected import
 import { useToast } from '@/hooks/use-toast';
 // createUserProfile from userService will be called by AuthContext after successful Firebase Auth creation
 

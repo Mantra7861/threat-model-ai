@@ -2,8 +2,8 @@
 "use client";
 
 import * as React from 'react';
-import * as PhosphorIcons from 'phosphor-react';
-import { Question as QuestionIcon } from 'phosphor-react'; // Default fallback icon
+import * as PhosphorIcons from '@phosphor-icons/react'; // Corrected import
+import { Question as QuestionIcon } from '@phosphor-icons/react'; // Corrected import
 
 interface DynamicPhosphorIconProps {
   name: string;
@@ -46,13 +46,17 @@ const DynamicPhosphorIcon: React.FC<DynamicPhosphorIconProps> = ({ name, size = 
       // }
     }
   }
-
+  
   // If IconComponent is truthy, it's either a function or a forwardRef object, both are renderable
-  if (IconComponent) {
+  if (IconComponent && (typeof IconComponent === 'function' || (typeof IconComponent === 'object' && IconComponent !== null && '$$typeof' in IconComponent && IconComponent.$$typeof === Symbol.for('react.forward_ref')))) {
     // console.log(`DynamicPhosphorIcon: Found icon component for "${name}". Rendering.`);
     return <IconComponent size={size} {...props} />;
   } else {
-    // console.warn(`DynamicPhosphorIcon: Icon name "${name}" not found as a renderable component in PhosphorIcons (checked top-level and .default).`);
+    // console.warn(`DynamicPhosphorIcon: Icon name "${name}" not found as a renderable component in PhosphorIcons (checked top-level and .default). IconComponent was: `, IconComponent);
+    // The following log was for debugging the type/structure, can be removed or kept for future issues
+    // if (IconComponent) {
+    //   console.log(`DynamicPhosphorIcon: "${name}" exists but is not a function or forwardRef. Type: ${typeof IconComponent}`, IconComponent);
+    // }
     return <QuestionIcon size={size} {...props} />;
   }
 };

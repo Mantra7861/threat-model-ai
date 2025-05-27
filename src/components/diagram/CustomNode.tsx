@@ -4,8 +4,8 @@
 import type { FC } from 'react';
 import React from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import * as PhosphorIcons from 'phosphor-react';
-import { Question as QuestionIcon } from 'phosphor-react';
+import * as PhosphorIcons from '@phosphor-icons/react'; // Corrected import
+import { Question as QuestionIcon } from '@phosphor-icons/react'; // Corrected import
 import { cn } from '@/lib/utils';
 import { calculateEffectiveZIndex } from '@/lib/diagram-utils';
 
@@ -31,24 +31,21 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  // For non-boundary nodes, iconName comes from data.iconName (set from stencil's iconName)
-  // For boundary nodes, we don't render a Phosphor icon in the center.
-  const iconNameToUseForIconOnlyNodes = !isBoundary ? (data.iconName as keyof typeof PhosphorIcons | undefined) : undefined;
+  const nodeIconName = data.iconName as keyof typeof PhosphorIcons | undefined; // This is the original stencil icon name
 
-  const IconComponent = (() => {
-    if (!iconNameToUseForIconOnlyNodes) return null; 
-    // Try direct access
+  const IconToRender = (() => {
+    if (!nodeIconName || isBoundary) return null; // No icon for boundary nodes
+    
     let phosphorIcon: PhosphorIcons.Icon | React.ForwardRefExoticComponent<any> | undefined | null = null;
-    if (Object.prototype.hasOwnProperty.call(PhosphorIcons, iconNameToUseForIconOnlyNodes)) {
-        phosphorIcon = (PhosphorIcons as any)[iconNameToUseForIconOnlyNodes];
+    if (Object.prototype.hasOwnProperty.call(PhosphorIcons, nodeIconName)) {
+        phosphorIcon = (PhosphorIcons as any)[nodeIconName];
     }
-    // If not found directly, try under 'default' if it exists and is an object
     if (!phosphorIcon && PhosphorIcons.default && typeof PhosphorIcons.default === 'object') {
-      if (Object.prototype.hasOwnProperty.call(PhosphorIcons.default, iconNameToUseForIconOnlyNodes)) {
-        phosphorIcon = (PhosphorIcons.default as any)[iconNameToUseForIconOnlyNodes];
+      if (Object.prototype.hasOwnProperty.call(PhosphorIcons.default, nodeIconName)) {
+        phosphorIcon = (PhosphorIcons.default as any)[nodeIconName];
       }
     }
-    return phosphorIcon || QuestionIcon; // Fallback if name is invalid
+    return phosphorIcon || QuestionIcon; 
   })();
 
 
@@ -57,8 +54,7 @@ export const CustomNode: FC<NodeProps> = ({
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
   
-  // This style is applied to the div CustomNode *returns*. React Flow wraps this.
-  const customNodeRootInternalStyle: React.CSSProperties = { 
+  const customNodeRootStyle: React.CSSProperties = { 
     zIndex: effectiveZIndex,
     width: '100%', 
     height: '100%',
@@ -66,26 +62,24 @@ export const CustomNode: FC<NodeProps> = ({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative', // For label positioning if needed, and resizer
+    position: 'relative', 
   };
+
+  // This style is applied to the Node object in DiagramCanvas and helps set the CSS variable for boundary border color
+  // which is then used by globals.css .react-flow__node-Boundary
+  if (isBoundary && data.boundaryColor) {
+    customNodeRootStyle['--dynamic-boundary-color' as any] = data.boundaryColor;
+  }
   
-  const nodeColor = data.textColor || 'currentColor'; // currentColor will inherit from CSS like .react-flow__node-Server
   const nodeLabel = data.label || 'Unnamed';
 
   // --- Boundary Node Rendering ---
   if (isBoundary) {
     // The dashed border and transparent background are primarily handled by 
-    // the `react-flow__node-Boundary` class in globals.css, applied by React Flow
-    // to its wrapper based on node.type="Boundary".
-    // We ensure the dynamic border color is available via a CSS variable if data.boundaryColor exists.
-    // The `customNodeRootInternalStyle` will apply to the div returned by this component.
-    // The React Flow node wrapper div (which gets react-flow__node-Boundary) will have its style.borderColor set by the CSS var.
-
-    // Note: The style prop for the Node object itself in DiagramCanvas.tsx already sets --dynamic-boundary-color.
-    // customNodeRootInternalStyle here is for the div *inside* the React Flow wrapper.
-    
+    // the `react-flow__node-Boundary` class in globals.css.
+    // The customNodeRootStyle above sets the CSS variable for the border color.
     return (
-      <div style={customNodeRootInternalStyle} className="group"> {/* Added group for consistency if needed by resizer/handles */}
+      <div style={customNodeRootStyle} className="group"> {/* group class for consistency if needed */}
         {showResizer && (
           <NodeResizer
             minWidth={data.minWidth || 150}
@@ -98,11 +92,11 @@ export const CustomNode: FC<NodeProps> = ({
         )}
         <span 
           className={cn(
-            "text-sm font-semibold absolute -top-6 left-1/2 -translate-x-1/2", // Adjusted for top positioning
-            "w-max max-w-[calc(100%-1rem)]", 
-            "bg-card px-1 py-0.5 rounded shadow-sm" 
+            "text-sm font-semibold absolute -top-5 left-1/2 -translate-x-1/2", 
+            "w-max max-w-[calc(100%-1rem)] truncate", 
+            "bg-background px-1 py-0.5 rounded shadow-sm" // Use background for label chip
           )}
-          style={{ color: data.boundaryColor || 'hsl(var(--border))' }}
+          style={{ color: data.boundaryColor || 'hsl(var(--border))' }} // Label text color from boundaryColor
         >
           {nodeLabel}
         </span>
@@ -113,53 +107,49 @@ export const CustomNode: FC<NodeProps> = ({
 
   // --- Regular Node Rendering (Shape-based or Icon-only) ---
   let contentElement: React.ReactNode;
-  const shapeBorderColor = data.textColor || 'hsl(var(--foreground))'; // Default border for shapes
+  // For regular nodes, the border color is determined by the type-specific CSS class (e.g., .react-flow__node-Server)
+  // The text/icon color is data.textColor or inherits from the CSS class.
+  const nodeDisplayColor = data.textColor || 'currentColor'; 
 
-  // Explicit shapes based on node.type (which is data.iconName)
+  // Shapes based on `type` (which is the iconName from the stencil)
   if (type === 'Circle') {
     contentElement = (
       <div 
         className="w-full h-full rounded-full flex items-center justify-center p-1" 
-        style={{ border: `2px solid ${shapeBorderColor}`, backgroundColor: selected ? 'hsla(var(--primary)/0.1)' : 'transparent' }}
+        style={{ border: `2px solid ${nodeDisplayColor}` }} // Shape border color
       >
-        {/* Optionally render the Phosphor Circle icon inside or just use the shape */}
+        {/* Optionally render icon inside, or just use shape */}
       </div>
     );
   } else if (type === 'Rectangle') {
     contentElement = (
       <div 
         className="w-full h-full flex items-center justify-center p-1" 
-        style={{ border: `2px solid ${shapeBorderColor}`, backgroundColor: selected ? 'hsla(var(--primary)/0.1)' : 'transparent' }}
+        style={{ border: `2px solid ${nodeDisplayColor}` }} // Shape border color
       >
-        {/* Optionally render the Phosphor Rectangle icon inside */}
+        {/* Optionally render icon inside */}
       </div>
     );
   } else if (type === 'Diamond') {
-    // Simplified diamond rendering using a transformed square
-    // The outer div will be sized by React Flow, inner div creates the diamond shape.
-    // Container for diamond needs to be perfectly square for CSS transform to look right.
-    // This assumes width and height of the node are roughly equal for a good diamond.
     contentElement = (
       <div className="w-full h-full flex items-center justify-center relative p-1">
         <div 
           className="absolute w-[70.71%] h-[70.71%] transform rotate-45" 
-          style={{ border: `2px solid ${shapeBorderColor}`, backgroundColor: selected ? 'hsla(var(--primary)/0.1)' : 'transparent' }}
+          style={{ border: `2px solid ${nodeDisplayColor}` }} // Shape border color
         >
           {/* Content inside diamond, if any, would need to be counter-rotated */}
         </div>
       </div>
     );
   } else {
-    // Default: Icon-only rendering
-    // The React Flow node wrapper will have a transparent background and no border (from globals.css).
-    // The icon itself is the visual.
-    // We use a simple div to help center the icon if needed, but it's also transparent.
+    // Default: Icon-only rendering (Server, Database, etc.)
+    // The React Flow node wrapper has bg-card and its border defined by type-specific CSS.
+    // We render the icon and label inside this.
     contentElement = (
-      <div className="flex items-center justify-center w-full h-full">
-        {IconComponent && React.createElement(IconComponent, {
-          // Size the icon based on the smaller of node's width/height, with some padding
-          size: Math.min(data.width || 32, data.height || 32) * 0.7, 
-          style: { color: nodeColor }, 
+      <div className="flex flex-col items-center justify-center w-full h-full">
+        {IconToRender && React.createElement(IconToRender, {
+          size: Math.min(data.width || 32, data.height || 32) * 0.6, 
+          style: { color: nodeDisplayColor }, 
           weight: "regular"
         })}
       </div>
@@ -167,13 +157,11 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   return (
-    // This div is the content *inside* the React Flow node wrapper.
-    // The React Flow wrapper itself gets .react-flow__node and .react-flow__node-[type] classes.
-    <div style={customNodeRootInternalStyle} className="group">
+    <div style={customNodeRootStyle} className="group">
       {showResizer && (
         <NodeResizer
-          minWidth={data.minWidth || (isBoundary ? 150 : 60)}
-          minHeight={data.minHeight || (isBoundary ? 100 : 40)}
+          minWidth={data.minWidth || 60}
+          minHeight={data.minHeight || 40}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
           isVisible={selected}
@@ -187,14 +175,13 @@ export const CustomNode: FC<NodeProps> = ({
         className={cn(
           "text-xs font-medium truncate max-w-[90%] text-center absolute",
           // Position label below shapes/icons
-          (type === 'Circle' || type === 'Rectangle' || type === 'Diamond') ? "bottom-[-18px]" : "bottom-[-18px]" // Adjust as needed
+           "bottom-[-18px]" 
         )} 
-        style={{ color: nodeColor }}
+        style={{ color: nodeDisplayColor }}
       >
         {nodeLabel}
       </span>
 
-      {/* Handles are always rendered for non-boundary nodes, attached to the React Flow node wrapper's edges */}
       <Handle type="target" position={Position.Top} id="top" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
       <Handle type="target" position={Position.Left} id="left" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
