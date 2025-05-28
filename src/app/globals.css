@@ -101,12 +101,12 @@ body {
 /* Custom styles for react-flow nodes and edges */
 @layer components {
   .react-flow__node {
-    /* Default node wrapper is now transparent and borderless, CustomNode content defines visuals */
-    @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing rounded-lg; /* Added rounded-lg for consistency */
+    /* Default node wrapper is now transparent and borderless by default */
+    @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: visible; 
+    overflow: visible;
   }
 
   /* Icon-only and specific type node styles (e.g., Server, Database) */
@@ -114,30 +114,30 @@ body {
   /* CustomNode's internal content div will be transparent, allowing these styles to show */
   /* These define the background, border, and default text color for the node's bounding box */
 
-  div.react-flow__node.react-flow__node-HardDrive, 
-  div.react-flow__node.react-flow__node-HardDrives, /* Added for plural case */
+  div.react-flow__node.react-flow__node-HardDrive,
+  div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
   div.react-flow__node.react-flow__node-Cloud,
   div.react-flow__node.react-flow__node-Service,
   div.react-flow__node.react-flow__node-Router,
-  div.react-flow__node.react-flow__node-User, 
-  div.react-flow__node.react-flow__node-ShieldCheck, 
-  div.react-flow__node.react-flow__node-Default, 
-  div.react-flow__node.react-flow__node-Question, /* Updated from HelpCircle */
+  div.react-flow__node.react-flow__node-User,
+  div.react-flow__node.react-flow__node-ShieldCheck,
+  div.react-flow__node.react-flow__node-Default,
+  div.react-flow__node.react-flow__node-Question,
   div.react-flow__node.react-flow__node-Package,
   /* Process Stencils that are ICON-ONLY (if any, most are shapes) */
-  div.react-flow__node.react-flow__node-ArchiveBox, 
-  div.react-flow__node.react-flow__node-FileText,  
-  div.react-flow__node.react-flow__node-PencilSimpleLine, 
-  div.react-flow__node.react-flow__node-StickyNote, 
-  div.react-flow__node.react-flow__node-ArrowRight { 
+  div.react-flow__node.react-flow__node-ArchiveBox,
+  div.react-flow__node.react-flow__node-FileText,
+  div.react-flow__node.react-flow__node-PencilSimpleLine,
+  div.react-flow__node.react-flow__node-StickyNote,
+  div.react-flow__node.react-flow__node-ArrowRight {
      @apply bg-card text-card-foreground border-2 border-solid border-gray-300 rounded-lg;
   }
 
   /* Type-specific text color for icons IF data.textColor is not provided by CustomNode */
   /* These are fallback text colors, CustomNode's direct style on icon takes precedence */
   div.react-flow__node.react-flow__node-HardDrive,
-  div.react-flow__node.react-flow__node-HardDrives { @apply text-blue-700; } 
+  div.react-flow__node.react-flow__node-HardDrives { @apply text-blue-700; }
   div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
   div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
   div.react-flow__node.react-flow__node-Service { @apply text-purple-700; }
@@ -169,8 +169,11 @@ body {
 
   /* Boundary Box Specific Styling - node.type will be 'Boundary' */
   div.react-flow__node.react-flow__node-Boundary {
-     @apply !border-2 !border-dashed !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
-     border-color: var(--dynamic-boundary-color, hsl(var(--border))); 
+    border-width: 2px !important;
+    border-style: dashed !important;
+    border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important; /* Ensure this overrides any color from @apply */
+    background-color: transparent !important;
+    @apply shadow-none hover:shadow-none cursor-default rounded-lg;
   }
 
   /* General selection outline for non-boundary nodes */
