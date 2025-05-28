@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { suggestComponentProperties } from '@/ai/flows/suggest-component-properties';
+// Removed AI suggestion imports: suggestComponentProperties, Sparkle
 import { useToast } from '@/hooks/use-toast';
-import { Sparkle, Trash } from '@phosphor-icons/react'; // Corrected import
+import { Trash } from '@phosphor-icons/react'; 
 import { Checkbox } from '../ui/checkbox';
 import {
   AlertDialog,
@@ -27,33 +27,38 @@ import {
 interface SidebarPropertiesPanelProps {
   selectedElement: Node | Edge | null; 
   onUpdateProperties: (elementId: string, newProperties: Record<string, any>, isNode: boolean) => void;
-  diagramDescription?: string;
+  // Removed diagramDescription prop
   onDeleteElement: (elementId: string, isNode: boolean) => void; 
 }
 
 export function SidebarPropertiesPanel({
   selectedElement,
   onUpdateProperties,
-  diagramDescription,
+  // Removed diagramDescription
   onDeleteElement,
 }: SidebarPropertiesPanelProps) {
   const [localProperties, setLocalProperties] = useState<Record<string, any>>({});
-  const [isSuggesting, setIsSuggesting] = useState(false);
+  // Removed isSuggesting state
   const { toast } = useToast();
 
   useEffect(() => {
     if (selectedElement?.data?.properties) {
       setLocalProperties({ ...selectedElement.data.properties });
     } else if (selectedElement?.data && !selectedElement.data.properties && 'source' in selectedElement && 'target' in selectedElement) {
+      // Default properties for an edge if none exist
       const defaultEdgeProps = {
-        name: selectedElement.data.label || 'Data Flow',
+        name: selectedElement.data.label || 'Data Flow', // Use existing label if present
         description: 'A data flow connection.',
         dataType: 'Generic',
         protocol: 'TCP/IP',
         securityConsiderations: 'Needs review',
       };
       setLocalProperties(defaultEdgeProps);
+      // Optionally, call onUpdateProperties to save these defaults if the edge was just created
+      // onUpdateProperties(selectedElement.id, defaultEdgeProps, false);
     } else if (selectedElement?.data) { 
+        // Fallback for nodes that might have data but no 'properties' sub-object initially
+        // This case might need review based on how your nodes are structured
         setLocalProperties({...selectedElement.data}); 
     }
     else {
@@ -78,77 +83,16 @@ export function SidebarPropertiesPanel({
     };
     setLocalProperties(newProps);
 
+    // If the 'name' property is changed, update the label immediately.
     if (propName === 'name') {
       onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement);
     } else {
+      // Debounce other property updates
       debouncedUpdate(selectedElement.id, newProps, isNodeElement);
     }
   };
 
-  const handleSuggestProperties = async () => {
-    if (!selectedElement || !selectedElement.data || !('position' in selectedElement)) { 
-        toast({ title: "Info", description: "AI property suggestion is only available for components.", variant: "default"});
-        return;
-    }
-    const nodeElement = selectedElement as Node; 
-
-    setIsSuggesting(true);
-    toast({
-      title: "AI Suggesting Properties",
-      description: "Analyzing component type and context...",
-    });
-
-    try {
-      const componentType = nodeElement.data.type || nodeElement.type; 
-      if (!componentType) {
-          toast({ title: "Error", description: "Component type is missing for AI suggestion.", variant: "destructive"});
-          setIsSuggesting(false);
-          return;
-      }
-
-      const suggestedProps = await suggestComponentProperties({
-        component: {
-            id: nodeElement.id,
-            type: componentType, 
-            properties: localProperties,
-        },
-        diagramDescription: diagramDescription,
-      });
-
-      const mergedProps: Record<string, any> = { ...localProperties };
-      let newPropsCount = 0;
-      for (const key in suggestedProps) {
-        if (!(key in mergedProps) || mergedProps[key] === undefined || mergedProps[key] === '' || mergedProps[key] === null) {
-            mergedProps[key] = suggestedProps[key];
-            newPropsCount++;
-        }
-      }
-      
-      if (newPropsCount > 0) {
-          setLocalProperties(mergedProps);
-          onUpdateProperties(nodeElement.id, mergedProps, true); 
-           toast({
-            title: "Properties Suggested",
-            description: `AI suggested ${newPropsCount} new properties.`,
-          });
-      } else {
-           toast({
-            title: "No New Properties",
-            description: "AI did not find any new properties to suggest, or existing ones were kept.",
-          });
-      }
-
-    } catch (error) {
-      console.error("Error suggesting properties:", error);
-      toast({
-        title: "Suggestion Error",
-        description: error instanceof Error ? error.message : "Could not get AI property suggestions.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSuggesting(false);
-    }
-  };
+  // Removed handleSuggestProperties function
 
   const confirmDeleteElement = () => {
       if (!selectedElement) return;
@@ -168,15 +112,20 @@ export function SidebarPropertiesPanel({
   const elementData = selectedElement.data || {};
   const elementType = isNode 
     ? ((selectedElement as Node).data?.type || (selectedElement as Node).type || 'default') 
-    : 'Data Flow';
+    : 'Data Flow'; // Or derive from edge type if available
   
+  // Ensure elementName reflects the 'name' property if it exists, otherwise use label or type.
   let elementName = localProperties.name || elementData.label || (elementData.properties?.name) ||elementType;
 
 
+  // Determine which properties to iterate over for rendering
+  // If it's an edge and localProperties is empty, but data.properties exists, use data.properties
   let currentPropsToIterate = localProperties;
   if (!isNode && selectedElement.data?.properties && Object.keys(localProperties).length === 0) {
+     // This condition helps if localProperties hasn't been set from an edge's existing data.properties yet
      currentPropsToIterate = selectedElement.data.properties;
   } else if (!isNode && Object.keys(localProperties).length === 0) {
+     // This handles a newly created edge that doesn't have data.properties yet, using defaults
      currentPropsToIterate = {
         name: selectedElement.data?.label || 'Data Flow',
         description: 'A data flow connection.',
@@ -197,13 +146,17 @@ export function SidebarPropertiesPanel({
 
         <div className="space-y-4">
           {Object.entries(currentPropsToIterate).map(([key, value]) => {
+            // Filter out internal/structural properties unless it's 'name' or 'description'
             const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 
+            // Edge specific structural props from React Flow
             'source', 'target', 'sourceHandle', 'targetHandle' 
+            // Potentially others like 'iconName', 'isBoundary' from your custom node data structure
             ];
             if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { 
-                 if (key === 'name' && value === elementName) {  }
-                 else if (key === 'description') {  }
-                 else return null;
+                 // Ensure 'name' from properties (which becomes the label) is editable
+                 if (key === 'name' && value === elementName) { /* Allow editing if it's the primary name/label */ }
+                 else if (key === 'description') { /* Allow editing description */ }
+                 else return null; // Skip other structural/internal props
             }
 
 
@@ -222,7 +175,7 @@ export function SidebarPropertiesPanel({
                             onCheckedChange={(checked) => handleInputChange(key, Boolean(checked))}
                           />
                          <Label htmlFor={`prop-${key}`} className="text-sm font-normal">
-                            {value ? 'Enabled' : 'Disabled'}
+                            {value ? 'Enabled' : 'Disabled'} {/* Or use a more descriptive label if possible */}
                          </Label>
                      </div>
                   ) : typeof value === 'string' && value.length > 60 ? (
@@ -237,9 +190,10 @@ export function SidebarPropertiesPanel({
                   ) : (
                     <Input
                       id={`prop-${key}`}
-                      value={String(value ?? '')}
+                      value={String(value ?? '')} // Handle null or undefined gracefully
                       onChange={(e) => {
                           const val = e.target.value;
+                          // Attempt to maintain original type if it was number or boolean
                           const originalValue = currentPropsToIterate[key]; 
                           if (typeof originalValue === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
                               handleInputChange(key, Number(val));
@@ -255,17 +209,13 @@ export function SidebarPropertiesPanel({
                 </div>
             );
           })}
+           {/* Message if no editable properties are found */}
            {Object.keys(currentPropsToIterate).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description').length === 0 && (
-               <p className="text-sm text-muted-foreground">No editable properties for this element, or click AI Suggest (for components).</p>
+               <p className="text-sm text-muted-foreground">No editable properties for this element.</p>
             )}
         </div>
          
-         {isNode && ( 
-             <Button onClick={handleSuggestProperties} disabled={isSuggesting || !selectedElement.data?.type} variant="outline" size="sm" className="w-full">
-                 <Sparkle className="mr-2 h-4 w-4" />
-                 {isSuggesting ? "Suggesting..." : "AI Suggest Properties"}
-            </Button>
-         )}
+         {/* Removed AI Suggest Button from here */}
 
          <AlertDialog>
              <AlertDialogTrigger asChild>
@@ -294,11 +244,16 @@ export function SidebarPropertiesPanel({
   );
 }
 
+// Debounce function to delay updates
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
   let timeout: ReturnType<typeof setTimeout> | null = null;
+
   const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) clearTimeout(timeout);
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
     timeout = setTimeout(() => func(...args), waitFor);
   };
+
   return debounced as (...args: Parameters<F>) => void;
 }

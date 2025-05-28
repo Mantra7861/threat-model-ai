@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from "react"; // Ensure React is imported
+import React from "react"; 
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import type { StencilData, InfrastructureStencilData, StencilFirestoreData } from "@/types/stencil";
-import * as PhosphorIcons from '@phosphor-icons/react'; // Corrected import
+import * as PhosphorIcons from '@phosphor-icons/react'; 
 import { addStencil, getStencilById, updateStencil, parseStaticPropertiesString, formatStaticPropertiesToString } from "@/services/stencilService";
-import { Spinner, Question as QuestionIcon, Warning } from "@phosphor-icons/react"; // Corrected import
+import { Spinner, Question as QuestionIcon, Warning, Sparkle } from "@phosphor-icons/react"; 
+import { suggestComponentProperties } from '@/ai/flows/suggest-component-properties';
 
 
 interface EditStencilFormProps {
@@ -29,7 +30,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
   const isNew = stencilId === 'new';
 
   const [name, setName] = useState("");
-  const [iconName, setIconName] = useState<string>(isNew ? "Package" : ""); // Default for new, load for existing
+  const [iconName, setIconName] = useState<string>(isNew ? "Package" : ""); 
   const [textColor, setTextColor] = useState("#000000");
   const [staticPropertiesString, setStaticPropertiesString] = useState("");
   const [isBoundary, setIsBoundary] = useState(false);
@@ -37,6 +38,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
 
   const [isLoading, setIsLoading] = useState(!isNew);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAISuggesting, setIsAISuggesting] = useState(false); // State for AI suggestion loading
   const [error, setError] = useState<string | null>(null);
 
 
@@ -131,6 +133,58 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
     }
   };
 
+  const handleAISuggestDefaultProperties = async () => {
+    if (!name.trim()) {
+      toast({ title: "Info", description: "Please enter a stencil name first to provide context for AI suggestions.", variant: "default" });
+      return;
+    }
+    setIsAISuggesting(true);
+    toast({ title: "AI Suggesting Properties", description: "Analyzing stencil type for default properties..." });
+
+    try {
+      const currentProperties = await parseStaticPropertiesString(staticPropertiesString);
+
+      const suggestedNewProps = await suggestComponentProperties({
+        component: {
+          id: stencilId || 'new-stencil-temp-id', 
+          type: name.trim(), 
+          properties: currentProperties,
+        },
+        // diagramDescription: `Suggest default properties for a stencil component named "${name.trim()}". Consider its potential use in threat modeling.`
+      });
+
+      const mergedProps = { ...currentProperties };
+      let newPropsCount = 0;
+      for (const key in suggestedNewProps) {
+        if (!(key in mergedProps) || mergedProps[key] === undefined || mergedProps[key] === '' || mergedProps[key] === null || typeof mergedProps[key] === 'boolean') {
+          mergedProps[key] = suggestedNewProps[key];
+          if (!currentProperties.hasOwnProperty(key) || currentProperties[key] !== suggestedNewProps[key]) {
+            newPropsCount++;
+          }
+        }
+      }
+      
+      if (newPropsCount > 0) {
+        const newStaticPropertiesString = await formatStaticPropertiesToString(mergedProps);
+        setStaticPropertiesString(newStaticPropertiesString);
+        toast({ title: "Properties Suggested", description: `AI suggested and merged ${newPropsCount} properties.` });
+      } else {
+        toast({ title: "No New Properties", description: "AI did not find any new properties to suggest, or existing ones were kept." });
+      }
+
+    } catch (error) {
+      console.error("Error suggesting default stencil properties:", error);
+      toast({
+        title: "Suggestion Error",
+        description: error instanceof Error ? error.message : "Could not get AI property suggestions.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAISuggesting(false);
+    }
+  };
+
+
   if (isLoading) {
     return (
         <div className="flex items-center justify-center py-10">
@@ -169,7 +223,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          disabled={isSaving}
+          disabled={isSaving || isAISuggesting}
         />
       </div>
 
@@ -181,7 +235,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           value={iconName}
           onChange={(e) => setIconName(e.target.value)}
           placeholder="e.g., HardDrive, Circle, Diamond (PascalCase)"
-          disabled={isSaving}
+          disabled={isSaving || isAISuggesting}
         />
          <p className="text-xs text-muted-foreground mt-1">
             Enter the PascalCase name of an icon from {' '}
@@ -194,7 +248,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
             size={32} 
             className="w-8 h-8 mt-2 inline-block" 
             style={{color: textColor || '#000000'}} 
-            title={iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] ? `Preview: ${iconName}` : `Icon "${iconName}" not found. Defaulting to question mark.`}
+            title={iconName && (PhosphorIcons as any)[iconName as keyof typeof PhosphorIcons] ? `Preview: ${iconName}` : `Icon "${iconName}" not found or invalid. Defaulting to question mark.`}
         />
       </div>
 
@@ -206,7 +260,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           type="color"
           value={textColor}
           onChange={(e) => setTextColor(e.target.value)}
-          disabled={isSaving}
+          disabled={isSaving || isAISuggesting}
           className="h-10 p-1"
         />
       </div>
@@ -219,7 +273,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
               name="isBoundary"
               checked={isBoundary}
               onCheckedChange={(checked) => setIsBoundary(Boolean(checked))}
-              disabled={isSaving}
+              disabled={isSaving || isAISuggesting}
             />
             <Label htmlFor="isBoundary" className="font-normal">Is Trust Boundary</Label>
           </div>
@@ -233,7 +287,7 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
                 type="color"
                 value={boundaryColor}
                 onChange={(e) => setBoundaryColor(e.target.value)}
-                disabled={isSaving}
+                disabled={isSaving || isAISuggesting}
                 className="h-10 p-1"
               />
             </div>
@@ -250,20 +304,32 @@ export default function EditStencilForm({ stencilType }: EditStencilFormProps) {
           onChange={(e) => setStaticPropertiesString(e.target.value)}
           rows={5}
           placeholder="Example:\nOS: Linux\nVersion: Latest\nIsEncrypted: true"
-          disabled={isSaving}
+          disabled={isSaving || isAISuggesting}
         />
         <p className="text-xs text-muted-foreground mt-1">These are default properties added to new instances of this stencil on the canvas. Values will be stored as strings, booleans, or numbers based on parsing.</p>
+        <Button
+            type="button"
+            onClick={handleAISuggestDefaultProperties}
+            disabled={isAISuggesting || isSaving || !name.trim()}
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full sm:w-auto"
+        >
+            {isAISuggesting ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : <Sparkle className="mr-2 h-4 w-4" />}
+            AI Suggest Default Properties
+        </Button>
       </div>
 
       <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSaving}>
+        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSaving || isAISuggesting}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? <PhosphorIcons.Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {isSaving ? (isNew ? 'Creating...' : 'Saving...') : (isNew ? 'Create Stencil' : 'Save Changes')}
+        <Button type="submit" disabled={isSaving || isAISuggesting}>
+          {(isSaving || isAISuggesting) ? <Spinner className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isSaving ? (isNew ? 'Creating...' : 'Saving...') : (isAISuggesting ? 'AI Working...' : (isNew ? 'Create Stencil' : 'Save Changes'))}
         </Button>
       </div>
     </form>
   );
 }
+
