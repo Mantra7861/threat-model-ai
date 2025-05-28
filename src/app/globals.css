@@ -101,70 +101,105 @@ body {
 /* Custom styles for react-flow nodes and edges */
 @layer components {
   .react-flow__node {
-    /* Default node wrapper is now transparent and borderless */
-    @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
+    /* Default node wrapper is now transparent and borderless, CustomNode content defines visuals */
+    @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing rounded-lg; /* Added rounded-lg for consistency */
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: visible; /* Allow shapes/icons to extend slightly if needed for visuals */
+    overflow: visible; 
   }
 
-  /* Infrastructure Component Type-specific styles - These now primarily set TEXT color for icons */
-  /* Ensure PascalCase matches node.type */
-  div.react-flow__node.react-flow__node-Server { @apply text-blue-700; }
+  /* Icon-only and specific type node styles (e.g., Server, Database) */
+  /* These classes are applied to the React Flow wrapper based on node.type */
+  /* CustomNode's internal content div will be transparent, allowing these styles to show */
+  /* These define the background, border, and default text color for the node's bounding box */
+
+  div.react-flow__node.react-flow__node-HardDrive, /* For Server Stencil with iconName HardDrive */
+  div.react-flow__node.react-flow__node-Database,
+  div.react-flow__node.react-flow__node-Cloud,
+  div.react-flow__node.react-flow__node-Service,
+  div.react-flow__node.react-flow__node-Router,
+  div.react-flow__node.react-flow__node-User, /* Example User stencil */
+  div.react-flow__node.react-flow__node-ShieldCheck, /* For non-boundary stencils that might use ShieldCheck icon */
+  div.react-flow__node.react-flow__node-Default, 
+  div.react-flow__node.react-flow__node-HelpCircle, 
+  div.react-flow__node.react-flow__node-Package,
+  /* Process Stencils that are ICON-ONLY (if any, most are shapes) */
+  div.react-flow__node.react-flow__node-ArchiveBox, 
+  div.react-flow__node.react-flow__node-FileText,  
+  div.react-flow__node.react-flow__node-PencilSimpleLine, 
+  div.react-flow__node.react-flow__node-StickyNote, 
+  div.react-flow__node.react-flow__node-ArrowRight { 
+     @apply bg-card text-card-foreground border-2 border-solid border-gray-300 rounded-lg;
+     /* Text color from data.textColor will override text-card-foreground for the icon inside CustomNode */
+  }
+
+  /* Type-specific text color for icons IF data.textColor is not provided by CustomNode */
+  /* These are fallback text colors, CustomNode's direct style on icon takes precedence */
+  div.react-flow__node.react-flow__node-HardDrive { @apply text-blue-700; } /* Server */
   div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
   div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
   div.react-flow__node.react-flow__node-Service { @apply text-purple-700; }
   div.react-flow__node.react-flow__node-Router { @apply text-yellow-700; }
-  div.react-flow__node.react-flow__node-Default, /* For default type */
-  div.react-flow__node.react-flow__node-HelpCircle, /* For HelpCircle iconName fallback type */
-  div.react-flow__node.react-flow__node-Package { /* For Package iconName fallback type */
+  div.react-flow__node.react-flow__node-User { @apply text-orange-600; }
+  div.react-flow__node.react-flow__node-Default,
+  div.react-flow__node.react-flow__node-HelpCircle,
+  div.react-flow__node.react-flow__node-Package {
      @apply text-gray-700;
   }
+   div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
+   div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
+   div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
+   div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
+   div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
 
-  /* Process Component Type-specific styles - These now primarily set TEXT color for icons/shapes */
-  /* Ensure PascalCase matches node.type */
-  /* For shapes like Rectangle, Circle, Diamond, CustomNode will draw a border using data.textColor */
-  div.react-flow__node.react-flow__node-Rectangle { @apply text-sky-700; }
-  div.react-flow__node.react-flow__node-Circle { @apply text-lime-700; }
-  div.react-flow__node.react-flow__node-Diamond { @apply text-fuchsia-700; }
-  div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
-  div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
-  div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
-  div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
-  div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
-  
-  /* ShieldCheck might be used as a type for an icon-only node OR for old boundary icon. Ensure it gets a color. */
-  div.react-flow__node.react-flow__node-ShieldCheck { @apply text-red-700; }
+  /* Process SHAPE stencils (Circle, Rectangle, Diamond, Parallelogram) */
+  /* These node types will have CustomNode render the shape directly. */
+  /* Their React Flow wrapper should remain transparent and borderless. */
+  /* The border for these shapes is drawn by CustomNode itself. */
+  div.react-flow__node.react-flow__node-Circle,
+  div.react-flow__node.react-flow__node-Rectangle,
+  div.react-flow__node.react-flow__node-Diamond,
+  div.react-flow__node.react-flow__node-Parallelogram {
+    /* Ensure these have no default background or border from React Flow wrapper */
+     background: transparent !important;
+     border: none !important;
+  }
 
 
   /* Boundary Box Specific Styling - node.type will be 'Boundary' */
-  /* This class is applied by React Flow to its wrapper div for nodes of type "Boundary" */
   div.react-flow__node.react-flow__node-Boundary {
-     @apply !border-2 !border-dashed !bg-transparent cursor-default shadow-none hover:shadow-none;
-     /* Dynamic color for the border is set via CSS variable in CustomNode.tsx style prop */
-     border-color: var(--dynamic-boundary-color, hsl(var(--border)));
+     @apply !border-2 !border-dashed !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
+     border-color: var(--dynamic-boundary-color, hsl(var(--border))); /* Uses CSS var from Node style */
   }
 
   /* General selection outline for non-boundary nodes */
-  /* This applies an outline to the bounding box of the selected node */
   .react-flow__node.selected:not(.react-flow__node-Boundary) {
     @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
-    /* Ensure the background of the ring offset is the canvas background */
   }
 
   /* Selection outline for boundary nodes */
   .react-flow__node-Boundary.selected {
-    @apply ring-1 ring-offset-0 ring-primary;
+    @apply ring-1 ring-offset-0 ring-primary; /* Subtle ring for boundary selection */
   }
 
-
   .react-flow__handle {
-    @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full opacity-75 hover:opacity-100;
-   }
-   .react-flow__handle-connecting {
-     @apply !bg-primary !opacity-100;
-   }
+    @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full transition-all duration-150;
+    visibility: hidden; /* Hidden by default */
+  }
+  .react-flow__node:hover .react-flow__handle,
+  .react-flow__node.selected .react-flow__handle {
+    visibility: visible;
+    @apply opacity-75;
+  }
+  .react-flow__node:hover .react-flow__handle:hover,
+  .react-flow__node.selected .react-flow__handle:hover {
+    @apply opacity-100;
+  }
+  .react-flow__handle-connecting {
+    @apply !bg-primary opacity-100;
+    visibility: visible !important; /* Ensure connecting handles are always visible */
+  }
 
    .react-flow__edge-path {
      @apply stroke-gray-500 stroke-2;
@@ -182,7 +217,6 @@ body {
     .react-flow__edge:focus-within .react-flow__edge-text {
         @apply fill-primary font-semibold;
     }
-
 
    .react-flow__resize-control line {
       @apply !border-primary;
@@ -209,4 +243,3 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
-
