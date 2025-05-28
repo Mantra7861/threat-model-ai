@@ -22,20 +22,21 @@ import type { StencilData, InfrastructureStencilData } from '@/services/stencilS
 
 // nodeTypes map keys should be PascalCase, matching node.type set from stencil.iconName or "Boundary"
 const nodeTypes = {
-  // Infrastructure Icons (examples, add all you use)
-  Server: CustomNode,
+  // Infrastructure Icons (examples, add all you use from Phosphor)
+  Server: CustomNode, // Assumes stencil.iconName might be "Server"
   HardDrive: CustomNode, 
   Database: CustomNode,
   Cloud: CustomNode,
   Router: CustomNode,
-  Service: CustomNode, 
-  ShieldCheck: CustomNode, 
+  Service: CustomNode, // Generic service
+  ShieldCheck: CustomNode, // Often used for boundaries if iconName is this
+  User: CustomNode, // Example for User Authentication stencil
 
-  // Process Icons / Shapes (examples, add all you use)
+  // Process Icons / Shapes (examples, add all you use from Phosphor)
   Rectangle: CustomNode, 
   Circle: CustomNode,    
   Diamond: CustomNode,   
-  Parallelogram: CustomNode, // Added Parallelogram type
+  Parallelogram: CustomNode,
   ArchiveBox: CustomNode, 
   FileText: CustomNode,  
   PencilSimpleLine: CustomNode, 
@@ -43,12 +44,12 @@ const nodeTypes = {
   ArrowRight: CustomNode, 
 
   // Boundary Type
-  Boundary: CustomNode,
+  Boundary: CustomNode, // Explicit type for Boundary nodes
 
-  // Fallback/Default Icons
-  HelpCircle: CustomNode, 
-  Package: CustomNode, 
-  Default: CustomNode, 
+  // Fallback/Default Icons from Phosphor
+  HelpCircle: CustomNode, // Phosphor's Question
+  Package: CustomNode,    // Phosphor's Package
+  Default: CustomNode,    // Fallback
 };
 
 interface DiagramCanvasProps {
@@ -97,7 +98,7 @@ export function DiagramCanvas({
       const stencilDataString = event.dataTransfer.getData('application/reactflow');
       
       if (!stencilDataString) {
-        console.warn("onDrop called without 'application/reactflow' data. Likely an internal React Flow drag (e.g., connecting nodes). Aborting onDrop handler.");
+        // This means it's likely not a stencil drop (e.g., internal React Flow drag for connection)
         return; 
       }
 
@@ -110,13 +111,14 @@ export function DiagramCanvas({
         return;
       }
       
-      const nodeIconName = droppedStencil.iconName || 'Package'; 
+      const nodeIconName = droppedStencil.iconName || 'Package'; // Default icon if none specified
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
       
+      // Node type for React Flow is "Boundary" for boundaries, otherwise it's the iconName.
       const reactFlowNodeStyleType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(reactFlowNodeStyleType in nodeTypes)) {
-        console.warn(`Dropped stencil's effective type "${reactFlowNodeStyleType}" (iconName: ${nodeIconName}) not found in nodeTypes. Defaulting to 'Package' for rendering. Add "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes if it's a valid icon name.`);
+        console.warn(`Dropped stencil's effective type "${reactFlowNodeStyleType}" (iconName from stencil: ${nodeIconName}) not found in nodeTypes. Defaulting to 'Package' for rendering. Add "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes if it's a valid Phosphor icon name.`);
       }
 
       const flowPosition = screenToFlowPosition({
@@ -154,10 +156,10 @@ export function DiagramCanvas({
               defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
           } else if (nodeIconName === 'ArrowRight') { 
               defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
-          } else { 
+          } else { // Default for other process icons if any
               defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
-      } else { 
+      } else { // Infrastructure non-boundary
           nodeIsResizable = true; 
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
@@ -166,17 +168,16 @@ export function DiagramCanvas({
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       const newNodeData: Record<string, any> = {
-        label: droppedStencil.name,
+        label: droppedStencil.name, // This will be the name displayed below the node
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName, 
+        iconName: nodeIconName, // Store the original iconName for CustomNode to use
         textColor: droppedStencil.textColor,
         resizable: nodeIsResizable,
         minWidth: minWidthForNode, 
         minHeight: minHeightForNode, 
         stencilId: droppedStencil.id,
-        isBoundary: isDroppedStencilBoundary,
-        width: defaultWidth, 
-        height: defaultHeight,
+        isBoundary: isDroppedStencilBoundary, // Crucial for CustomNode logic
+        // width and height are passed via node.style, not data usually
       };
 
       if (isDroppedStencilBoundary) {
@@ -188,6 +189,7 @@ export function DiagramCanvas({
         height: defaultHeight,
       };
 
+      // Set the CSS variable for boundary color on the Node's style prop directly
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
         nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
@@ -195,10 +197,10 @@ export function DiagramCanvas({
 
       const newNode: Node = {
         id: newNodeId,
-        type: reactFlowNodeStyleType, 
+        type: reactFlowNodeStyleType, // "Boundary" or the iconName (e.g., "HardDrive", "Circle")
         position: flowPosition,
         data: newNodeData,
-        style: nodeStyle,
+        style: nodeStyle, // This style is applied to the React Flow wrapper div.
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
@@ -288,4 +290,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-

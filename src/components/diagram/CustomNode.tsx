@@ -31,23 +31,30 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  const nodeIconName = data.iconName as keyof typeof PhosphorIcons | undefined; // Original stencil icon name
+  // For regular nodes, 'type' (node.type) is the iconName. For boundaries, data.iconName might be different (e.g. ShieldCheck), but type is 'Boundary'.
+  const nodeIconNameFromData = data.iconName as keyof typeof PhosphorIcons | undefined;
+
+  const isShape = !isBoundary && (type === 'Circle' || type === 'Rectangle' || type === 'Diamond' || type === 'Parallelogram');
 
   const IconToRender = (() => {
-    if (!nodeIconName || isBoundary || type === 'Circle' || type === 'Rectangle' || type === 'Diamond' || type === 'Parallelogram') return null; // No icon for boundaries or specific shapes
+    if (isBoundary || isShape) return null; // No icon for boundaries or if rendering a shape
 
-    let phosphorIcon: PhosphorIcons.Icon | React.ForwardRefExoticComponent<any> | undefined | null = null;
+    const iconNameToLookup = nodeIconNameFromData || type; // Use data.iconName first, then node.type as fallback
+    if (!iconNameToLookup || iconNameToLookup.trim() === "") return QuestionIcon;
 
-    if (Object.prototype.hasOwnProperty.call(PhosphorIcons, nodeIconName)) {
-        phosphorIcon = (PhosphorIcons as any)[nodeIconName];
+    let iconComponent: PhosphorIcons.Icon | React.ForwardRefExoticComponent<any> | undefined | null = null;
+
+    if (Object.prototype.hasOwnProperty.call(PhosphorIcons, iconNameToLookup)) {
+      iconComponent = (PhosphorIcons as any)[iconNameToLookup];
     }
-    if (!phosphorIcon && PhosphorIcons.default && typeof PhosphorIcons.default === 'object') {
-      if (Object.prototype.hasOwnProperty.call(PhosphorIcons.default, nodeIconName)) {
-        phosphorIcon = (PhosphorIcons.default as any)[nodeIconName];
+    if (!iconComponent && PhosphorIcons.default && typeof PhosphorIcons.default === 'object') {
+      if (Object.prototype.hasOwnProperty.call(PhosphorIcons.default, iconNameToLookup)) {
+        iconComponent = (PhosphorIcons.default as any)[iconNameToLookup];
       }
     }
-    return phosphorIcon && (typeof phosphorIcon === 'function' || (typeof phosphorIcon === 'object' && phosphorIcon !== null && '$$typeof' in phosphorIcon && phosphorIcon.$$typeof === Symbol.for('react.forward_ref')))
-      ? phosphorIcon
+    
+    return iconComponent && (typeof iconComponent === 'function' || (typeof iconComponent === 'object' && iconComponent !== null && '$$typeof' in iconComponent && iconComponent.$$typeof === Symbol.for('react.forward_ref')))
+      ? iconComponent
       : QuestionIcon;
   })();
 
@@ -57,6 +64,7 @@ export const CustomNode: FC<NodeProps> = ({
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
+  // This style is for the div CustomNode *returns*. React Flow wraps this.
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
     width: '100%',
@@ -65,25 +73,24 @@ export const CustomNode: FC<NodeProps> = ({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    position: 'relative', // Needed for absolute positioning of label in boundary
   };
-
-  if (isBoundary && data.boundaryColor) {
-    customNodeRootStyle['--dynamic-boundary-color' as any] = data.boundaryColor;
-  }
+  
+  // Note: --dynamic-boundary-color is now set on the Node's style prop in DiagramCanvas.tsx
+  // so the .react-flow__node-Boundary class can pick it up directly.
 
   const nodeLabel = data.label || data.name || 'Unnamed';
-  const nodeDisplayColor = data.textColor || 'currentColor'; // Fallback to inherit color
+  const nodeDisplayColor = data.textColor || 'currentColor'; // Fallback to inherit color via CSS class
 
   // --- Boundary Node Rendering ---
   if (isBoundary) {
     return (
-      <div style={customNodeRootStyle} className="group">
+      <div style={customNodeRootStyle} className="group"> {/* Apply customNodeRootStyle to allow zIndex control if necessary */}
         {showResizer && (
           <NodeResizer
             minWidth={data.minWidth || 150}
             minHeight={data.minHeight || 100}
-            lineClassName="!border-primary"
+            lineClassName="!border-primary" // ShadCN primary
             handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
             isVisible={selected}
             style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
@@ -93,13 +100,13 @@ export const CustomNode: FC<NodeProps> = ({
           className={cn(
             "text-sm font-semibold absolute -translate-x-1/2 left-1/2",
             "w-max max-w-[calc(100%-1rem)] truncate px-1 py-0.5 rounded",
-             // Position label at the top for boundaries
-            "-top-5 bg-background shadow-sm" 
+            "top-1 bg-background shadow-sm" // Position label at the top for boundaries
           )}
-          style={{ color: data.boundaryColor || 'hsl(var(--border))' }}
+          style={{ color: data.boundaryColor || 'hsl(var(--border))' }} // Label color matches border
         >
           {nodeLabel}
         </span>
+        {/* Boundary nodes do not render handles or icons directly inside CustomNode */}
       </div>
     );
   }
@@ -115,29 +122,22 @@ export const CustomNode: FC<NodeProps> = ({
       <div
         className={cn(shapeBaseClasses, "rounded-full")}
         style={shapeBorderStyle}
-      >
-        {/* Content/Icon inside circle can be added here if needed */}
-      </div>
+      />
     );
   } else if (type === 'Rectangle') {
     contentElement = (
       <div
         className={cn(shapeBaseClasses)}
         style={shapeBorderStyle}
-      >
-        {/* Content/Icon inside rectangle can be added here if needed */}
-      </div>
+      />
     );
   } else if (type === 'Diamond') {
     contentElement = (
-      // Outer div for sizing and centering the rotated diamond
       <div className={cn(shapeBaseClasses, "relative")}>
         <div
-          className="absolute w-[70.71%] h-[70.71%] top-[14.645%] left-[14.645%]" // Position the un-rotated square so its center matches parent
+          className="absolute w-[70.71%] h-[70.71%] top-[14.645%] left-[14.645%]"
           style={{ ...shapeBorderStyle, transform: 'rotate(45deg)' }}
-        >
-          {/* Content inside diamond would need counter-rotation if placed here */}
-        </div>
+        />
       </div>
     );
   } else if (type === 'Parallelogram') {
@@ -145,18 +145,14 @@ export const CustomNode: FC<NodeProps> = ({
       <div 
         className={cn(shapeBaseClasses)}
         style={{ ...shapeBorderStyle, transform: 'skewX(-20deg)' }}
-      >
-        {/* Content/Icon inside parallelogram can be counter-skewed if needed:
-            <div style={{ transform: 'skewX(20deg)' }}> Icon/Text </div> 
-        */}
-      </div>
+      />
     );
   } else {
     // Default: Icon-only rendering
     contentElement = (
       <div className="flex flex-col items-center justify-center w-full h-full">
         {IconToRender && React.createElement(IconToRender, {
-          size: Math.min(data.width || 32, data.height || 32) * 0.7, // Slightly larger icon fill
+          size: Math.min(data.width || 32, data.height || 32) * 0.7,
           style: { color: nodeDisplayColor },
           weight: "regular"
         })}
@@ -182,9 +178,8 @@ export const CustomNode: FC<NodeProps> = ({
       <span
         className={cn(
           "text-xs font-medium truncate max-w-[90%] text-center absolute",
-          // Position label below shapes/icons
-          "bottom-[-20px] left-1/2 -translate-x-1/2 w-max", // Ensure label width is based on content
-          (type === 'Circle' || type === 'Rectangle' || type === 'Diamond' || type === 'Parallelogram') && "bottom-[-20px]" // Consistent label position for shapes
+          "bottom-[-20px] left-1/2 -translate-x-1/2 w-max",
+          isShape && "bottom-[-20px]"
         )}
         style={{ color: nodeDisplayColor }}
       >
@@ -198,4 +193,3 @@ export const CustomNode: FC<NodeProps> = ({
     </div>
   );
 };
-
