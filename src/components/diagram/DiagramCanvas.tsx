@@ -18,24 +18,24 @@ import {
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
-import type { StencilData, InfrastructureStencilData } from '@/services/stencilService';
+import type { StencilData, InfrastructureStencilData, ProcessStencilData } from '@/services/stencilService';
 
 // nodeTypes map keys should be PascalCase, matching node.type set from stencil.iconName or "Boundary"
 const nodeTypes = {
   // Infrastructure Icons (examples, add all you use from Phosphor)
-  Server: CustomNode, // Assumes stencil.iconName might be "Server"
-  HardDrive: CustomNode, 
+  Server: CustomNode, 
+  HardDrive: CustomNode,
+  HardDrives: CustomNode, // Added to handle potential pluralization in data
   Database: CustomNode,
   Cloud: CustomNode,
   Router: CustomNode,
-  Service: CustomNode, // Generic service
-  ShieldCheck: CustomNode, // Often used for boundaries if iconName is this
-  User: CustomNode, // Example for User Authentication stencil
+  ShieldCheck: CustomNode, 
+  User: CustomNode, 
 
   // Process Icons / Shapes (examples, add all you use from Phosphor)
-  Rectangle: CustomNode, 
-  Circle: CustomNode,    
-  Diamond: CustomNode,   
+  Rectangle: CustomNode,
+  Circle: CustomNode,
+  Diamond: CustomNode,
   Parallelogram: CustomNode,
   ArchiveBox: CustomNode, 
   FileText: CustomNode,  
@@ -47,7 +47,7 @@ const nodeTypes = {
   Boundary: CustomNode, // Explicit type for Boundary nodes
 
   // Fallback/Default Icons from Phosphor
-  HelpCircle: CustomNode, // Phosphor's Question
+  Question: CustomNode, // Phosphor's Question
   Package: CustomNode,    // Phosphor's Package
   Default: CustomNode,    // Fallback
 };
@@ -65,6 +65,9 @@ interface DiagramCanvasProps {
   onNodeClick?: (event: ReactMouseEvent, node: Node) => void;
   onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void;
   onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void;
+  panOnDrag?: boolean | undefined; // Added panOnDrag
+  zoomOnScroll?: boolean | undefined; // Added zoomOnScroll
+  zoomOnPinch?: boolean | undefined; // Added zoomOnPinch
 }
 
 export function DiagramCanvas({
@@ -80,6 +83,9 @@ export function DiagramCanvas({
   onNodeClick,
   onEdgeClick,
   onPaneClick,
+  panOnDrag = true,
+  zoomOnScroll = true,
+  zoomOnPinch = true,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -98,7 +104,7 @@ export function DiagramCanvas({
       const stencilDataString = event.dataTransfer.getData('application/reactflow');
       
       if (!stencilDataString) {
-        // This means it's likely not a stencil drop (e.g., internal React Flow drag for connection)
+        // Not a stencil drop (e.g., internal React Flow drag for connection)
         return; 
       }
 
@@ -111,14 +117,13 @@ export function DiagramCanvas({
         return;
       }
       
-      const nodeIconName = droppedStencil.iconName || 'Package'; // Default icon if none specified
+      const nodeIconName = droppedStencil.iconName || 'Package'; 
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
       
-      // Node type for React Flow is "Boundary" for boundaries, otherwise it's the iconName.
       const reactFlowNodeStyleType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(reactFlowNodeStyleType in nodeTypes)) {
-        console.warn(`Dropped stencil's effective type "${reactFlowNodeStyleType}" (iconName from stencil: ${nodeIconName}) not found in nodeTypes. Defaulting to 'Package' for rendering. Add "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes if it's a valid Phosphor icon name.`);
+        console.warn(`DiagramCanvas: Dropped stencil's effective type "${reactFlowNodeStyleType}" (iconName from stencil: ${nodeIconName}) not found in nodeTypes. Defaulting to 'Package'. Add "${reactFlowNodeStyleType}: CustomNode" to DiagramCanvas nodeTypes if it's a valid Phosphor icon name.`);
       }
 
       const flowPosition = screenToFlowPosition({
@@ -126,7 +131,7 @@ export function DiagramCanvas({
         y: event.clientY,
       });
 
-      const currentNodes = rfGetNodesFromHook();
+      const currentNodes = rfGetNodesFromHook(); // Get current nodes from React Flow instance
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
         project && 
@@ -136,71 +141,61 @@ export function DiagramCanvas({
         flowPosition.y <= n.positionAbsolute.y + n.height
       );
 
-      let defaultWidth = 120; 
-      let defaultHeight = 100;
-      let minWidthForNode = 50; 
-      let minHeightForNode = 50;
-      let nodeIsResizable = true; 
+      let defaultWidth: number, defaultHeight: number, minWidthForNode: number, minHeightForNode: number;
+      let nodeIsResizable = true;
 
       if (isDroppedStencilBoundary) {
-          defaultWidth = 400;
-          defaultHeight = 300;
-          minWidthForNode = 200;
-          minHeightForNode = 150;
-          nodeIsResizable = true;
+          defaultWidth = 400; defaultHeight = 300; minWidthForNode = 200; minHeightForNode = 150;
       } else if (droppedStencil.stencilType === 'process') {
           nodeIsResizable = true; 
-          if (['Circle', 'Diamond'].includes(nodeIconName)) { 
-              defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
-          } else if (['Rectangle', 'ArchiveBox', 'FileText', 'PencilSimpleLine', 'StickyNote', 'Parallelogram'].includes(nodeIconName)) { 
-              defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
-          } else if (nodeIconName === 'ArrowRight') { 
-              defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
-          } else { // Default for other process icons if any
-              defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
+          switch (nodeIconName) {
+              case 'Circle': case 'Diamond':
+                  defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
+                  break;
+              case 'Rectangle': case 'ArchiveBox': case 'FileText': case 'PencilSimpleLine': case 'StickyNote': case 'Parallelogram':
+                  defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
+                  break;
+              case 'ArrowRight':
+                  defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
+                  break;
+              default: // Default for other process icons
+                  defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
       } else { // Infrastructure non-boundary
           nodeIsResizable = true; 
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
 
-
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       const newNodeData: Record<string, any> = {
-        label: droppedStencil.name, // This will be the name displayed below the node
+        label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName, // Store the original iconName for CustomNode to use
+        iconName: nodeIconName, 
         textColor: droppedStencil.textColor,
         resizable: nodeIsResizable,
         minWidth: minWidthForNode, 
         minHeight: minHeightForNode, 
         stencilId: droppedStencil.id,
-        isBoundary: isDroppedStencilBoundary, // Crucial for CustomNode logic
-        // width and height are passed via node.style, not data usually
+        isBoundary: isDroppedStencilBoundary,
+        boundaryColor: isDroppedStencilBoundary ? (droppedStencil as InfrastructureStencilData).boundaryColor : undefined,
       };
-
-      if (isDroppedStencilBoundary) {
-        newNodeData.boundaryColor = (droppedStencil as InfrastructureStencilData).boundaryColor;
-      }
       
       const nodeStyle: React.CSSProperties = {
         width: defaultWidth,
         height: defaultHeight,
       };
 
-      // Set the CSS variable for boundary color on the Node's style prop directly
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
         nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
 
-
       const newNode: Node = {
         id: newNodeId,
-        type: reactFlowNodeStyleType, // "Boundary" or the iconName (e.g., "HardDrive", "Circle")
+        type: reactFlowNodeStyleType, 
         position: flowPosition,
         data: newNodeData,
-        style: nodeStyle, // This style is applied to the React Flow wrapper div.
+        style: nodeStyle,
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
@@ -212,9 +207,10 @@ export function DiagramCanvas({
       setEdges((eds) => eds.map(e => ({...e, selected: false})));
 
       if (onNodesChange) {
+         const selectChanges = currentNodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false } as NodeChange));
          onNodesChange([
           {type: 'add', item: newNode},
-          ...currentNodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false } as NodeChange)),
+          ...selectChanges,
           {type: 'select', id: newNode.id, selected: true} as NodeChange
         ]);
       }
@@ -223,7 +219,6 @@ export function DiagramCanvas({
     },
     [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
   );
-
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
@@ -242,17 +237,17 @@ export function DiagramCanvas({
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true}
-        selectNodesOnDrag={true}
+        selectNodesOnDrag={true} // Re-enabled for immediate drag feedback
         multiSelectionKeyCode={['Meta', 'Control']}
-        nodeDragThreshold={0}
+        nodeDragThreshold={0} // Ensure dragging starts immediately
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
-        panOnDrag={true}
-        zoomOnScroll={true}
-        zoomOnPinch={true}
+        panOnDrag={panOnDrag}
+        zoomOnScroll={zoomOnScroll}
+        zoomOnPinch={zoomOnPinch}
         panOnScroll={false}
       >
         <Controls />

@@ -114,15 +114,16 @@ body {
   /* CustomNode's internal content div will be transparent, allowing these styles to show */
   /* These define the background, border, and default text color for the node's bounding box */
 
-  div.react-flow__node.react-flow__node-HardDrive, /* For Server Stencil with iconName HardDrive */
+  div.react-flow__node.react-flow__node-HardDrive, 
+  div.react-flow__node.react-flow__node-HardDrives, /* Added for plural case */
   div.react-flow__node.react-flow__node-Database,
   div.react-flow__node.react-flow__node-Cloud,
   div.react-flow__node.react-flow__node-Service,
   div.react-flow__node.react-flow__node-Router,
-  div.react-flow__node.react-flow__node-User, /* Example User stencil */
-  div.react-flow__node.react-flow__node-ShieldCheck, /* For non-boundary stencils that might use ShieldCheck icon */
+  div.react-flow__node.react-flow__node-User, 
+  div.react-flow__node.react-flow__node-ShieldCheck, 
   div.react-flow__node.react-flow__node-Default, 
-  div.react-flow__node.react-flow__node-HelpCircle, 
+  div.react-flow__node.react-flow__node-Question, /* Updated from HelpCircle */
   div.react-flow__node.react-flow__node-Package,
   /* Process Stencils that are ICON-ONLY (if any, most are shapes) */
   div.react-flow__node.react-flow__node-ArchiveBox, 
@@ -131,19 +132,19 @@ body {
   div.react-flow__node.react-flow__node-StickyNote, 
   div.react-flow__node.react-flow__node-ArrowRight { 
      @apply bg-card text-card-foreground border-2 border-solid border-gray-300 rounded-lg;
-     /* Text color from data.textColor will override text-card-foreground for the icon inside CustomNode */
   }
 
   /* Type-specific text color for icons IF data.textColor is not provided by CustomNode */
   /* These are fallback text colors, CustomNode's direct style on icon takes precedence */
-  div.react-flow__node.react-flow__node-HardDrive { @apply text-blue-700; } /* Server */
+  div.react-flow__node.react-flow__node-HardDrive,
+  div.react-flow__node.react-flow__node-HardDrives { @apply text-blue-700; } 
   div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
   div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
   div.react-flow__node.react-flow__node-Service { @apply text-purple-700; }
   div.react-flow__node.react-flow__node-Router { @apply text-yellow-700; }
   div.react-flow__node.react-flow__node-User { @apply text-orange-600; }
   div.react-flow__node.react-flow__node-Default,
-  div.react-flow__node.react-flow__node-HelpCircle,
+  div.react-flow__node.react-flow__node-Question,
   div.react-flow__node.react-flow__node-Package {
      @apply text-gray-700;
   }
@@ -161,7 +162,6 @@ body {
   div.react-flow__node.react-flow__node-Rectangle,
   div.react-flow__node.react-flow__node-Diamond,
   div.react-flow__node.react-flow__node-Parallelogram {
-    /* Ensure these have no default background or border from React Flow wrapper */
      background: transparent !important;
      border: none !important;
   }
@@ -170,7 +170,7 @@ body {
   /* Boundary Box Specific Styling - node.type will be 'Boundary' */
   div.react-flow__node.react-flow__node-Boundary {
      @apply !border-2 !border-dashed !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
-     border-color: var(--dynamic-boundary-color, hsl(var(--border))); /* Uses CSS var from Node style */
+     border-color: var(--dynamic-boundary-color, hsl(var(--border))); 
   }
 
   /* General selection outline for non-boundary nodes */
@@ -183,7 +183,7 @@ body {
     @apply ring-1 ring-offset-0 ring-primary; /* Subtle ring for boundary selection */
   }
 
-  .react-flow__handle {
+ .react-flow__handle {
     @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full transition-all duration-150;
     visibility: hidden; /* Hidden by default */
   }
@@ -200,6 +200,7 @@ body {
     @apply !bg-primary opacity-100;
     visibility: visible !important; /* Ensure connecting handles are always visible */
   }
+
 
    .react-flow__edge-path {
      @apply stroke-gray-500 stroke-2;
@@ -243,3 +244,4 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
