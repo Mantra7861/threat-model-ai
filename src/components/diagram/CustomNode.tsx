@@ -13,7 +13,7 @@ export const CustomNode: FC<NodeProps> = ({
   id,
   data,
   selected,
-  type, // This 'type' is node.type, e.g., "HardDrive", "Database", "Circle", "Boundary"
+  type, 
   xPos,
   yPos,
   isConnectable,
@@ -31,27 +31,27 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  const nodeIconNameFromData = data.iconName as string | undefined; // e.g., "HardDrive", "Database", "Circle"
-  const nodeDisplayColor = data.textColor || 'currentColor'; // Fallback to inherit color via CSS
+  const nodeIconNameFromData = data.iconName as string | undefined; 
+  const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--border))') : (data.textColor || 'currentColor');
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
-  // This style is applied to the div CustomNode *returns*. React Flow wraps this.
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%', // Take full width of React Flow's wrapper
-    height: '100%', // Take full height of React Flow's wrapper
+    width: '100%', 
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   };
-
+  
   if (isBoundary && data.boundaryColor) {
-    // CSS variable for boundary color is set on the Node's style prop in DiagramCanvas.tsx
+    // The CSS variable is set on the Node's style prop in DiagramCanvas.tsx
     // The .react-flow__node-Boundary class in globals.css uses this variable.
   }
+
 
   const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
@@ -60,7 +60,7 @@ export const CustomNode: FC<NodeProps> = ({
   // --- Boundary Node Rendering ---
   if (isBoundary) {
     return (
-      <div style={customNodeRootStyle} className="group">
+      <div style={customNodeRootStyle} className="group"> {/* This div fills the React Flow wrapper */}
         {showResizer && (
           <NodeResizer
             minWidth={data.minWidth || 150}
@@ -74,14 +74,13 @@ export const CustomNode: FC<NodeProps> = ({
         <span
           className={cn(
             "text-sm font-semibold absolute -translate-x-1/2 left-1/2 px-1 py-0.5 rounded",
-            "top-1 bg-background/80 backdrop-blur-sm shadow-sm" // Position label at the top for boundaries
+            "top-1 bg-background/80 backdrop-blur-sm shadow-sm"
           )}
-          style={{ color: data.boundaryColor || 'hsl(var(--border))' }}
+          style={{ color: nodeDisplayColor }} 
         >
           {nodeLabel}
         </span>
-        {/* Boundary nodes do not render handles or icons directly inside CustomNode */}
-        {/* Their visual (dashed border, transparent bg) is handled by .react-flow__node-Boundary class */}
+        {/* No explicit handles or icon for boundary, visual comes from globals.css via node.type="Boundary" */}
       </div>
     );
   }
@@ -89,9 +88,8 @@ export const CustomNode: FC<NodeProps> = ({
   // --- Regular Node Rendering (Shape-based or Icon-only) ---
   let contentElement: React.ReactNode;
 
-  // Resolve the icon component
   const IconToRender = (() => {
-    const iconNameToLookup = nodeIconNameFromData || type; // type is node.type (e.g. "HardDrive")
+    const iconNameToLookup = nodeIconNameFromData || type; 
     if (!iconNameToLookup || iconNameToLookup.trim() === "") return QuestionIcon;
 
     let iconComponent: any = null;
@@ -112,13 +110,12 @@ export const CustomNode: FC<NodeProps> = ({
     return QuestionIcon;
   })();
 
-
   const shapeBaseClasses = "w-full h-full flex items-center justify-center p-1 box-border";
-  const shapeBorderStyle = { border: `2px solid ${nodeDisplayColor}` }; // For shapes, border is direct
+  const shapeBorderStyle = { border: `2px solid ${nodeDisplayColor}` };
 
-  // The React Flow wrapper (.react-flow__node and .react-flow__node-[type]) will provide bg-card and border for icon-only nodes.
-  // CustomNode's content div for icon-only should be transparent and fill its container.
 
+  // The .react-flow__node and .react-flow__node-[type] classes from globals.css handle background and static border for icon-only nodes.
+  // CustomNode's content div for icon-only should be transparent.
   if (type === 'Circle') {
     contentElement = (
       <div
@@ -129,7 +126,7 @@ export const CustomNode: FC<NodeProps> = ({
   } else if (type === 'Rectangle') {
     contentElement = (
       <div
-        className={cn(shapeBaseClasses)}
+        className={cn(shapeBaseClasses, "rounded-lg")} // Standard rounded corners for rectangles
         style={shapeBorderStyle}
       />
     );
@@ -137,7 +134,7 @@ export const CustomNode: FC<NodeProps> = ({
     contentElement = (
       <div className={cn(shapeBaseClasses, "relative")}>
         <div
-          className="absolute w-[70.71%] h-[70.71%] top-[14.645%] left-[14.645%]"
+          className="absolute w-[70.71%] h-[70.71%] top-[14.645%] left-[14.645%]" // Adjusted for visual diamond
           style={{ ...shapeBorderStyle, transform: 'rotate(45deg)' }}
         />
       </div>
@@ -150,13 +147,12 @@ export const CustomNode: FC<NodeProps> = ({
       />
     );
   } else {
-    // Icon-only rendering: The icon itself is the main content.
-    // Background and border come from .react-flow__node-[type] CSS.
+    // Icon-only rendering: icon is main content. Background/border come from CSS.
     contentElement = (
-      <div className="flex flex-col items-center justify-center w-full h-full"> {/* This div is transparent */}
+      <div className="flex flex-col items-center justify-center w-full h-full">
         {IconToRender && React.createElement(IconToRender, {
-          size: Math.min(data.width || 48, data.height || 48) * 0.6, // Adjusted size factor
-          style: { color: nodeDisplayColor }, // Uses data.textColor or inherits if currentColor
+          size: Math.min(data.width || 48, data.height || 48) * 0.6,
+          style: { color: nodeDisplayColor },
           weight: "regular"
         })}
       </div>
@@ -164,7 +160,7 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   return (
-    <div style={customNodeRootStyle} className="group"> {/* This div should fill the React Flow wrapper */}
+    <div style={customNodeRootStyle} className="group">
       {showResizer && (
         <NodeResizer
           minWidth={data.minWidth || 60}
@@ -182,23 +178,16 @@ export const CustomNode: FC<NodeProps> = ({
         className={cn(
           "text-xs font-medium truncate max-w-[90%] text-center absolute",
           "bottom-[-20px] left-1/2 -translate-x-1/2 w-max px-1",
-          // Apply nodeDisplayColor to label for all non-boundary nodes
-          // Boundary label color is handled by its specific styling above
         )}
         style={{ color: nodeDisplayColor }}
       >
         {nodeLabel}
       </span>
 
-      {/* Handles are always rendered for non-boundary nodes by CustomNode. CSS controls visibility. */}
-      {!isBoundary && (
-        <>
-          <Handle type="target" position={Position.Top} id="top" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-          <Handle type="source" position={Position.Bottom} id="bottom" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-          <Handle type="target" position={Position.Left} id="left" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-          <Handle type="source" position={Position.Right} id="right" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-        </>
-      )}
+      <Handle type="both" position={Position.Top} id="top" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+      <Handle type="both" position={Position.Bottom} id="bottom" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+      <Handle type="both" position={Position.Left} id="left" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+      <Handle type="both" position={Position.Right} id="right" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
     </div>
   );
 };

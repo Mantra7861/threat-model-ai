@@ -36,7 +36,7 @@ const nodeTypes = {
   Rectangle: CustomNode,
   Circle: CustomNode,
   Diamond: CustomNode,
-  Parallelogram: CustomNode, // Added for parallelogram shape
+  Parallelogram: CustomNode,
   ArchiveBox: CustomNode,
   FileText: CustomNode,
   PencilSimpleLine: CustomNode,
@@ -105,6 +105,7 @@ export function DiagramCanvas({
 
       if (!stencilDataString) {
         // Not a stencil drop (e.g., internal React Flow drag for connection or node repositioning)
+        console.log("DiagramCanvas onDrop: No stencilDataString found. Ignoring event.");
         return;
       }
 
@@ -120,7 +121,6 @@ export function DiagramCanvas({
       const nodeIconName = droppedStencil.iconName || 'Package';
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
       
-      // Determine node type for React Flow: "Boundary" for boundaries, iconName for others.
       const reactFlowNodeStyleType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(reactFlowNodeStyleType in nodeTypes)) {
@@ -173,13 +173,13 @@ export function DiagramCanvas({
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName, // This is what CustomNode uses to pick the Phosphor icon
+        iconName: nodeIconName, 
         textColor: droppedStencil.textColor,
         resizable: nodeIsResizable,
         minWidth: minWidthForNode,
         minHeight: minHeightForNode,
         stencilId: droppedStencil.id,
-        isBoundary: isDroppedStencilBoundary, // Explicitly set for CustomNode
+        isBoundary: isDroppedStencilBoundary,
         boundaryColor: isDroppedStencilBoundary ? (droppedStencil as InfrastructureStencilData).boundaryColor : undefined,
       };
       
@@ -195,7 +195,7 @@ export function DiagramCanvas({
 
       const newNode: Node = {
         id: newNodeId,
-        type: reactFlowNodeStyleType, // Use the resolved type ("Boundary" or iconName)
+        type: reactFlowNodeStyleType, 
         position: flowPosition,
         data: newNodeData,
         style: nodeStyle,
@@ -246,7 +246,7 @@ export function DiagramCanvas({
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        elevateNodesOnSelect={false} // Important for z-index control
+        elevateNodesOnSelect={false} 
         elevateEdgesOnSelect={true}
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
@@ -269,7 +269,7 @@ export function DiagramCanvas({
               refY="4"
               orient="auto"
             >
-              <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'green' }} /> {/* Diagnostic: obvious color */}
+              <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
             </marker>
             <marker
               id="arrowclosed-selected"
@@ -287,5 +287,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-
-    
