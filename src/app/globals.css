@@ -106,7 +106,7 @@ body {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: visible;
+    overflow: visible; /* Important for handles to not be clipped if node size is small */
   }
 
   /* Icon-only and specific type node styles (e.g., Server, Database) */
@@ -118,14 +118,15 @@ body {
   div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
   div.react-flow__node.react-flow__node-Cloud,
-  div.react-flow__node.react-flow__node-Service,
+  div.react-flow__node.react-flow__node-Service, /* Placeholder for generic service if not a shape */
   div.react-flow__node.react-flow__node-Router,
-  div.react-flow__node.react-flow__node-User,
-  div.react-flow__node.react-flow__node-ShieldCheck,
-  div.react-flow__node.react-flow__node-Default,
-  div.react-flow__node.react-flow__node-Question,
-  div.react-flow__node.react-flow__node-Package,
+  div.react-flow__node.react-flow__node-User, /* User/Actor icon */
+  div.react-flow__node.react-flow__node-ShieldCheck, /* Could be used for Firewalls or specific Security Controls */
+  div.react-flow__node.react-flow__node-Default, /* Fallback type */
+  div.react-flow__node.react-flow__node-Question, /* Fallback Icon */
+  div.react-flow__node.react-flow__node-Package, /* Default stencil icon */
   /* Process Stencils that are ICON-ONLY (if any, most are shapes) */
+  /* For example, if "ArchiveBox" or "FileText" are used as icon-only (not drawn as shapes by CustomNode) */
   div.react-flow__node.react-flow__node-ArchiveBox,
   div.react-flow__node.react-flow__node-FileText,
   div.react-flow__node.react-flow__node-PencilSimpleLine,
@@ -154,6 +155,7 @@ body {
    div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
    div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
 
+
   /* Process SHAPE stencils (Circle, Rectangle, Diamond, Parallelogram) */
   /* These node types will have CustomNode render the shape directly. */
   /* Their React Flow wrapper should remain transparent and borderless. */
@@ -171,10 +173,11 @@ body {
   div.react-flow__node.react-flow__node-Boundary {
     border-width: 2px !important;
     border-style: dashed !important;
-    border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important; /* Ensure this overrides any color from @apply */
+    border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important;
     background-color: transparent !important;
     @apply shadow-none hover:shadow-none cursor-default rounded-lg;
   }
+
 
   /* General selection outline for non-boundary nodes */
   .react-flow__node.selected:not(.react-flow__node-Boundary) {
@@ -248,3 +251,18 @@ body {
     }
 }
 
+/* SVG definitions for edge markers must be outside of @layer to be globally available if not in HTML */
+/* However, for Tailwind JIT, it's often better to ensure they are processed. */
+/* These markers are now defined within the DiagramCanvas.tsx component's JSX for better encapsulation. */
+/* Removing them from here to avoid potential duplication or conflicts if they are correctly defined in DiagramCanvas.tsx */
+/*
+svg {
+  display: none; 
+}
+svg defs #arrowclosed path {
+  fill: hsl(var(--foreground));
+}
+svg defs #arrowclosed-selected path {
+  fill: hsl(var(--primary));
+}
+*/
