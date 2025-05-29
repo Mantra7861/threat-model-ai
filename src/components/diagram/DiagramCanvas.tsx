@@ -36,7 +36,7 @@ const nodeTypes = {
   Rectangle: CustomNode,
   Circle: CustomNode,
   Diamond: CustomNode,
-  Parallelogram: CustomNode,
+  Parallelogram: CustomNode, 
   ArchiveBox: CustomNode, 
   FileText: CustomNode,  
   PencilSimpleLine: CustomNode, 
@@ -264,13 +264,12 @@ export function DiagramCanvas({
               id="arrowclosed"
               markerWidth="8"
               markerHeight="8"
-              refX="7"        
-              refY="4"        
-              orient="auto"
+              refX="7" // Adjust refX so the tip of the arrow (at x=8 in path) aligns with line end
+              refY="4" // Center of marker height
+              orient="auto-start-reverse"
               markerUnits="strokeWidth"
             >
-              {/* DIAGNOSTIC: Using "red" for default arrow fill */}
-              <path d="M0,0 L0,8 L8,4 z" style={{ fill: 'red' }} />
+              <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
             </marker>
             <marker
               id="arrowclosed-selected"
@@ -278,10 +277,10 @@ export function DiagramCanvas({
               markerHeight="10"
               refX="9" 
               refY="5" 
-              orient="auto"
+              orient="auto-start-reverse"
               markerUnits="strokeWidth"
             >
-              <path d="M0,0 L0,10 L10,5 z" style={{ fill: 'hsl(var(--primary))' }} />
+              <path d="M0,0 L10,5 L0,10 z" style={{ fill: 'hsl(var(--primary))' }} />
             </marker>
           </defs>
         </svg>
@@ -289,4 +288,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-
