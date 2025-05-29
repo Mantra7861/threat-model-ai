@@ -36,7 +36,7 @@ const nodeTypes = {
   Rectangle: CustomNode,
   Circle: CustomNode,
   Diamond: CustomNode,
-  Parallelogram: CustomNode,
+  Parallelogram: CustomNode, // Added for parallelogram shape
   ArchiveBox: CustomNode,
   FileText: CustomNode,
   PencilSimpleLine: CustomNode,
@@ -104,7 +104,7 @@ export function DiagramCanvas({
       const stencilDataString = event.dataTransfer.getData('application/reactflow');
 
       if (!stencilDataString) {
-        // Not a stencil drop (e.g., internal React Flow drag for connection)
+        // Not a stencil drop (e.g., internal React Flow drag for connection or node repositioning)
         return;
       }
 
@@ -119,7 +119,8 @@ export function DiagramCanvas({
 
       const nodeIconName = droppedStencil.iconName || 'Package';
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
-
+      
+      // Determine node type for React Flow: "Boundary" for boundaries, iconName for others.
       const reactFlowNodeStyleType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(reactFlowNodeStyleType in nodeTypes)) {
@@ -142,23 +143,23 @@ export function DiagramCanvas({
       );
 
       let defaultWidth: number, defaultHeight: number, minWidthForNode: number, minHeightForNode: number;
-      let nodeIsResizable = true; // Default to resizable
+      let nodeIsResizable = true; 
 
       if (isDroppedStencilBoundary) {
           defaultWidth = 400; defaultHeight = 300; minWidthForNode = 200; minHeightForNode = 150;
       } else if (droppedStencil.stencilType === 'process') {
-          nodeIsResizable = true;
+          nodeIsResizable = true; 
           switch (nodeIconName) {
               case 'Circle': case 'Diamond':
                   defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
                   break;
-              case 'Rectangle': case 'Parallelogram': case 'ArchiveBox': case 'FileText': case 'PencilSimpleLine': case 'StickyNote':
+              case 'Rectangle': case 'Parallelogram':
                   defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
                   break;
               case 'ArrowRight':
                   defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
                   break;
-              default:
+              default: // For other process icons like ArchiveBox, FileText, PencilSimpleLine, StickyNote
                   defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
       } else { // Infrastructure (non-boundary)
@@ -166,33 +167,35 @@ export function DiagramCanvas({
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
 
+
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName,
+        iconName: nodeIconName, // This is what CustomNode uses to pick the Phosphor icon
         textColor: droppedStencil.textColor,
         resizable: nodeIsResizable,
         minWidth: minWidthForNode,
         minHeight: minHeightForNode,
         stencilId: droppedStencil.id,
-        isBoundary: isDroppedStencilBoundary,
+        isBoundary: isDroppedStencilBoundary, // Explicitly set for CustomNode
         boundaryColor: isDroppedStencilBoundary ? (droppedStencil as InfrastructureStencilData).boundaryColor : undefined,
       };
-
+      
       const nodeStyle: React.CSSProperties = {
         width: defaultWidth,
         height: defaultHeight,
       };
-
+      
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
-        nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
+         nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
+
 
       const newNode: Node = {
         id: newNodeId,
-        type: reactFlowNodeStyleType,
+        type: reactFlowNodeStyleType, // Use the resolved type ("Boundary" or iconName)
         position: flowPosition,
         data: newNodeData,
         style: nodeStyle,
@@ -243,7 +246,7 @@ export function DiagramCanvas({
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        elevateNodesOnSelect={false}
+        elevateNodesOnSelect={false} // Important for z-index control
         elevateEdgesOnSelect={true}
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
@@ -262,21 +265,19 @@ export function DiagramCanvas({
               id="arrowclosed"
               markerWidth="8"
               markerHeight="8"
-              refX="8" // Tip of the arrow at the end of the line
-              refY="4" // Center of marker height
-              orient="auto" // Auto-orient based on line direction
-              markerUnits="strokeWidth"
+              refX="8" 
+              refY="4"
+              orient="auto"
             >
-              <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
+              <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'green' }} /> {/* Diagnostic: obvious color */}
             </marker>
             <marker
               id="arrowclosed-selected"
               markerWidth="10"
               markerHeight="10"
-              refX="10" // Tip of the arrow at the end of the line
-              refY="5" // Center of marker height
-              orient="auto" // Auto-orient based on line direction
-              markerUnits="strokeWidth"
+              refX="10"
+              refY="5"
+              orient="auto"
             >
               <path d="M0,0 L10,5 L0,10 z" style={{ fill: 'hsl(var(--primary))' }} />
             </marker>
@@ -286,3 +287,5 @@ export function DiagramCanvas({
     </div>
   );
 }
+
+    

@@ -102,12 +102,15 @@ body {
 @layer components {
   .react-flow__node {
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
-    background: transparent !important;
-    border: none !important;
+    background: transparent !important; /* Make base node wrapper transparent */
+    border: none !important; /* Remove base node wrapper border */
     box-shadow: none !important;
     overflow: visible;
   }
 
+  /* Default border and bg for ICON-ONLY nodes (Server, Database, Cloud, etc.) */
+  /* These classes are applied by React Flow based on node.type (e.g., "HardDrive") */
+  /* CustomNode.tsx will render the icon, these classes provide the "box" */
   div.react-flow__node.react-flow__node-HardDrive,
   div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
@@ -134,7 +137,7 @@ body {
   div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
   div.react-flow__node.react-flow__node-Router { @apply text-yellow-700; }
   div.react-flow__node.react-flow__node-User { @apply text-orange-600; }
-  div.react-flow__node.react-flow__node-ShieldCheck { @apply text-indigo-600; } /* Color for ShieldCheck icon */
+  div.react-flow__node.react-flow__node-ShieldCheck { @apply text-indigo-600; } 
   div.react-flow__node.react-flow__node-Default,
   div.react-flow__node.react-flow__node-Question,
   div.react-flow__node.react-flow__node-Package { @apply text-gray-700; }
@@ -163,6 +166,7 @@ body {
     @apply !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
     border-width: 2px !important;
     border-style: dashed !important;
+    /* Ensure dynamic color takes precedence, with a fallback */
     border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important;
   }
 
@@ -239,3 +243,5 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
+    
