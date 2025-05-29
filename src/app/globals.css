@@ -101,7 +101,8 @@ body {
 /* Custom styles for react-flow nodes and edges */
 @layer components {
   .react-flow__node {
-    /* Default node wrapper is now transparent and borderless by default */
+    /* Default node wrapper is now transparent and borderless for icon-only/shape nodes */
+    /* Boundary nodes will get their specific styles from .react-flow__node-Boundary */
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
     background: transparent !important;
     border: none !important;
@@ -113,47 +114,41 @@ body {
   /* These classes are applied to the React Flow wrapper based on node.type */
   /* CustomNode's internal content div will be transparent, allowing these styles to show */
   /* These define the background, border, and default text color for the node's bounding box */
-
   div.react-flow__node.react-flow__node-HardDrive,
   div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
   div.react-flow__node.react-flow__node-Cloud,
-  div.react-flow__node.react-flow__node-Service, /* Placeholder for generic service if not a shape */
   div.react-flow__node.react-flow__node-Router,
-  div.react-flow__node.react-flow__node-User, /* User/Actor icon */
-  div.react-flow__node.react-flow__node-ShieldCheck, /* Could be used for Firewalls or specific Security Controls */
-  div.react-flow__node.react-flow__node-Default, /* Fallback type */
-  div.react-flow__node.react-flow__node-Question, /* Fallback Icon */
-  div.react-flow__node.react-flow__node-Package, /* Default stencil icon */
-  /* Process Stencils that are ICON-ONLY (if any, most are shapes) */
-  /* For example, if "ArchiveBox" or "FileText" are used as icon-only (not drawn as shapes by CustomNode) */
+  div.react-flow__node.react-flow__node-User, 
+  div.react-flow__node.react-flow__node-ShieldCheck, 
+  div.react-flow__node.react-flow__node-Default, 
+  div.react-flow__node.react-flow__node-Question, 
+  div.react-flow__node.react-flow__node-Package,
+  /* Process Stencils that are ICON-ONLY */
   div.react-flow__node.react-flow__node-ArchiveBox,
   div.react-flow__node.react-flow__node-FileText,
   div.react-flow__node.react-flow__node-PencilSimpleLine,
   div.react-flow__node.react-flow__node-StickyNote,
   div.react-flow__node.react-flow__node-ArrowRight {
-     @apply bg-card text-card-foreground border-2 border-solid border-gray-300 rounded-lg;
+     @apply bg-card text-card-foreground border-2 border-solid border-neutral-300 rounded-lg; /* Default border for icon-only nodes */
   }
 
   /* Type-specific text color for icons IF data.textColor is not provided by CustomNode */
   /* These are fallback text colors, CustomNode's direct style on icon takes precedence */
-  div.react-flow__node.react-flow__node-HardDrive,
+  div.react-flow__node.react-flow__node-HardDrive { @apply text-blue-700; }
   div.react-flow__node.react-flow__node-HardDrives { @apply text-blue-700; }
   div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
   div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
-  div.react-flow__node.react-flow__node-Service { @apply text-purple-700; }
   div.react-flow__node.react-flow__node-Router { @apply text-yellow-700; }
   div.react-flow__node.react-flow__node-User { @apply text-orange-600; }
   div.react-flow__node.react-flow__node-Default,
   div.react-flow__node.react-flow__node-Question,
-  div.react-flow__node.react-flow__node-Package {
-     @apply text-gray-700;
-  }
-   div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
-   div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
-   div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
-   div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
-   div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
+  div.react-flow__node.react-flow__node-Package { @apply text-gray-700; }
+  div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
+  div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
+  div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
+  div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
+  div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
 
 
   /* Process SHAPE stencils (Circle, Rectangle, Diamond, Parallelogram) */
@@ -170,12 +165,12 @@ body {
 
 
   /* Boundary Box Specific Styling - node.type will be 'Boundary' */
+  /* Ensure this is applied after default .react-flow__node rules if specificity is an issue */
   div.react-flow__node.react-flow__node-Boundary {
+    @apply !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
     border-width: 2px !important;
     border-style: dashed !important;
-    border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important;
-    background-color: transparent !important;
-    @apply shadow-none hover:shadow-none cursor-default rounded-lg;
+    border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important; /* Use CSS variable */
   }
 
 
@@ -186,7 +181,8 @@ body {
 
   /* Selection outline for boundary nodes */
   .react-flow__node-Boundary.selected {
-    @apply ring-1 ring-offset-0 ring-primary; /* Subtle ring for boundary selection */
+    /* Subtle ring for boundary selection. The dashed border should remain visible. */
+    @apply ring-1 ring-offset-0 ring-primary; 
   }
 
  .react-flow__handle {
@@ -209,7 +205,8 @@ body {
 
 
    .react-flow__edge-path {
-     @apply stroke-gray-500 stroke-2;
+     @apply stroke-neutral-600 stroke-2; /* Changed from gray-500 */
+     stroke-dasharray: none; /* Ensure solid lines */
      marker-end: url(#arrowclosed);
    }
 
@@ -250,19 +247,3 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
-
-/* SVG definitions for edge markers must be outside of @layer to be globally available if not in HTML */
-/* However, for Tailwind JIT, it's often better to ensure they are processed. */
-/* These markers are now defined within the DiagramCanvas.tsx component's JSX for better encapsulation. */
-/* Removing them from here to avoid potential duplication or conflicts if they are correctly defined in DiagramCanvas.tsx */
-/*
-svg {
-  display: none; 
-}
-svg defs #arrowclosed path {
-  fill: hsl(var(--foreground));
-}
-svg defs #arrowclosed-selected path {
-  fill: hsl(var(--primary));
-}
-*/
