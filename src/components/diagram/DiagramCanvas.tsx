@@ -36,7 +36,7 @@ const nodeTypes = {
   Rectangle: CustomNode,
   Circle: CustomNode,
   Diamond: CustomNode,
-  Parallelogram: CustomNode, // Make sure this is added
+  Parallelogram: CustomNode,
   ArchiveBox: CustomNode, 
   FileText: CustomNode,  
   PencilSimpleLine: CustomNode, 
@@ -153,7 +153,7 @@ export function DiagramCanvas({
               case 'Circle': case 'Diamond':
                   defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
                   break;
-              case 'Rectangle': case 'ArchiveBox': case 'FileText': case 'PencilSimpleLine': case 'StickyNote': case 'Parallelogram':
+              case 'Rectangle': case 'Parallelogram': case 'ArchiveBox': case 'FileText': case 'PencilSimpleLine': case 'StickyNote':
                   defaultWidth = 160; defaultHeight = 70; minWidthForNode = 100; minHeightForNode = 50;
                   break;
               case 'ArrowRight':
@@ -262,26 +262,25 @@ export function DiagramCanvas({
           <defs>
             <marker
               id="arrowclosed"
-              markerWidth="8"  // Smaller default arrow
-              markerHeight="8" // Smaller default arrow
-              refX="7"         // Adjust refX for smaller arrow to sit on the line end
-              refY="4"         // Center for 8px height
+              markerWidth="8"
+              markerHeight="8"
+              refX="7"        
+              refY="4"        
               orient="auto"
               markerUnits="strokeWidth"
             >
-              {/* Adjusted path for 8x8 marker, fill using CSS variable */}
-              <path d="M0,0 L0,8 L8,4 z" style={{ fill: 'hsl(var(--foreground))' }} />
+              {/* DIAGNOSTIC: Using "red" for default arrow fill */}
+              <path d="M0,0 L0,8 L8,4 z" style={{ fill: 'red' }} />
             </marker>
             <marker
               id="arrowclosed-selected"
               markerWidth="10"
               markerHeight="10"
-              refX="9" // Default refX for 10px marker
-              refY="5" // Center for 10px height
+              refX="9" 
+              refY="5" 
               orient="auto"
               markerUnits="strokeWidth"
             >
-               {/* Fill using CSS variable */}
               <path d="M0,0 L0,10 L10,5 z" style={{ fill: 'hsl(var(--primary))' }} />
             </marker>
           </defs>
