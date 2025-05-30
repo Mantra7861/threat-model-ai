@@ -13,10 +13,10 @@ export const CustomNode: FC<NodeProps> = ({
   id,
   data,
   selected,
-  type, 
+  type,
   xPos,
   yPos,
-  isConnectable,
+  isConnectable, // This is the node's overall connectable status
   zIndex: rfProvidedZIndex,
   parentNode
 }) => {
@@ -31,27 +31,22 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  const nodeIconNameFromData = data.iconName as string | undefined; 
+  const nodeIconNameFromData = data.iconName as string | undefined;
   const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--border))') : (data.textColor || 'currentColor');
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
+  // Base style for the div CustomNode returns. CSS variables are set on Node's style prop in DiagramCanvas.
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%', 
+    width: '100%',
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    position: 'relative', // For absolute positioning of label in boundaries
   };
-  
-  if (isBoundary && data.boundaryColor) {
-    // The CSS variable is set on the Node's style prop in DiagramCanvas.tsx
-    // The .react-flow__node-Boundary class in globals.css uses this variable.
-  }
-
 
   const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
@@ -71,12 +66,13 @@ export const CustomNode: FC<NodeProps> = ({
             style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
           />
         )}
+        {/* Label positioned at the top for boundaries */}
         <span
           className={cn(
             "text-sm font-semibold absolute -translate-x-1/2 left-1/2 px-1 py-0.5 rounded",
             "top-1 bg-background/80 backdrop-blur-sm shadow-sm"
           )}
-          style={{ color: nodeDisplayColor }} 
+          style={{ color: data.boundaryColor || 'hsl(var(--border))' }}
         >
           {nodeLabel}
         </span>
@@ -88,31 +84,26 @@ export const CustomNode: FC<NodeProps> = ({
   // --- Regular Node Rendering (Shape-based or Icon-only) ---
   let contentElement: React.ReactNode;
 
-  const IconToRender = (() => {
-    const iconNameToLookup = nodeIconNameFromData || type; 
-    if (!iconNameToLookup || iconNameToLookup.trim() === "") return QuestionIcon;
+  let IconToRender: React.ElementType = QuestionIcon;
+  const iconNameToLookup = nodeIconNameFromData || type;
 
-    let iconComponent: any = null;
+  if (iconNameToLookup && iconNameToLookup.trim() !== "") {
+    let foundIcon: any = null;
     if (Object.prototype.hasOwnProperty.call(PhosphorIcons, iconNameToLookup)) {
-      iconComponent = (PhosphorIcons as any)[iconNameToLookup];
+      foundIcon = (PhosphorIcons as any)[iconNameToLookup];
     }
-    if (!iconComponent && PhosphorIcons.default && typeof PhosphorIcons.default === 'object') {
+    if (!foundIcon && PhosphorIcons.default && typeof PhosphorIcons.default === 'object') {
       if (Object.prototype.hasOwnProperty.call(PhosphorIcons.default, iconNameToLookup)) {
-        iconComponent = (PhosphorIcons.default as any)[iconNameToLookup];
+        foundIcon = (PhosphorIcons.default as any)[iconNameToLookup];
       }
     }
-    
-    if (iconComponent && (typeof iconComponent === 'function' || 
-        (typeof iconComponent === 'object' && iconComponent !== null && '$$typeof' in iconComponent && iconComponent.$$typeof === Symbol.for('react.forward_ref')))) {
-      return iconComponent;
+    if (foundIcon && (typeof foundIcon === 'function' || (typeof foundIcon === 'object' && foundIcon !== null && '$$typeof' in foundIcon && foundIcon.$$typeof === Symbol.for('react.forward_ref')))) {
+      IconToRender = foundIcon;
     }
-    console.warn(`CustomNode: Icon "${iconNameToLookup}" not found in PhosphorIcons. Falling back to QuestionIcon.`);
-    return QuestionIcon;
-  })();
+  }
 
   const shapeBaseClasses = "w-full h-full flex items-center justify-center p-1 box-border";
   const shapeBorderStyle = { border: `2px solid ${nodeDisplayColor}` };
-
 
   // The .react-flow__node and .react-flow__node-[type] classes from globals.css handle background and static border for icon-only nodes.
   // CustomNode's content div for icon-only should be transparent.
@@ -126,7 +117,7 @@ export const CustomNode: FC<NodeProps> = ({
   } else if (type === 'Rectangle') {
     contentElement = (
       <div
-        className={cn(shapeBaseClasses, "rounded-lg")} // Standard rounded corners for rectangles
+        className={cn(shapeBaseClasses, "rounded-lg")}
         style={shapeBorderStyle}
       />
     );
@@ -134,20 +125,21 @@ export const CustomNode: FC<NodeProps> = ({
     contentElement = (
       <div className={cn(shapeBaseClasses, "relative")}>
         <div
-          className="absolute w-[70.71%] h-[70.71%] top-[14.645%] left-[14.645%]" // Adjusted for visual diamond
-          style={{ ...shapeBorderStyle, transform: 'rotate(45deg)' }}
+          className="absolute w-[calc(100%-4px)] h-[calc(100%-4px)] top-[2px] left-[2px]" // Ensure border is visible
+          style={{ ...shapeBorderStyle, transform: 'rotate(45deg)', width: '70.71%', height: '70.71%', top: '14.645%', left: '14.645%' }}
         />
       </div>
     );
   } else if (type === 'Parallelogram') {
-    contentElement = (
-      <div 
+     contentElement = (
+      <div
         className={cn(shapeBaseClasses)}
         style={{ ...shapeBorderStyle, transform: 'skewX(-20deg)' }}
       />
     );
-  } else {
-    // Icon-only rendering: icon is main content. Background/border come from CSS.
+  }
+  else {
+    // Icon-only rendering: icon is main content. Background/border come from CSS classes on React Flow wrapper.
     contentElement = (
       <div className="flex flex-col items-center justify-center w-full h-full">
         {IconToRender && React.createElement(IconToRender, {
@@ -160,7 +152,7 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   return (
-    <div style={customNodeRootStyle} className="group">
+    <div style={customNodeRootStyle} className="group"> {/* This div fills the React Flow wrapper and applies zIndex */}
       {showResizer && (
         <NodeResizer
           minWidth={data.minWidth || 60}
@@ -172,8 +164,10 @@ export const CustomNode: FC<NodeProps> = ({
         />
       )}
 
+      {/* The contentElement is the shape or icon */}
       {contentElement}
 
+      {/* Label positioned below the content for regular nodes */}
       <span
         className={cn(
           "text-xs font-medium truncate max-w-[90%] text-center absolute",
@@ -184,10 +178,13 @@ export const CustomNode: FC<NodeProps> = ({
         {nodeLabel}
       </span>
 
-      <Handle type="both" position={Position.Top} id="top" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-      <Handle type="both" position={Position.Bottom} id="bottom" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-      <Handle type="both" position={Position.Left} id="left" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
-      <Handle type="both" position={Position.Right} id="right" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={isConnectable} />
+      {/* Handles for non-boundary nodes, explicitly connectable */}
+      <Handle type="both" position={Position.Top} id="top" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={true} />
+      <Handle type="both" position={Position.Bottom} id="bottom" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={true} />
+      <Handle type="both" position={Position.Left} id="left" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={true} />
+      <Handle type="both" position={Position.Right} id="right" style={{ zIndex: (effectiveZIndex ?? 0) + 1 }} isConnectable={true} />
     </div>
   );
 };
+
+    
