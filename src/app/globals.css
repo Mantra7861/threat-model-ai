@@ -167,30 +167,42 @@ body {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
-  /* DIAGNOSTIC HANDLE STYLING - Make handles extremely visible and interactive */
+  /* Standard Handle Styling - visible on hover/selection */
   .react-flow__handle {
-    width: 15px !important; /* Larger */
-    height: 15px !important;
-    background-color: blue !important; /* Default color - can be changed */
+    width: 10px !important;
+    height: 10px !important;
+    background-color: hsl(var(--primary) / 0.7) !important; /* Semi-transparent primary */
     border-radius: 50% !important;
-    border: 1px solid black !important; /* Visible border */
-    opacity: 1 !important;
+    border: 1px solid hsl(var(--background)) !important; /* Contrast with background */
+    visibility: hidden; /* Hidden by default */
+    z-index: 10; /* Standard z-index */
+    /* pointer-events: all; /* React Flow should manage this */
+  }
+
+  /* Show handles on node hover or if the node is selected */
+  .react-flow__node:hover .react-flow__handle,
+  .react-flow__node.selected .react-flow__handle {
     visibility: visible !important;
-    z-index: 9999 !important; /* Ensure they are on top */
-    /* pointer-events: all !important; <- Let React Flow manage this usually */
+    opacity: 1 !important;
+    background-color: hsl(var(--primary)) !important; /* Solid primary on hover/select */
   }
 
   /* When a connection is being dragged FROM this handle */
   .react-flow__handle-connecting {
-    background-color: orange !important;
+    visibility: visible !important; /* Ensure source handle is visible */
+    background-color: hsl(var(--accent)) !important; /* Accent color for connecting handle */
+    transform: scale(1.2); /* Slightly larger */
   }
 
   /* When dragging a connection OVER a VALID target handle */
   .react-flow__handle-valid {
-    background-color: lightgreen !important;
+    visibility: visible !important; /* Ensure valid target is visible */
+    background-color: lightgreen !important; /* Bright green for valid target */
+    transform: scale(1.2); /* Slightly larger */
   }
   
   /* .react-flow__handle-invalid { background-color: #ff0000aa !important; } */ /* Optional: style for invalid target */
+
 
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
@@ -234,3 +246,4 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
