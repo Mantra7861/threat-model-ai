@@ -16,7 +16,7 @@ export const CustomNode: FC<NodeProps> = ({
   type,
   xPos,
   yPos,
-  isConnectable: nodeIsConnectableProp, // This is the node's overall connectable status
+  isConnectable: nodeIsConnectableProp, 
   zIndex: rfProvidedZIndex,
   parentNode
 }) => {
@@ -142,9 +142,7 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
-  // Use the node's overall connectable status for its handles
-  // Handles will take their visual style from global CSS
-  const isHandleConnectable = nodeIsConnectableProp ?? true; // Default to true if prop is undefined
+  const isHandleConnectable = nodeIsConnectableProp ?? true; 
 
   return (
     <div style={customNodeRootStyle} className="group">
@@ -171,11 +169,10 @@ export const CustomNode: FC<NodeProps> = ({
         {nodeLabel}
       </span>
 
-      <Handle type="both" position={Position.Top} id="top" isConnectable={isHandleConnectable} />
-      <Handle type="both" position={Position.Bottom} id="bottom" isConnectable={isHandleConnectable} />
-      <Handle type="both" position={Position.Left} id="left" isConnectable={isHandleConnectable} />
-      <Handle type="both" position={Position.Right} id="right" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={isHandleConnectable} />
     </div>
   );
 };
-

@@ -109,8 +109,6 @@ body {
   }
 
   /* Default border and bg for ICON-ONLY nodes (Server, Database, Cloud, etc.) */
-  /* These classes are applied by React Flow based on node.type (e.g., "HardDrive") */
-  /* CustomNode.tsx will render the icon, these classes provide the "box" */
   div.react-flow__node.react-flow__node-HardDrive,
   div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
@@ -127,10 +125,9 @@ body {
   div.react-flow__node.react-flow__node-PencilSimpleLine,
   div.react-flow__node.react-flow__node-StickyNote,
   div.react-flow__node.react-flow__node-ArrowRight {
-     @apply bg-card text-card-foreground border-2 border-solid border-neutral-300 rounded-lg; /* Default border and bg for icon-only nodes */
+     @apply bg-card text-card-foreground border-2 border-solid border-neutral-300 rounded-lg; 
   }
 
-  /* Type-specific text color for icons IF data.textColor is not provided by CustomNode */
   div.react-flow__node.react-flow__node-HardDrive { @apply text-blue-700; }
   div.react-flow__node.react-flow__node-HardDrives { @apply text-blue-700; }
   div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
@@ -141,17 +138,12 @@ body {
   div.react-flow__node.react-flow__node-Default,
   div.react-flow__node.react-flow__node-Question,
   div.react-flow__node.react-flow__node-Package { @apply text-gray-700; }
-  /* Process Stencil Icons (if not shapes) */
   div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
   div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
   div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
   div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
   div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
 
-
-  /* Process SHAPE stencils (Circle, Rectangle, Diamond, Parallelogram) */
-  /* Their React Flow wrapper should remain transparent and borderless. */
-  /* The border/shape for these is drawn by CustomNode itself. */
   div.react-flow__node.react-flow__node-Circle,
   div.react-flow__node.react-flow__node-Rectangle,
   div.react-flow__node.react-flow__node-Diamond,
@@ -160,62 +152,49 @@ body {
      border: none !important;
   }
 
-
-  /* Boundary Box Specific Styling - node.type will be 'Boundary' */
   div.react-flow__node.react-flow__node-Boundary {
     @apply !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
     border-width: 2px !important;
     border-style: dashed !important;
-    /* Ensure dynamic color takes precedence, with a fallback */
     border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important;
   }
 
-
-  /* General selection outline for non-boundary nodes */
   .react-flow__node.selected:not(.react-flow__node-Boundary) {
     @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
 
-  /* Selection outline for boundary nodes */
   .react-flow__node-Boundary.selected {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
   /* DIAGNOSTIC HANDLE STYLING - Make handles extremely visible and interactive */
   .react-flow__handle {
-    width: 12px !important;
-    height: 12px !important;
-    background-color: red !important; /* Extremely visible background */
+    width: 15px !important; /* Larger */
+    height: 15px !important;
+    background-color: blue !important; /* Default color - can be changed */
     border-radius: 50% !important;
     border: 1px solid black !important; /* Visible border */
     opacity: 1 !important;
     visibility: visible !important;
-    pointer-events: all !important; /* Force pointer events */
     z-index: 9999 !important; /* Ensure they are on top */
+    /* pointer-events: all !important; <- Let React Flow manage this usually */
   }
 
-  /* Comment out other handle state styles for diagnostics */
-  /*
-  .react-flow__node:hover .react-flow__handle,
-  .react-flow__node.selected .react-flow__handle {
-     @apply !bg-slate-400;
-  }
-  .react-flow__node:hover .react-flow__handle:hover,
-  .react-flow__node.selected .react-flow__handle:hover {
-     @apply !bg-primary; 
-  }
-  */
+  /* When a connection is being dragged FROM this handle */
   .react-flow__handle-connecting {
-    /* Keep this as it might be important for React Flow's internal state */
-    @apply !bg-primary;
-    opacity: 1 !important; 
-    visibility: visible !important; 
+    background-color: orange !important;
   }
 
+  /* When dragging a connection OVER a VALID target handle */
+  .react-flow__handle-valid {
+    background-color: lightgreen !important;
+  }
+  
+  /* .react-flow__handle-invalid { background-color: #ff0000aa !important; } */ /* Optional: style for invalid target */
 
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
-     stroke-dasharray: none; /* Ensure solid lines */
+     stroke-dasharray: none; 
      marker-end: url(#arrowclosed);
    }
 
@@ -251,10 +230,7 @@ body {
         position: relative;
     }
 
-    /* Style for active sidebar menu buttons in admin or main layout */
     [data-sidebar="menu-button"][data-active="true"] {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
-
-    
