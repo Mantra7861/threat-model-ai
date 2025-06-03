@@ -312,6 +312,15 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     // Effect to synchronize node/edge selection with selectedElementId
     useEffect(() => {
+        // This effect runs if selectedElementId changes OR if nodes/edges array instances change.
+        // We only want to update internal node/edge 'selected' state if the *actual* `selectedElementId` has caused this.
+        // However, React Flow itself manages the 'selected' property on nodes/edges when you click them.
+        // Our primary role here is to make `selectedElementId` the source of truth if it's set externally
+        // or to reflect React Flow's selection into `selectedElementId`.
+
+        // This logic might be simplified if React Flow's own selection is sufficient and
+        // we only use selectedElementId for reading or for external triggers.
+        // For now, let's assume we want to control selection via selectedElementId as the source of truth.
         setNodesInternal(prevNodes =>
             prevNodes.map(n => ({
                 ...n,
@@ -330,41 +339,39 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
             setNodesInternal((currentNodes) => applyNodeChanges(changes, currentNodes));
-            // Handle selection changes to update selectedElementId
-            changes.forEach(change => {
-                if (change.type === 'select') {
-                    if (change.selected) {
-                        setSelectedElementId(change.id);
-                    } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
-                        // If the deselected node was the selectedElementId and no other node was selected in this batch of changes
-                        setSelectedElementId(null);
-                    }
-                } else if (change.type === 'remove' && selectedElementId === change.id) {
-                    setSelectedElementId(null);
-                }
-            });
+            // DIAGNOSTIC: Temporarily remove custom selection logic from onNodesChange
+            // changes.forEach(change => {
+            //     if (change.type === 'select') {
+            //         if (change.selected) {
+            //             setSelectedElementId(change.id);
+            //         } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
+            //             setSelectedElementId(null);
+            //         }
+            //     } else if (change.type === 'remove' && selectedElementId === change.id) {
+            //         setSelectedElementId(null);
+            //     }
+            // });
         },
-        [setNodesInternal, selectedElementId, setSelectedElementId] // Include selectedElementId and setSelectedElementId
+        [setNodesInternal /*, selectedElementId, setSelectedElementId */] // selectedElementId dependencies removed for diagnostic
     );
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => {
             setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
-             // Handle selection changes to update selectedElementId
-             changes.forEach(change => {
-                if (change.type === 'select') {
-                    if (change.selected) {
-                        setSelectedElementId(change.id);
-                    } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
-                         // If the deselected edge was the selectedElementId and no other edge was selected
-                         setSelectedElementId(null);
-                    }
-                } else if (change.type === 'remove' && selectedElementId === change.id) {
-                    setSelectedElementId(null);
-                }
-            });
+            // DIAGNOSTIC: Temporarily remove custom selection logic from onEdgesChange
+            //  changes.forEach(change => {
+            //     if (change.type === 'select') {
+            //         if (change.selected) {
+            //             setSelectedElementId(change.id);
+            //         } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
+            //              setSelectedElementId(null);
+            //         }
+            //     } else if (change.type === 'remove' && selectedElementId === change.id) {
+            //         setSelectedElementId(null);
+            //     }
+            // });
         },
-        [setEdgesInternal, selectedElementId, setSelectedElementId] // Include selectedElementId and setSelectedElementId
+        [setEdgesInternal /*, selectedElementId, setSelectedElementId */] // selectedElementId dependencies removed for diagnostic
     );
 
 
