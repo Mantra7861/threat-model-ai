@@ -94,13 +94,13 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
   }
 
 
-  return {
+  const returnedNode: Node = {
     id: component.id, 
     type: type, 
     position: position,
     data: nodeData,
     style: nodeStyle,
-    connectable: !isActualBoundary, // Nodes are connectable unless they are boundaries
+    connectable: !isActualBoundary, 
     ...(isActualBoundary && {
         selectable: true, 
         // connectable: false, // Already handled by the line above
@@ -108,6 +108,8 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
     ...(component.properties?.parentNode && !isActualBoundary && { parentNode: component.properties.parentNode }),
     selected: selected,
   };
+  console.log("diagram-utils componentToNode - returnedNode:", JSON.stringify(returnedNode, null, 2));
+  return returnedNode;
 };
 
 
@@ -178,7 +180,6 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
     targetHandle: connection.targetHandle || undefined,
     label: label,
     type: 'smoothstep', 
-    // animated: true, // Removed to make lines solid by default
     data: { 
       label: label, 
       properties: connection.properties || { 
@@ -305,16 +306,16 @@ export const getTopmostElementAtClick = (
     const clickedBoundaryBoxes: Node[] = [];
     const clickedEdges: Edge[] = [];
 
-    console.log("[DIAG] getTopmostElementAtClick: Checking nodes at click", clickPos, "Zoom:", zoom);
+    // console.log("[DIAG] getTopmostElementAtClick: Checking nodes at click", clickPos, "Zoom:", zoom);
     for (const node of nodes) {
         if (isClickOnNode(node, clickPos)) {
-            console.log(`[DIAG] Node ${node.id} (type: ${node.type}, data.isBoundary: ${node.data?.isBoundary}, zIndex: ${node.zIndex}) is at click point.`);
+            // console.log(`[DIAG] Node ${node.id} (type: ${node.type}, data.isBoundary: ${node.data?.isBoundary}, zIndex: ${node.zIndex}) is at click point.`);
             if (node.data && node.data.isBoundary === true) {
                 clickedBoundaryBoxes.push(node);
-                console.log(`[DIAG]   -> Classified as Boundary: ${node.id}`);
+                // console.log(`[DIAG]   -> Classified as Boundary: ${node.id}`);
             } else {
                 clickedNonBoundaryNodes.push(node);
-                console.log(`[DIAG]   -> Classified as Non-Boundary: ${node.id}`);
+                // console.log(`[DIAG]   -> Classified as Non-Boundary: ${node.id}`);
             }
         }
     }
@@ -322,15 +323,15 @@ export const getTopmostElementAtClick = (
     if (clickedNonBoundaryNodes.length === 0 || clickedBoundaryBoxes.length > 0) {
        for (const edge of edges) {
            if (isPointNearEdge(edge, clickPos, nodes)) {
-               console.log(`[DIAG] Edge ${edge.id} is near click point.`);
+               // console.log(`[DIAG] Edge ${edge.id} is near click point.`);
                clickedEdges.push(edge);
            }
        }
     }
     
-    console.log("[DIAG] Clicked Non-Boundary Nodes:", clickedNonBoundaryNodes.map(n => ({id: n.id, z: n.zIndex})));
-    console.log("[DIAG] Clicked Edges:", clickedEdges.map(e => e.id));
-    console.log("[DIAG] Clicked Boundary Boxes:", clickedBoundaryBoxes.map(n => ({id: n.id, z: n.zIndex})));
+    // console.log("[DIAG] Clicked Non-Boundary Nodes:", clickedNonBoundaryNodes.map(n => ({id: n.id, z: n.zIndex})));
+    // console.log("[DIAG] Clicked Edges:", clickedEdges.map(e => e.id));
+    // console.log("[DIAG] Clicked Boundary Boxes:", clickedBoundaryBoxes.map(n => ({id: n.id, z: n.zIndex})));
 
 
     if (clickedNonBoundaryNodes.length > 0) {
@@ -342,13 +343,13 @@ export const getTopmostElementAtClick = (
             const areaB = (b.width || 0) * (b.height || 0);
             return areaA - areaB; 
         })[0];
-        console.log("[DIAG] Returning top Non-Boundary Node:", topNode.id);
+        // console.log("[DIAG] Returning top Non-Boundary Node:", topNode.id);
         return topNode;
     }
 
     if (clickedEdges.length > 0) {
         const topEdge = clickedEdges[0]; 
-        console.log("[DIAG] Returning top Edge:", topEdge.id);
+        // console.log("[DIAG] Returning top Edge:", topEdge.id);
         return topEdge;
     }
 
@@ -361,11 +362,11 @@ export const getTopmostElementAtClick = (
             const areaB = (b.width || 0) * (b.height || 0);
             return areaA - areaB; 
         })[0];
-        console.log("[DIAG] Returning top Boundary Box:", topBoundary.id);
+        // console.log("[DIAG] Returning top Boundary Box:", topBoundary.id);
         return topBoundary;
     }
     
-    console.log("[DIAG] No specific element found at click point by getTopmostElementAtClick.");
+    // console.log("[DIAG] No specific element found at click point by getTopmostElementAtClick.");
     return null; 
 };
 
@@ -394,3 +395,5 @@ export function isPointInsideBounds(point: XYPosition, bounds: Bounds): boolean 
     return point.x >= bounds.x && point.x <= bounds.x + bounds.width &&
            point.y >= bounds.y && point.y <= bounds.y + bounds.height;
 }
+
+    
