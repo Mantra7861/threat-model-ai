@@ -142,9 +142,9 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
-  // Handles should be explicitly connectable and allow pointer events.
-  // The node's overall connectable status (nodeIsConnectableProp) will also be respected by React Flow.
-  const handleStyle: React.CSSProperties = { pointerEvents: 'all' };
+  // Use the node's overall connectable status for its handles
+  // Handles will take their visual style from global CSS
+  const isHandleConnectable = nodeIsConnectableProp ?? true;
 
   return (
     <div style={customNodeRootStyle} className="group">
@@ -171,10 +171,10 @@ export const CustomNode: FC<NodeProps> = ({
         {nodeLabel}
       </span>
 
-      <Handle type="both" position={Position.Top} id="top" isConnectable={true} style={handleStyle} />
-      <Handle type="both" position={Position.Bottom} id="bottom" isConnectable={true} style={handleStyle} />
-      <Handle type="both" position={Position.Left} id="left" isConnectable={true} style={handleStyle} />
-      <Handle type="both" position={Position.Right} id="right" isConnectable={true} style={handleStyle} />
+      <Handle type="both" position={Position.Top} id="top" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Bottom} id="bottom" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Left} id="left" isConnectable={isHandleConnectable} />
+      <Handle type="both" position={Position.Right} id="right" isConnectable={isHandleConnectable} />
     </div>
   );
 };
