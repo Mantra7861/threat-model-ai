@@ -370,35 +370,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const onConnect = useCallback(
         (connection: Connection) => {
-          const currentContextModelType = modelType; // Use modelType from context
-          const newEdgeId = `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          const defaultLabel = currentContextModelType === 'process' ? 'Process Flow' : 'Data Flow';
-          const newEdgeData = {
-            label: defaultLabel, // Ensure label is in data for property panel
-            properties: {
-              name: defaultLabel, // Default name property
-              description: `A new ${currentContextModelType === 'process' ? 'process flow' : 'data flow'} connection.`,
-              dataType: currentContextModelType === 'process' ? 'Process Step' : 'Generic',
-              protocol: currentContextModelType === 'process' ? 'Sequence' : 'TCP/IP',
-              securityConsiderations: 'Needs review',
-            },
-          };
-          const newEdge: Edge = {
-            ...connection,
-            id: newEdgeId,
-            // animated: true, // Removed to make lines solid by default
-            type: 'smoothstep',
-            data: newEdgeData,
-            label: defaultLabel, // Set top-level label for React Flow to display
-            selected: true, // Auto-select the new edge
-          };
-           // Deselect other elements
-           setNodesInternal(nds => nds.map(n => ({...n, selected: false})));
-           setEdgesInternal((eds) => addEdge(newEdge, eds.map(e => ({...e, selected: false}))));
-          setSelectedElementId(newEdgeId); // Set the new edge as selected
-          toast({ title: 'Connection Added', description: `${defaultLabel} created and selected.` });
+          console.log('onConnect attempted:', connection); // Log the raw connection object
+          setEdgesInternal((eds) => addEdge(connection, eds));
+          // Temporarily disable any other logic like creating custom edge data,
+          // setting selectedElementId, or showing toasts to isolate the problem.
         },
-        [setEdgesInternal, setNodesInternal, setSelectedElementId, toast, modelType] // Added modelType
+        [setEdgesInternal] // Keep dependencies minimal
     );
 
     // Memoized selectors for the currently selected element
@@ -763,9 +740,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         onEdgeClick={onElementClick} // Use the new generic click handler
                         onPaneClick={onPaneClick} // Use the new pane click handler
                         selectedElementId={selectedElementId} // Pass down for potential internal use by DiagramCanvas
-                        panOnDrag={true} 
-                        zoomOnScroll={true} 
-                        zoomOnPinch={true}
+                        panOnDrag={false} // DIAGNOSTIC: Keep simplified
+                        zoomOnScroll={false} // DIAGNOSTIC: Keep simplified
+                        zoomOnPinch={false} // DIAGNOSTIC: Keep simplified
                     />
                 </main>
 

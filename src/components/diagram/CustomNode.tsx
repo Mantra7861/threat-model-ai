@@ -144,7 +144,7 @@ export const CustomNode: FC<NodeProps> = ({
 
   // Use the node's overall connectable status for its handles
   // Handles will take their visual style from global CSS
-  const isHandleConnectable = nodeIsConnectableProp ?? true;
+  const isHandleConnectable = nodeIsConnectableProp ?? true; // Default to true if prop is undefined
 
   return (
     <div style={customNodeRootStyle} className="group">
@@ -178,3 +178,4 @@ export const CustomNode: FC<NodeProps> = ({
     </div>
   );
 };
+
