@@ -16,8 +16,7 @@ export const CustomNode: FC<NodeProps> = ({
   type,
   xPos,
   yPos,
-  // The 'isConnectable' prop from NodeProps is still received but we will override it for handles below
-  isConnectable: nodeIsConnectableProp, 
+  isConnectable: nodeIsConnectableProp, // This is the node's overall connectable status
   zIndex: rfProvidedZIndex,
   parentNode
 }) => {
@@ -45,7 +44,7 @@ export const CustomNode: FC<NodeProps> = ({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative', 
+    position: 'relative',
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
@@ -54,7 +53,7 @@ export const CustomNode: FC<NodeProps> = ({
 
   if (isBoundary) {
     return (
-      <div style={customNodeRootStyle} className="group"> 
+      <div style={customNodeRootStyle} className="group">
         {showResizer && (
           <NodeResizer
             minWidth={data.minWidth || 150}
@@ -118,7 +117,7 @@ export const CustomNode: FC<NodeProps> = ({
     contentElement = (
       <div className={cn(shapeBaseClasses, "relative")}>
         <div
-          className="absolute w-[calc(100%-4px)] h-[calc(100%-4px)] top-[2px] left-[2px]" 
+          className="absolute w-[calc(100%-4px)] h-[calc(100%-4px)] top-[2px] left-[2px]"
           style={{ ...shapeBorderStyle, transform: 'rotate(45deg)', width: '70.71%', height: '70.71%', top: '14.645%', left: '14.645%' }}
         />
       </div>
@@ -143,8 +142,12 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
+  // Handles should be explicitly connectable and allow pointer events.
+  // The node's overall connectable status (nodeIsConnectableProp) will also be respected by React Flow.
+  const handleStyle: React.CSSProperties = { pointerEvents: 'all' };
+
   return (
-    <div style={customNodeRootStyle} className="group"> 
+    <div style={customNodeRootStyle} className="group">
       {showResizer && (
         <NodeResizer
           minWidth={data.minWidth || 60}
@@ -168,12 +171,10 @@ export const CustomNode: FC<NodeProps> = ({
         {nodeLabel}
       </span>
 
-      {/* Explicitly set isConnectable={true} for all handles */}
-      <Handle type="both" position={Position.Top} id="top" isConnectable={true} />
-      <Handle type="both" position={Position.Bottom} id="bottom" isConnectable={true} />
-      <Handle type="both" position={Position.Left} id="left" isConnectable={true} />
-      <Handle type="both" position={Position.Right} id="right" isConnectable={true} />
+      <Handle type="both" position={Position.Top} id="top" isConnectable={true} style={handleStyle} />
+      <Handle type="both" position={Position.Bottom} id="bottom" isConnectable={true} style={handleStyle} />
+      <Handle type="both" position={Position.Left} id="left" isConnectable={true} style={handleStyle} />
+      <Handle type="both" position={Position.Right} id="right" isConnectable={true} style={handleStyle} />
     </div>
   );
 };
-    

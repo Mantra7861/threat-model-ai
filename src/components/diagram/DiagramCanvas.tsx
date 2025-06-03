@@ -25,7 +25,7 @@ const nodeTypes = {
   // Infrastructure Icons
   Server: CustomNode,
   HardDrive: CustomNode,
-  HardDrives: CustomNode, 
+  HardDrives: CustomNode,
   Database: CustomNode,
   Cloud: CustomNode,
   Router: CustomNode,
@@ -36,7 +36,7 @@ const nodeTypes = {
   Rectangle: CustomNode,
   Circle: CustomNode,
   Diamond: CustomNode,
-  Parallelogram: CustomNode, 
+  Parallelogram: CustomNode,
   ArchiveBox: CustomNode,
   FileText: CustomNode,
   PencilSimpleLine: CustomNode,
@@ -102,7 +102,7 @@ export function DiagramCanvas({
       if (!reactFlowWrapper.current) return;
 
       const stencilDataString = event.dataTransfer.getData('application/reactflow');
-      
+
       if (!stencilDataString) {
         console.log("DiagramCanvas onDrop: No stencilDataString. Likely not a library stencil drop. Ignoring.");
         return;
@@ -119,7 +119,7 @@ export function DiagramCanvas({
 
       const nodeIconName = droppedStencil.iconName || 'Package';
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
-      
+
       const newNodeType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(newNodeType in nodeTypes)) {
@@ -131,10 +131,10 @@ export function DiagramCanvas({
         y: event.clientY,
       });
 
-      const currentNodes = rfGetNodesFromHook(); 
+      const currentNodes = rfGetNodesFromHook();
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
-        project && 
+        project &&
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -142,12 +142,12 @@ export function DiagramCanvas({
       );
 
       let defaultWidth: number, defaultHeight: number, minWidthForNode: number, minHeightForNode: number;
-      let nodeIsResizable = true; 
+      let nodeIsResizable = true;
 
       if (isDroppedStencilBoundary) {
           defaultWidth = 400; defaultHeight = 300; minWidthForNode = 200; minHeightForNode = 150;
       } else if (droppedStencil.stencilType === 'process') {
-          nodeIsResizable = true; 
+          nodeIsResizable = true;
           switch (nodeIconName) {
               case 'Circle': case 'Diamond':
                   defaultWidth = 100; defaultHeight = 100; minWidthForNode = 60; minHeightForNode = 60;
@@ -158,10 +158,10 @@ export function DiagramCanvas({
               case 'ArrowRight':
                   defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
                   break;
-              default: 
+              default:
                   defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
-      } else { 
+      } else {
           nodeIsResizable = true;
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
@@ -171,28 +171,28 @@ export function DiagramCanvas({
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
-        iconName: nodeIconName, 
+        iconName: nodeIconName,
         textColor: droppedStencil.textColor,
         resizable: nodeIsResizable,
         minWidth: minWidthForNode,
         minHeight: minHeightForNode,
         stencilId: droppedStencil.id,
-        isBoundary: isDroppedStencilBoundary, 
+        isBoundary: isDroppedStencilBoundary,
         boundaryColor: isDroppedStencilBoundary ? (droppedStencil as InfrastructureStencilData).boundaryColor : undefined,
       };
-      
+
       const nodeStyle: React.CSSProperties = {
         width: defaultWidth,
         height: defaultHeight,
       };
-      
+
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
          nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
 
       const newNode: Node = {
         id: newNodeId,
-        type: newNodeType, 
+        type: newNodeType,
         position: flowPosition,
         data: newNodeData,
         style: nodeStyle,
@@ -201,7 +201,7 @@ export function DiagramCanvas({
             extent: 'parent',
         }),
         selected: true,
-        connectable: !isDroppedStencilBoundary, 
+        connectable: !isDroppedStencilBoundary,
       };
 
       console.log("DiagramCanvas onDrop - newNode created:", JSON.stringify(newNode, null, 2));
@@ -239,7 +239,7 @@ export function DiagramCanvas({
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         nodesDraggable={true}
-        nodesConnectable={true} 
+        nodesConnectable={true}
         elementsSelectable={true}
         selectNodesOnDrag={true}
         multiSelectionKeyCode={['Meta', 'Control']}
@@ -247,7 +247,7 @@ export function DiagramCanvas({
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        elevateNodesOnSelect={false} 
+        elevateNodesOnSelect={true} // Changed to true (default)
         elevateEdgesOnSelect={true}
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
@@ -264,22 +264,22 @@ export function DiagramCanvas({
             <marker
                 id="arrowclosed"
                 viewBox="0 0 8 8"
-                refX="7" 
-                refY="4"
+                refX="8" // Tip of the arrow
+                refY="4" // Center of the arrow
                 markerWidth="8"
                 markerHeight="8"
-                orient="auto"
+                orient="auto" // Use auto for direction
             >
                 <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
             </marker>
             <marker
                 id="arrowclosed-selected"
                 viewBox="0 0 10 10"
-                refX="9" 
-                refY="5"
+                refX="10" // Tip of the arrow
+                refY="5"  // Center of the arrow
                 markerWidth="10"
                 markerHeight="10"
-                orient="auto"
+                orient="auto" // Use auto for direction
             >
                 <path d="M0,0 L10,5 L0,10 z" style={{ fill: 'hsl(var(--primary))' }} />
             </marker>
@@ -289,4 +289,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-    
