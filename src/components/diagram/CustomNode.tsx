@@ -16,7 +16,7 @@ export const CustomNode: FC<NodeProps> = ({
   type,
   xPos,
   yPos,
-  isConnectable, // This is the node's overall connectable status
+  isConnectable, // This is the node's overall connectable status from NodeProps
   zIndex: rfProvidedZIndex,
   parentNode
 }) => {
@@ -151,11 +151,6 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
-  const handleStyle: React.CSSProperties = {
-    zIndex: 999, // Force high z-index
-    pointerEvents: 'all', // Ensure pointer events are active
-  };
-
   return (
     <div style={customNodeRootStyle} className="group"> {/* This div fills the React Flow wrapper and applies zIndex */}
       {showResizer && (
@@ -183,11 +178,11 @@ export const CustomNode: FC<NodeProps> = ({
         {nodeLabel}
       </span>
 
-      {/* Handles for non-boundary nodes, explicitly connectable */}
-      <Handle type="both" position={Position.Top} id="top" style={handleStyle} isConnectable={true} />
-      <Handle type="both" position={Position.Bottom} id="bottom" style={handleStyle} isConnectable={true} />
-      <Handle type="both" position={Position.Left} id="left" style={handleStyle} isConnectable={true} />
-      <Handle type="both" position={Position.Right} id="right" style={handleStyle} isConnectable={true} />
+      {/* Handles for non-boundary nodes, using node's isConnectable prop */}
+      <Handle type="both" position={Position.Top} id="top" isConnectable={isConnectable} />
+      <Handle type="both" position={Position.Bottom} id="bottom" isConnectable={isConnectable} />
+      <Handle type="both" position={Position.Left} id="left" isConnectable={isConnectable} />
+      <Handle type="both" position={Position.Right} id="right" isConnectable={isConnectable} />
     </div>
   );
 };
