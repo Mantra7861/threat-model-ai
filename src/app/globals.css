@@ -182,21 +182,23 @@ body {
   }
 
  .react-flow__handle {
-    @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full transition-all duration-150;
-    /* visibility: hidden; /* Removed for testing connectability */
+    @apply !w-3 !h-3 !bg-slate-500 !border-2 !border-background !rounded-full;
+    opacity: 1 !important; /* DIAGNOSTIC: Ensure fully opaque */
+    visibility: visible !important; /* DIAGNOSTIC: Ensure visible */
   }
   .react-flow__node:hover .react-flow__handle,
   .react-flow__node.selected .react-flow__handle {
-    /* visibility: visible; /* Ensure visibility is explicitly set if not default */
-    @apply opacity-75;
+     /* DIAGNOSTIC: No opacity change here for now, make it distinct */
+     @apply !bg-slate-400;
   }
   .react-flow__node:hover .react-flow__handle:hover,
   .react-flow__node.selected .react-flow__handle:hover {
-    @apply opacity-100;
+     @apply !bg-primary; /* Change color on direct handle hover */
   }
   .react-flow__handle-connecting {
-    @apply !bg-primary opacity-100;
-    visibility: visible !important; /* Ensure connecting handles are always visible */
+    @apply !bg-primary;
+    opacity: 1 !important; /* DIAGNOSTIC: Ensure fully opaque */
+    visibility: visible !important; /* DIAGNOSTIC: Ensure visible */
   }
 
 
@@ -243,3 +245,5 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
+    

@@ -83,9 +83,9 @@ export function DiagramCanvas({
   onNodeClick,
   onEdgeClick,
   onPaneClick,
-  panOnDrag = true,
-  zoomOnScroll = true,
-  zoomOnPinch = true,
+  panOnDrag = false, // DIAGNOSTIC: Changed to false
+  zoomOnScroll = false, // DIAGNOSTIC: Changed to false
+  zoomOnPinch = false, // DIAGNOSTIC: Changed to false
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -196,12 +196,12 @@ export function DiagramCanvas({
         position: flowPosition,
         data: newNodeData,
         style: nodeStyle,
+        connectable: !isDroppedStencilBoundary, // Ensure non-boundary nodes are connectable
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
         selected: true,
-        connectable: !isDroppedStencilBoundary,
       };
 
       console.log("DiagramCanvas onDrop - newNode created:", JSON.stringify(newNode, null, 2));
@@ -241,18 +241,17 @@ export function DiagramCanvas({
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true}
-        selectNodesOnDrag={true}
-        multiSelectionKeyCode={['Meta', 'Control']}
-        nodeDragThreshold={0}
+        selectNodesOnDrag={true} // Default is true
+        multiSelectionKeyCode={['Meta', 'Control']} // Default
+        nodeDragThreshold={0} // Default
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        elevateNodesOnSelect={true} // Changed to true (default)
-        elevateEdgesOnSelect={true}
-        panOnDrag={panOnDrag}
-        zoomOnScroll={zoomOnScroll}
-        zoomOnPinch={zoomOnPinch}
-        panOnScroll={false}
+        elevateNodesOnSelect={true} // Default behavior
+        panOnDrag={panOnDrag} // DIAGNOSTIC: set to false
+        zoomOnScroll={zoomOnScroll} // DIAGNOSTIC: set to false
+        zoomOnPinch={zoomOnPinch} // DIAGNOSTIC: set to false
+        panOnScroll={false} // Default
       >
         <Controls />
         <Background gap={16} />
@@ -268,7 +267,8 @@ export function DiagramCanvas({
                 refY="4" // Center of the arrow
                 markerWidth="8"
                 markerHeight="8"
-                orient="auto" // Use auto for direction
+                orient="auto"
+                // markerUnits="strokeWidth" // Removed for simpler sizing
             >
                 <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
             </marker>
@@ -279,7 +279,8 @@ export function DiagramCanvas({
                 refY="5"  // Center of the arrow
                 markerWidth="10"
                 markerHeight="10"
-                orient="auto" // Use auto for direction
+                orient="auto"
+                // markerUnits="strokeWidth" // Removed
             >
                 <path d="M0,0 L10,5 L0,10 z" style={{ fill: 'hsl(var(--primary))' }} />
             </marker>
@@ -289,3 +290,5 @@ export function DiagramCanvas({
     </div>
   );
 }
+
+    
