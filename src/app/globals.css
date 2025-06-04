@@ -102,13 +102,14 @@ body {
 @layer components {
   .react-flow__node {
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
-    background: transparent !important; /* Make base node wrapper transparent */
-    border: none !important; /* Remove base node wrapper border */
-    box-shadow: none !important;
-    overflow: visible;
+    /* REMOVED: background: transparent !important; */
+    /* REMOVED: border: none !important; */
+    /* REMOVED: box-shadow: none !important; */
+    overflow: visible; /* Keeping this for now, can test with hidden if needed */
   }
 
   /* Default border and bg for ICON-ONLY nodes (Server, Database, Cloud, etc.) */
+  /* These specific type selectors will still apply their backgrounds/borders */
   div.react-flow__node.react-flow__node-HardDrive,
   div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
@@ -125,7 +126,7 @@ body {
   div.react-flow__node.react-flow__node-PencilSimpleLine,
   div.react-flow__node.react-flow__node-StickyNote,
   div.react-flow__node.react-flow__node-ArrowRight {
-     @apply bg-card text-card-foreground border-2 border-solid border-neutral-300 rounded-lg; 
+     @apply bg-card text-card-foreground border-2 border-solid border-neutral-300 rounded-lg;
   }
 
   div.react-flow__node.react-flow__node-HardDrive { @apply text-blue-700; }
@@ -148,8 +149,7 @@ body {
   div.react-flow__node.react-flow__node-Rectangle,
   div.react-flow__node.react-flow__node-Diamond,
   div.react-flow__node.react-flow__node-Parallelogram {
-     background: transparent !important;
-     border: none !important;
+     /* These will now inherit the base .react-flow__node background unless CustomNode styles override */
   }
 
   div.react-flow__node.react-flow__node-Boundary {
@@ -167,17 +167,17 @@ body {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
-  /* Aggressive Diagnostic Handle Styling */
+  /* AGGRESSIVE DIAGNOSTIC HANDLE STYLING */
   .react-flow__handle {
     width: 15px !important;
     height: 15px !important;
     background-color: blue !important; /* Default state - clearly visible */
     border: 1px solid cyan !important;
-    border-radius: 50% !important;
+    border-radius: 3px !important; /* Using slightly less rounded for distinction */
     opacity: 1 !important;
     visibility: visible !important;
-    pointer-events: all !important; /* Ensure handles are interactive */
-    z-index: 9999 !important; /* Handles on top of everything within RF */
+    pointer-events: all !important;
+    z-index: 9999 !important;
   }
 
   .react-flow__handle-connecting {
@@ -191,7 +191,7 @@ body {
 
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
-     stroke-dasharray: none; 
+     stroke-dasharray: none;
      /* marker-end: url(#arrowclosed); */ /* Commented out for diagnosis */
    }
 
@@ -231,4 +231,5 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
 
