@@ -339,39 +339,15 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
             setNodesInternal((currentNodes) => applyNodeChanges(changes, currentNodes));
-            // DIAGNOSTIC: Temporarily remove custom selection logic from onNodesChange
-            // changes.forEach(change => {
-            //     if (change.type === 'select') {
-            //         if (change.selected) {
-            //             setSelectedElementId(change.id);
-            //         } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
-            //             setSelectedElementId(null);
-            //         }
-            //     } else if (change.type === 'remove' && selectedElementId === change.id) {
-            //         setSelectedElementId(null);
-            //     }
-            // });
         },
-        [setNodesInternal /*, selectedElementId, setSelectedElementId */] // selectedElementId dependencies removed for diagnostic
+        [setNodesInternal] 
     );
 
     const onEdgesChange = useCallback(
         (changes: EdgeChange[]) => {
             setEdgesInternal((currentEdges) => applyEdgeChanges(changes, currentEdges));
-            // DIAGNOSTIC: Temporarily remove custom selection logic from onEdgesChange
-            //  changes.forEach(change => {
-            //     if (change.type === 'select') {
-            //         if (change.selected) {
-            //             setSelectedElementId(change.id);
-            //         } else if (selectedElementId === change.id && !changes.some(c => c.type === 'select' && c.id !== change.id && c.selected)) {
-            //              setSelectedElementId(null);
-            //         }
-            //     } else if (change.type === 'remove' && selectedElementId === change.id) {
-            //         setSelectedElementId(null);
-            //     }
-            // });
         },
-        [setEdgesInternal /*, selectedElementId, setSelectedElementId */] // selectedElementId dependencies removed for diagnostic
+        [setEdgesInternal] 
     );
 
 
@@ -597,48 +573,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [modelId, router, setIsLoadModelDialogOpen, pathname, toast, nodes.length, edges.length, loadModel]);
 
 
-     const onElementClick = useCallback((_event: React.MouseEvent | React.TouchEvent | undefined, element: Node | Edge) => {
-        // When an element (node or edge) is clicked directly, React Flow selects it.
-        // We just need to update our selectedElementId state if it changed.
-        if (element.id !== selectedElementId) {
-            setSelectedElementId(element.id);
-        }
-     }, [selectedElementId, setSelectedElementId]);
-
-
-    // Handler for clicks on the pane (background) to select elements or deselect
-    const onPaneClick = useCallback(
-        (event: globalThis.MouseEvent | globalThis.TouchEvent) => {
-            if (typeof project !== 'function' || typeof getNodes !== 'function' || typeof getEdges !== 'function' || typeof getViewport !== 'function') {
-                 console.warn("onPaneClick: ReactFlow instance methods not available yet.");
-                 if(selectedElementId) setSelectedElementId(null); // Deselect if something was selected
-                 return;
-            }
-
-            // Get click position relative to the flow pane
-            const clientX = 'touches' in event ? event.touches[0].clientX : event.clientX;
-            const clientY = 'touches' in event ? event.touches[0].clientY : event.clientY;
-
-            const projectedPoint = project({ x: clientX, y: clientY});
-            const currentNodesForClick = getNodes();
-            const currentEdgesForClick = getEdges();
-            const currentZoom = getViewport().zoom;
-
-            const elementToSelect = getTopmostElementAtClick(currentNodesForClick, currentEdgesForClick, projectedPoint, currentZoom, selectedElementId);
-
-            if (elementToSelect) {
-                if (elementToSelect.id !== selectedElementId) {
-                     setSelectedElementId(elementToSelect.id);
-                }
-            } else { // Clicked on empty pane space
-                 if (selectedElementId) { // If something was selected, deselect it
-                    setSelectedElementId(null);
-                 }
-            }
-        },
-        [selectedElementId, setSelectedElementId, getNodes, getEdges, project, getViewport]
-    );
-
     // Handler for creating a new model from the dialog
     const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
         setIsNewModelDialogOpen(false);
@@ -740,16 +674,14 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
-                        setNodes={setNodesInternal} // Pass down the state setter for direct manipulation if needed by DiagramCanvas
-                        setEdges={setEdgesInternal} // Pass down the state setter
+                        setNodes={setNodesInternal} 
+                        setEdges={setEdgesInternal} 
                         onViewportChange={onViewportChangeInternal}
-                        onNodeClick={onElementClick} // Use the new generic click handler
-                        onEdgeClick={onElementClick} // Use the new generic click handler
-                        onPaneClick={onPaneClick} // Use the new pane click handler
-                        selectedElementId={selectedElementId} // Pass down for potential internal use by DiagramCanvas
-                        panOnDrag={false} // DIAGNOSTIC: Keep simplified
-                        zoomOnScroll={false} // DIAGNOSTIC: Keep simplified
-                        zoomOnPinch={false} // DIAGNOSTIC: Keep simplified
+                        // onNodeClick, onEdgeClick, onPaneClick are removed for diagnostics
+                        selectedElementId={selectedElementId} 
+                        panOnDrag={false} 
+                        zoomOnScroll={false}
+                        zoomOnPinch={false} 
                     />
                 </main>
 
@@ -761,16 +693,15 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         </TabsList>
                         <TabsContent value="properties" className="flex-1 overflow-auto p-4 mt-0">
                             <SidebarPropertiesPanel
-                                selectedElement={selectedElement} // Pass the memoized selected element
+                                selectedElement={selectedElement} 
                                 onUpdateProperties={updateElementProperties}
                                 onDeleteElement={deleteElement}
-                                // diagramDescription={diagramDataForAI?.name || modelName} // Pass current model name as description
                             />
                         </TabsContent>
                         <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
                             <ThreatReportPanel
                                 getCurrentDiagramData={getCurrentDiagramDataForReport}
-                                setIsGenerating={(genState) => { /* Placeholder, can be connected to isLoadingModel or a specific generating state */ }}
+                                setIsGenerating={(genState) => { /* Placeholder */ }}
                                 sessionReports={sessionReports}
                                 addSessionReport={addSessionReport}
                              />

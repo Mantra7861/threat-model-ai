@@ -62,9 +62,7 @@ interface DiagramCanvasProps {
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
   selectedElementId?: string | null;
-  onNodeClick?: (event: ReactMouseEvent, node: Node) => void;
-  onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void;
-  onPaneClick?: (event: globalThis.MouseEvent | globalThis.TouchEvent) => void;
+  // onNodeClick, onEdgeClick, onPaneClick are removed for diagnostics
   panOnDrag?: boolean | undefined;
   zoomOnScroll?: boolean | undefined;
   zoomOnPinch?: boolean | undefined;
@@ -80,9 +78,9 @@ export function DiagramCanvas({
   setEdges,
   onViewportChange,
   selectedElementId,
-  onNodeClick,
-  onEdgeClick,
-  onPaneClick,
+  // onNodeClick, // Removed for diagnostics
+  // onEdgeClick, // Removed for diagnostics
+  // onPaneClick, // Removed for diagnostics
   panOnDrag = false, 
   zoomOnScroll = false, 
   zoomOnPinch = false, 
@@ -241,12 +239,12 @@ export function DiagramCanvas({
         nodesDraggable={true} 
         nodesConnectable={true} 
         elementsSelectable={true} 
-        selectNodesOnDrag={false} 
+        selectNodesOnDrag={false} // Keep this false for diagnostics
         multiSelectionKeyCode={['Meta', 'Control']} 
-        nodeDragThreshold={1} 
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
+        nodeDragThreshold={1} // Keep this at 1
+        // onNodeClick={onNodeClick} // Removed for diagnostics
+        // onEdgeClick={onEdgeClick} // Removed for diagnostics
+        // onPaneClick={onPaneClick} // Removed for diagnostics
         elevateNodesOnSelect={true} 
         panOnDrag={panOnDrag} 
         zoomOnScroll={zoomOnScroll} 
@@ -258,34 +256,6 @@ export function DiagramCanvas({
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
           Drag components. Click to select. Connect handles.
         </Panel>
-        {/*
-        <svg style={{ display: 'block', width: 0, height: 0, position: 'absolute' }}>
-          <defs>
-            <marker
-                id="arrowclosed"
-                viewBox="0 0 8 8"
-                refX="8" 
-                refY="4" 
-                markerWidth="8"
-                markerHeight="8"
-                orient="auto"
-            >
-                <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
-            </marker>
-            <marker
-                id="arrowclosed-selected"
-                viewBox="0 0 10 10"
-                refX="10" 
-                refY="5"  
-                markerWidth="10"
-                markerHeight="10"
-                orient="auto"
-            >
-                <path d="M0,0 L10,5 L0,10 z" style={{ fill: 'hsl(var(--primary))' }} />
-            </marker>
-          </defs>
-        </svg>
-        */}
       </ReactFlow>
     </div>
   );
