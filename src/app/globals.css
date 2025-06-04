@@ -167,54 +167,39 @@ body {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
-  /* Standard Handle Styling - visible on hover/selection */
+  /* Aggressive Diagnostic Handle Styling */
   .react-flow__handle {
-    width: 10px !important;
-    height: 10px !important;
-    background-color: hsl(var(--primary) / 0.7) !important; /* Semi-transparent primary */
+    width: 15px !important;
+    height: 15px !important;
+    background-color: blue !important; /* Default state - clearly visible */
+    border: 1px solid cyan !important;
     border-radius: 50% !important;
-    border: 1px solid hsl(var(--background)) !important; /* Contrast with background */
-    visibility: hidden; /* Hidden by default */
-    z-index: 10; /* Standard z-index */
-    /* pointer-events: all; /* React Flow should manage this */
-  }
-
-  /* Show handles on node hover or if the node is selected */
-  .react-flow__node:hover .react-flow__handle,
-  .react-flow__node.selected .react-flow__handle {
-    visibility: visible !important;
     opacity: 1 !important;
-    background-color: hsl(var(--primary)) !important; /* Solid primary on hover/select */
+    visibility: visible !important;
+    pointer-events: all !important; /* Ensure handles are interactive */
+    z-index: 9000 !important; /* Handles on top of everything within RF */
   }
 
-  /* When a connection is being dragged FROM this handle */
   .react-flow__handle-connecting {
-    visibility: visible !important; /* Ensure source handle is visible */
-    background-color: hsl(var(--accent)) !important; /* Accent color for connecting handle */
-    transform: scale(1.2); /* Slightly larger */
+    background-color: orange !important; /* Source handle when connecting */
   }
 
-  /* When dragging a connection OVER a VALID target handle */
   .react-flow__handle-valid {
-    visibility: visible !important; /* Ensure valid target is visible */
-    background-color: lightgreen !important; /* Bright green for valid target */
-    transform: scale(1.2); /* Slightly larger */
+    background-color: lightgreen !important; /* Target handle when valid */
   }
-  
-  /* .react-flow__handle-invalid { background-color: #ff0000aa !important; } */ /* Optional: style for invalid target */
 
 
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
      stroke-dasharray: none; 
-     marker-end: url(#arrowclosed);
+     /* marker-end: url(#arrowclosed); */ /* Commented out for diagnosis */
    }
 
    .react-flow__edge.selected .react-flow__edge-path,
    .react-flow__edge:focus .react-flow__edge-path,
    .react-flow__edge:focus-within .react-flow__edge-path {
        @apply stroke-primary stroke-[3px];
-       marker-end: url(#arrowclosed-selected);
+       /* marker-end: url(#arrowclosed-selected); */ /* Commented out for diagnosis */
    }
     .react-flow__edge.selected .react-flow__edge-text,
     .react-flow__edge:focus .react-flow__edge-text,
@@ -246,4 +231,3 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
-

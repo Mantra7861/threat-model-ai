@@ -241,54 +241,53 @@ export function DiagramCanvas({
         nodesDraggable={true}
         nodesConnectable={true}
         elementsSelectable={true}
-        selectNodesOnDrag={true} // Default is true
-        multiSelectionKeyCode={['Meta', 'Control']} // Default
-        nodeDragThreshold={0} // Default
+        selectNodesOnDrag={true} 
+        multiSelectionKeyCode={['Meta', 'Control']} 
+        nodeDragThreshold={0} 
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
-        elevateNodesOnSelect={true} // Default behavior
-        panOnDrag={panOnDrag} // DIAGNOSTIC: set to false
-        zoomOnScroll={zoomOnScroll} // DIAGNOSTIC: set to false
-        zoomOnPinch={zoomOnPinch} // DIAGNOSTIC: set to false
-        panOnScroll={false} // Default
+        elevateNodesOnSelect={true} 
+        panOnDrag={panOnDrag} 
+        zoomOnScroll={zoomOnScroll} 
+        zoomOnPinch={zoomOnPinch} 
+        panOnScroll={false} 
       >
         <Controls />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
           Drag components. Click to select. Connect handles.
         </Panel>
+        {/*
         <svg style={{ display: 'block', width: 0, height: 0, position: 'absolute' }}>
           <defs>
             <marker
                 id="arrowclosed"
                 viewBox="0 0 8 8"
-                refX="8" // Tip of the arrow
-                refY="4" // Center of the arrow
+                refX="8" 
+                refY="4" 
                 markerWidth="8"
                 markerHeight="8"
                 orient="auto"
-                // markerUnits="strokeWidth" // Removed for simpler sizing
             >
                 <path d="M0,0 L8,4 L0,8 z" style={{ fill: 'hsl(var(--foreground))' }} />
             </marker>
             <marker
                 id="arrowclosed-selected"
                 viewBox="0 0 10 10"
-                refX="10" // Tip of the arrow
-                refY="5"  // Center of the arrow
+                refX="10" 
+                refY="5"  
                 markerWidth="10"
                 markerHeight="10"
                 orient="auto"
-                // markerUnits="strokeWidth" // Removed
             >
                 <path d="M0,0 L10,5 L0,10 z" style={{ fill: 'hsl(var(--primary))' }} />
             </marker>
           </defs>
         </svg>
+        */}
       </ReactFlow>
     </div>
   );
 }
-
     

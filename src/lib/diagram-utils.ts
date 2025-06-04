@@ -179,7 +179,7 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
     sourceHandle: connection.sourceHandle || undefined,
     targetHandle: connection.targetHandle || undefined,
     label: label,
-    type: 'smoothstep', 
+    type: 'default',  // Reverted to 'default' for diagnosis
     data: { 
       label: label, 
       properties: connection.properties || { 
