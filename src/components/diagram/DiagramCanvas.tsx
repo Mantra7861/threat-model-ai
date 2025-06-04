@@ -15,7 +15,8 @@ import {
   type OnNodesChange,
   type Viewport,
   type NodeChange,
-  type Connection, // Added Connection type for onConnectStart
+  type Connection, 
+  ConnectionMode, // Added ConnectionMode import
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -62,7 +63,7 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
-  selectedElementId?: string | null;
+  // selectedElementId?: string | null; // Removed for diagnostics
   panOnDrag?: boolean | undefined;
   zoomOnScroll?: boolean | undefined;
   zoomOnPinch?: boolean | undefined;
@@ -77,7 +78,7 @@ export function DiagramCanvas({
   setNodes,
   setEdges,
   onViewportChange,
-  selectedElementId,
+  // selectedElementId, // Removed for diagnostics
   panOnDrag = false,
   zoomOnScroll = false,
   zoomOnPinch = false,
@@ -219,17 +220,14 @@ export function DiagramCanvas({
     [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
   );
 
-  const onConnectStart = useCallback((event: React.MouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => {
+  const onConnectStart = useCallback((event: ReactMouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => {
     console.log('[DIAG] onConnectStart:', params, 'Event X:', event.clientX, 'Event Y:', event.clientY);
   }, []);
 
-  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => { // Native MouseEvent or TouchEvent
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => { 
     console.log('[DIAG] onConnectEnd event:', event);
-    // Log the element React Flow thinks the connection ended on
     if (event.target) {
         console.log('[DIAG] onConnectEnd - event.target:', event.target);
-        // You might need to inspect event.target's classes, data attributes, etc.
-        // For example: (event.target as HTMLElement).closest('.react-flow__handle')
         const targetElement = event.target as HTMLElement;
         const handle = targetElement.closest('.react-flow__handle');
         if (handle) {
@@ -260,21 +258,58 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        nodesDraggable={false} // Kept false for diagnostics
+        
+        nodesDraggable={false} 
         nodesConnectable={true}
-        elementsSelectable={true}
-        selectNodesOnDrag={false}
+        elementsSelectable={false} 
+        // selectNodesOnDrag={false} // Removed as elementsSelectable=false makes it less relevant
         nodeDragThreshold={1}
-        elevateNodesOnSelect={true}
+        
+        elevateNodesOnSelect={true} // Default is true, keep for now
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
         zoomOnPinch={zoomOnPinch}
         panOnScroll={false}
+        
+        paneMoveable={false} 
+        zoomOnDoubleClick={false} 
+        selectionOnDrag={false} 
+
+        connectionMode={ConnectionMode.Loose} // Explicitly set to Loose
+
         onConnectStart={onConnectStart}
         onConnectEnd={onConnectEnd}
       >
         <Controls />
         <Background gap={16} />
+        {/* 
+        <svg>
+          <defs>
+            <marker
+              id="arrowclosed"
+              markerWidth="10"
+              markerHeight="10"
+              refX="7" 
+              refY="3.5"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L10,3.5 L0,7 Z" fill="hsl(var(--foreground))" stroke="hsl(var(--foreground))" />
+            </marker>
+            <marker
+              id="arrowclosed-selected"
+              markerWidth="10"
+              markerHeight="10"
+              refX="7" 
+              refY="3.5"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L10,3.5 L0,7 Z" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" />
+            </marker>
+          </defs>
+        </svg>
+        */}
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
           Drag components. Click to select. Connect handles.
         </Panel>
