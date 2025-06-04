@@ -62,7 +62,6 @@ interface DiagramCanvasProps {
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
   selectedElementId?: string | null;
-  // onNodeClick, onEdgeClick, onPaneClick are removed for diagnostics
   panOnDrag?: boolean | undefined;
   zoomOnScroll?: boolean | undefined;
   zoomOnPinch?: boolean | undefined;
@@ -78,9 +77,6 @@ export function DiagramCanvas({
   setEdges,
   onViewportChange,
   selectedElementId,
-  // onNodeClick, // Removed for diagnostics
-  // onEdgeClick, // Removed for diagnostics
-  // onPaneClick, // Removed for diagnostics
   panOnDrag = false, 
   zoomOnScroll = false, 
   zoomOnPinch = false, 
@@ -236,15 +232,12 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        nodesDraggable={true} 
+        nodesDraggable={false} // Temporarily set to false for diagnostics
         nodesConnectable={true} 
         elementsSelectable={true} 
-        selectNodesOnDrag={false} // Keep this false for diagnostics
+        selectNodesOnDrag={false} 
         multiSelectionKeyCode={['Meta', 'Control']} 
-        nodeDragThreshold={1} // Keep this at 1
-        // onNodeClick={onNodeClick} // Removed for diagnostics
-        // onEdgeClick={onEdgeClick} // Removed for diagnostics
-        // onPaneClick={onPaneClick} // Removed for diagnostics
+        nodeDragThreshold={1} 
         elevateNodesOnSelect={true} 
         panOnDrag={panOnDrag} 
         zoomOnScroll={zoomOnScroll} 
