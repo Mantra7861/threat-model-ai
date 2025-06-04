@@ -4,8 +4,9 @@
 import type { FC } from 'react';
 import React from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import * as PhosphorIcons from '@phosphor-icons/react';
-import { Question as QuestionIcon } from '@phosphor-icons/react';
+// Removed PhosphorIcons import as complex content is bypassed for diagnostics
+// import * as PhosphorIcons from '@phosphor-icons/react';
+// import { Question as QuestionIcon } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { calculateEffectiveZIndex } from '@/lib/diagram-utils';
 
@@ -13,7 +14,7 @@ export const CustomNode: FC<NodeProps> = ({
   id,
   data,
   selected,
-  type,
+  type, // The 'type' prop from React Flow, used for stencil type
   xPos,
   yPos,
   isConnectable: nodeIsConnectableProp, 
@@ -31,27 +32,34 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  const nodeIconNameFromData = data.iconName as string | undefined;
+  // nodeIconNameFromData is not used in simplified version for non-boundaries
+  // const nodeIconNameFromData = data.iconName as string | undefined;
   const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--border))') : (data.textColor || 'currentColor');
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%',
+    width: '100%', // Ensure the wrapper takes full node dimensions
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    position: 'relative', // Important for handle positioning relative to this root
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
   const nodeLabel = data.label || data.name || 'Unnamed';
 
+  // Determine if this handle should be connectable
+  // Default to true if nodeIsConnectableProp is undefined, otherwise use its value.
+  // This ensures handles are connectable if the node itself is (which we set to true for non-boundaries).
+  const isHandleConnectable = nodeIsConnectableProp !== undefined ? nodeIsConnectableProp : true;
+
   if (isBoundary) {
+    // Boundary node rendering remains the same
     return (
       <div style={customNodeRootStyle} className="group">
         {showResizer && (
@@ -73,82 +81,19 @@ export const CustomNode: FC<NodeProps> = ({
         >
           {nodeLabel}
         </span>
+        {/* No handles for boundary nodes */}
       </div>
     );
   }
 
-  let contentElement: React.ReactNode;
-  let IconToRender: React.ElementType = QuestionIcon;
-  const iconNameToLookup = nodeIconNameFromData || type;
-
-  if (iconNameToLookup && iconNameToLookup.trim() !== "") {
-    let foundIcon: any = null;
-    if (Object.prototype.hasOwnProperty.call(PhosphorIcons, iconNameToLookup)) {
-      foundIcon = (PhosphorIcons as any)[iconNameToLookup];
-    }
-    if (!foundIcon && PhosphorIcons.default && typeof PhosphorIcons.default === 'object') {
-      if (Object.prototype.hasOwnProperty.call(PhosphorIcons.default, iconNameToLookup)) {
-        foundIcon = (PhosphorIcons.default as any)[iconNameToLookup];
-      }
-    }
-    if (foundIcon && (typeof foundIcon === 'function' || (typeof foundIcon === 'object' && foundIcon !== null && '$$typeof' in foundIcon && foundIcon.$$typeof === Symbol.for('react.forward_ref')))) {
-      IconToRender = foundIcon;
-    }
-  }
-
-  const shapeBaseClasses = "w-full h-full flex items-center justify-center p-1 box-border";
-  const shapeBorderStyle = { border: `2px solid ${nodeDisplayColor}` };
-
-  if (type === 'Circle') {
-    contentElement = (
-      <div
-        className={cn(shapeBaseClasses, "rounded-full")}
-        style={shapeBorderStyle}
-      />
-    );
-  } else if (type === 'Rectangle') {
-    contentElement = (
-      <div
-        className={cn(shapeBaseClasses, "rounded-lg")}
-        style={shapeBorderStyle}
-      />
-    );
-  } else if (type === 'Diamond') {
-    contentElement = (
-      <div className={cn(shapeBaseClasses, "relative")}>
-        <div
-          className="absolute w-[calc(100%-4px)] h-[calc(100%-4px)] top-[2px] left-[2px]"
-          style={{ ...shapeBorderStyle, transform: 'rotate(45deg)', width: '70.71%', height: '70.71%', top: '14.645%', left: '14.645%' }}
-        />
-      </div>
-    );
-  } else if (type === 'Parallelogram') {
-     contentElement = (
-      <div
-        className={cn(shapeBaseClasses)}
-        style={{ ...shapeBorderStyle, transform: 'skewX(-20deg)' }}
-      />
-    );
-  }
-  else {
-    contentElement = (
-      <div className="flex flex-col items-center justify-center w-full h-full">
-        {IconToRender && React.createElement(IconToRender, {
-          size: Math.min(data.width || 48, data.height || 48) * 0.6,
-          style: { color: nodeDisplayColor },
-          weight: "regular"
-        })}
-      </div>
-    );
-  }
-
-  const isHandleConnectable = nodeIsConnectableProp ?? true; 
-
+  // --- DIAGNOSTIC: Simplified rendering for NON-BOUNDARY nodes ---
+  // This replaces the icon, shape, and complex label rendering.
+  // The node's width/height will be whatever React Flow assigns it (from stencil defaults or resizing).
   return (
     <div style={customNodeRootStyle} className="group">
       {showResizer && (
         <NodeResizer
-          minWidth={data.minWidth || 60}
+          minWidth={data.minWidth || 60} // Use min dimensions from data
           minHeight={data.minHeight || 40}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
@@ -157,22 +102,20 @@ export const CustomNode: FC<NodeProps> = ({
         />
       )}
 
-      {contentElement}
-
-      <span
-        className={cn(
-          "text-xs font-medium truncate max-w-[90%] text-center absolute",
-          "bottom-[-20px] left-1/2 -translate-x-1/2 w-max px-1",
-        )}
-        style={{ color: nodeDisplayColor }}
+      {/* Simplified Node Body for Diagnostics */}
+      <div 
+        className="w-full h-full flex items-center justify-center"
+        style={{ backgroundColor: 'rgba(0, 128, 0, 0.1)' /* Light green, semi-transparent */ }}
       >
-        {nodeLabel}
-      </span>
-
-      <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={isHandleConnectable} />
-      <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={isHandleConnectable} />
-      <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={isHandleConnectable} />
-      <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={isHandleConnectable} />
+        <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
+      </div>
+      
+      {/* Handles always present for non-boundary nodes, explicitly connectable */}
+      <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} />
+      <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} />
+      <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} />
+      <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} />
     </div>
   );
 };
+
