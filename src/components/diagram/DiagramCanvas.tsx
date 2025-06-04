@@ -83,9 +83,9 @@ export function DiagramCanvas({
   onNodeClick,
   onEdgeClick,
   onPaneClick,
-  panOnDrag = false, // DIAGNOSTIC: Changed to false
-  zoomOnScroll = false, // DIAGNOSTIC: Changed to false
-  zoomOnPinch = false, // DIAGNOSTIC: Changed to false
+  panOnDrag = false, 
+  zoomOnScroll = false, 
+  zoomOnPinch = false, 
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -196,7 +196,7 @@ export function DiagramCanvas({
         position: flowPosition,
         data: newNodeData,
         style: nodeStyle,
-        connectable: !isDroppedStencilBoundary, // Ensure non-boundary nodes are connectable
+        connectable: !isDroppedStencilBoundary, 
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
@@ -238,12 +238,12 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        nodesDraggable={true}
-        nodesConnectable={true}
-        elementsSelectable={true}
+        nodesDraggable={true} // Explicitly true
+        nodesConnectable={true} // Explicitly true
+        elementsSelectable={true} // Explicitly true
         selectNodesOnDrag={true} 
         multiSelectionKeyCode={['Meta', 'Control']} 
-        nodeDragThreshold={0} 
+        nodeDragThreshold={1} // Changed from 0 to 1
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}

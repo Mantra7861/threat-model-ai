@@ -4,9 +4,6 @@
 import type { FC } from 'react';
 import React from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-// Removed PhosphorIcons import as complex content is bypassed for diagnostics
-// import * as PhosphorIcons from '@phosphor-icons/react';
-// import { Question as QuestionIcon } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { calculateEffectiveZIndex } from '@/lib/diagram-utils';
 
@@ -14,7 +11,7 @@ export const CustomNode: FC<NodeProps> = ({
   id,
   data,
   selected,
-  type, // The 'type' prop from React Flow, used for stencil type
+  type, 
   xPos,
   yPos,
   isConnectable: nodeIsConnectableProp, 
@@ -32,34 +29,31 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  // nodeIconNameFromData is not used in simplified version for non-boundaries
-  // const nodeIconNameFromData = data.iconName as string | undefined;
   const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--border))') : (data.textColor || 'currentColor');
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%', // Ensure the wrapper takes full node dimensions
+    width: '100%', 
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative', // Important for handle positioning relative to this root
+    position: 'relative', 
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
   const nodeLabel = data.label || data.name || 'Unnamed';
 
-  // Determine if this handle should be connectable
-  // Default to true if nodeIsConnectableProp is undefined, otherwise use its value.
-  // This ensures handles are connectable if the node itself is (which we set to true for non-boundaries).
-  const isHandleConnectable = nodeIsConnectableProp !== undefined ? nodeIsConnectableProp : true;
+  // Handles should be connectable if the node itself is.
+  // Default to true if nodeIsConnectableProp is undefined, as non-boundary nodes should be connectable.
+  const isHandleConnectable = nodeIsConnectableProp !== undefined ? nodeIsConnectableProp : !isBoundary;
+
 
   if (isBoundary) {
-    // Boundary node rendering remains the same
     return (
       <div style={customNodeRootStyle} className="group">
         {showResizer && (
@@ -86,14 +80,12 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
-  // --- DIAGNOSTIC: Simplified rendering for NON-BOUNDARY nodes ---
-  // This replaces the icon, shape, and complex label rendering.
-  // The node's width/height will be whatever React Flow assigns it (from stencil defaults or resizing).
+  // Simplified rendering for NON-BOUNDARY nodes for diagnostics
   return (
     <div style={customNodeRootStyle} className="group">
       {showResizer && (
         <NodeResizer
-          minWidth={data.minWidth || 60} // Use min dimensions from data
+          minWidth={data.minWidth || 60} 
           minHeight={data.minHeight || 40}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
@@ -101,16 +93,13 @@ export const CustomNode: FC<NodeProps> = ({
           style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
         />
       )}
-
-      {/* Simplified Node Body for Diagnostics */}
       <div 
         className="w-full h-full flex items-center justify-center"
-        style={{ backgroundColor: 'rgba(0, 128, 0, 0.1)' /* Light green, semi-transparent */ }}
+        style={{ backgroundColor: 'rgba(0, 128, 0, 0.1)' }}
       >
         <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
       </div>
       
-      {/* Handles always present for non-boundary nodes, explicitly connectable */}
       <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} />
       <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} />
       <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} />
@@ -118,4 +107,3 @@ export const CustomNode: FC<NodeProps> = ({
     </div>
   );
 };
-

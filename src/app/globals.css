@@ -177,7 +177,7 @@ body {
     opacity: 1 !important;
     visibility: visible !important;
     pointer-events: all !important; /* Ensure handles are interactive */
-    z-index: 9000 !important; /* Handles on top of everything within RF */
+    z-index: 9999 !important; /* Handles on top of everything within RF */
   }
 
   .react-flow__handle-connecting {
@@ -231,3 +231,4 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
