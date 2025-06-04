@@ -16,7 +16,7 @@ import {
   type Viewport,
   type NodeChange,
   type Connection, 
-  ConnectionMode, // Added ConnectionMode import
+  ConnectionMode,
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -63,10 +63,18 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
-  // selectedElementId?: string | null; // Removed for diagnostics
   panOnDrag?: boolean | undefined;
   zoomOnScroll?: boolean | undefined;
   zoomOnPinch?: boolean | undefined;
+  connectionMode?: ConnectionMode;
+  nodesDraggable?: boolean;
+  elementsSelectable?: boolean;
+  // paneMoveable?: boolean; // Removed from props
+  zoomOnDoubleClick?: boolean;
+  selectionOnDrag?: boolean;
+  nodeDragThreshold?: number;
+  onConnectStart?: (event: ReactMouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => void;
+  onConnectEnd?: (event: MouseEvent | TouchEvent) => void;
 }
 
 export function DiagramCanvas({
@@ -78,10 +86,18 @@ export function DiagramCanvas({
   setNodes,
   setEdges,
   onViewportChange,
-  // selectedElementId, // Removed for diagnostics
   panOnDrag = false,
   zoomOnScroll = false,
   zoomOnPinch = false,
+  connectionMode = ConnectionMode.Loose,
+  nodesDraggable = false,
+  elementsSelectable = false,
+  // paneMoveable = false, // Removed from destructuring and default
+  zoomOnDoubleClick = false,
+  selectionOnDrag = false,
+  nodeDragThreshold = 1,
+  onConnectStart,
+  onConnectEnd,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -220,11 +236,12 @@ export function DiagramCanvas({
     [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
   );
 
-  const onConnectStart = useCallback((event: ReactMouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => {
+  const onConnectStartInternal = useCallback((event: ReactMouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => {
     console.log('[DIAG] onConnectStart:', params, 'Event X:', event.clientX, 'Event Y:', event.clientY);
-  }, []);
+    if (onConnectStart) onConnectStart(event, params);
+  }, [onConnectStart]);
 
-  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => { 
+  const onConnectEndInternal = useCallback((event: MouseEvent | TouchEvent) => { 
     console.log('[DIAG] onConnectEnd event:', event);
     if (event.target) {
         console.log('[DIAG] onConnectEnd - event.target:', event.target);
@@ -241,7 +258,8 @@ export function DiagramCanvas({
             }
         }
     }
-  }, []);
+    if (onConnectEnd) onConnectEnd(event);
+  }, [onConnectEnd]);
 
 
   return (
@@ -259,57 +277,30 @@ export function DiagramCanvas({
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
         
-        nodesDraggable={false} 
+        nodesDraggable={nodesDraggable} 
         nodesConnectable={true}
-        elementsSelectable={false} 
-        // selectNodesOnDrag={false} // Removed as elementsSelectable=false makes it less relevant
-        nodeDragThreshold={1}
+        elementsSelectable={elementsSelectable} 
+        nodeDragThreshold={nodeDragThreshold}
         
-        elevateNodesOnSelect={true} // Default is true, keep for now
+        elevateNodesOnSelect={true} 
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
         zoomOnPinch={zoomOnPinch}
-        panOnScroll={false}
+        panOnScroll={false} 
         
-        paneMoveable={false} 
-        zoomOnDoubleClick={false} 
-        selectionOnDrag={false} 
+        /* paneMoveable prop removed, ReactFlow will use its default (true)
+           but panOnDrag={false} should keep it from moving with mouse drag */
+        
+        zoomOnDoubleClick={zoomOnDoubleClick} 
+        selectionOnDrag={selectionOnDrag} 
 
-        connectionMode={ConnectionMode.Loose} // Explicitly set to Loose
+        connectionMode={connectionMode}
 
-        onConnectStart={onConnectStart}
-        onConnectEnd={onConnectEnd}
+        onConnectStart={onConnectStartInternal}
+        onConnectEnd={onConnectEndInternal}
       >
         <Controls />
         <Background gap={16} />
-        {/* 
-        <svg>
-          <defs>
-            <marker
-              id="arrowclosed"
-              markerWidth="10"
-              markerHeight="10"
-              refX="7" 
-              refY="3.5"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L10,3.5 L0,7 Z" fill="hsl(var(--foreground))" stroke="hsl(var(--foreground))" />
-            </marker>
-            <marker
-              id="arrowclosed-selected"
-              markerWidth="10"
-              markerHeight="10"
-              refX="7" 
-              refY="3.5"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L10,3.5 L0,7 Z" fill="hsl(var(--primary))" stroke="hsl(var(--primary))" />
-            </marker>
-          </defs>
-        </svg>
-        */}
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
           Drag components. Click to select. Connect handles.
         </Panel>
