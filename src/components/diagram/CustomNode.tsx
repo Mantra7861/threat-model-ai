@@ -84,7 +84,7 @@ export const CustomNode: FC<NodeProps> = ({
   return (
     <div 
         style={{ 
-            ...customNodeRootStyle, // This includes width: 100%, height: 100%
+            ...customNodeRootStyle, 
             backgroundColor: 'rgba(0, 128, 0, 0.1)', 
             border: '1px solid green',
             pointerEvents: 'none', // Make the node body non-interactive
@@ -108,14 +108,16 @@ export const CustomNode: FC<NodeProps> = ({
         <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
       </div>
       
-      {/* NEW WRAPPER DIV for handles */}
+      {/* Wrapper DIV for handles, also non-interactive */}
       <div style={{ pointerEvents: 'none' }}> 
-          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          {/* Handles no longer have inline style for pointerEvents. Rely on RF default + CSS. */}
+          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} />
+          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} />
+          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} />
+          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} />
       </div>
     </div>
   );
 };
 
+```

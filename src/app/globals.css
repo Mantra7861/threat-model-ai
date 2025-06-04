@@ -102,7 +102,10 @@ body {
 @layer components {
   .react-flow__node {
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
-    overflow: visible; 
+    overflow: visible;
+    /* background: transparent !important; */ /* Removed for diagnostics */
+    /* border: none !important; */ /* Removed for diagnostics */
+    /* box-shadow: none !important; */ /* Removed for diagnostics */
   }
 
   /* Default border and bg for ICON-ONLY nodes (Server, Database, Cloud, etc.) */
@@ -164,29 +167,33 @@ body {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
-  /* ALL CUSTOM HANDLE STYLES COMMENTED OUT TO USE REACT FLOW DEFAULTS */
+  /* Minimal Handle Styling - Let React Flow defaults mostly apply */
+  /* The @xyflow/react/dist/style.css import should provide base handle styles */
+
+  /* Provide a clear visual cue for valid target handles */
+  .react-flow__handle.valid, /* For older versions or different class naming */
+  .react-flow__handle-valid { /* Standard class for valid connection target */
+    background-color: lightgreen !important; /* Make it obvious */
+    /* React Flow's default CSS should handle size, border-radius, etc. */
+  }
+
+  /* Visual cue for the handle that is currently being dragged (source of connection) */
+  .react-flow__handle-connecting {
+    background-color: orange !important; /* Make it obvious */
+  }
+
+  /* Basic visibility and interactivity for default handles */
+  /* Comment block from line 229 to 238 (original file) removed */
+
+  /* Ensure handles are visible and distinct when node is hovered or selected */
   /*
-  .react-flow__handle {
-    width: 15px !important;
-    height: 15px !important;
-    background-color: blue !important; 
-    border: 1px solid cyan !important;
-    border-radius: 3px !important; 
-    opacity: 1 !important;
+  .react-flow__node:hover .react-flow__handle,
+  .react-flow__node.selected .react-flow__handle {
     visibility: visible !important;
-    pointer-events: all !important;
-    z-index: 9999 !important;
-  }
-
-  .react-flow__handle-connecting { 
-    background-color: orange !important;
-  }
-
-  .react-flow__handle-valid { 
-    background-color: lightgreen !important;
+    opacity: 1 !important;
+    background-color: hsl(var(--primary)) !important;
   }
   */
-
 
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
