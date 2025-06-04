@@ -102,10 +102,7 @@ body {
 @layer components {
   .react-flow__node {
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
-    /* REMOVED: background: transparent !important; */
-    /* REMOVED: border: none !important; */
-    /* REMOVED: box-shadow: none !important; */
-    overflow: visible; /* Keeping this for now, can test with hidden if needed */
+    overflow: visible; 
   }
 
   /* Default border and bg for ICON-ONLY nodes (Server, Database, Cloud, etc.) */
@@ -167,8 +164,7 @@ body {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
-
-  /* Remove ALL custom handle styles to let React Flow defaults apply */
+  /* ALL CUSTOM HANDLE STYLES COMMENTED OUT TO USE REACT FLOW DEFAULTS */
   /*
   .react-flow__handle {
     width: 15px !important;
@@ -182,12 +178,12 @@ body {
     z-index: 9999 !important;
   }
 
-  .react-flow__handle-connecting {
-    background-color: orange !important; 
+  .react-flow__handle-connecting { 
+    background-color: orange !important;
   }
 
-  .react-flow__handle-valid {
-    background-color: lightgreen !important; 
+  .react-flow__handle-valid { 
+    background-color: lightgreen !important;
   }
   */
 
@@ -195,14 +191,14 @@ body {
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
      stroke-dasharray: none;
-     /* marker-end: url(#arrowclosed); */ /* Commented out for diagnosis */
+     /* marker-end: url(#arrowclosed); */ /* Custom markers temporarily removed for diagnosis */
    }
 
    .react-flow__edge.selected .react-flow__edge-path,
    .react-flow__edge:focus .react-flow__edge-path,
    .react-flow__edge:focus-within .react-flow__edge-path {
        @apply stroke-primary stroke-[3px];
-       /* marker-end: url(#arrowclosed-selected); */ /* Commented out for diagnosis */
+       /* marker-end: url(#arrowclosed-selected); */ /* Custom markers temporarily removed for diagnosis */
    }
     .react-flow__edge.selected .react-flow__edge-text,
     .react-flow__edge:focus .react-flow__edge-text,
@@ -234,6 +230,3 @@ body {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
-
-
-

@@ -81,8 +81,18 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   // Simplified rendering for NON-BOUNDARY nodes for diagnostics
+  // Main container div has pointerEvents: 'none'
+  // Handles have pointerEvents: 'all'
   return (
-    <div style={customNodeRootStyle} className="group">
+    <div 
+        style={{ 
+            ...customNodeRootStyle,
+            backgroundColor: 'rgba(0, 128, 0, 0.1)', // Light green, semi-transparent for visibility
+            border: '1px solid green',
+            pointerEvents: 'none', // Make the node body non-interactive
+        }}
+        className="group"
+    >
       {showResizer && (
         <NodeResizer
           minWidth={data.minWidth || 60} 
@@ -95,15 +105,15 @@ export const CustomNode: FC<NodeProps> = ({
       )}
       <div 
         className="w-full h-full flex items-center justify-center"
-        style={{ backgroundColor: 'rgba(0, 128, 0, 0.1)' }}
+        // This inner div also inherits pointerEvents: 'none' from its parent
       >
         <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
       </div>
       
-      <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} />
-      <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} />
-      <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} />
-      <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} />
+      <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+      <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+      <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+      <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
     </div>
   );
 };
