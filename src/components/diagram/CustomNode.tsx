@@ -11,10 +11,10 @@ export const CustomNode: FC<NodeProps> = ({
   id,
   data,
   selected,
-  type, 
+  type,
   xPos,
   yPos,
-  isConnectable: nodeIsConnectableProp, 
+  isConnectable: nodeIsConnectableProp,
   zIndex: rfProvidedZIndex,
   parentNode
 }) => {
@@ -35,13 +35,13 @@ export const CustomNode: FC<NodeProps> = ({
 
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%', 
+    width: '100%',
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative', 
+    position: 'relative',
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
@@ -82,10 +82,10 @@ export const CustomNode: FC<NodeProps> = ({
 
   // Simplified rendering for NON-BOUNDARY nodes for diagnostics
   return (
-    <div 
-        style={{ 
-            ...customNodeRootStyle, 
-            backgroundColor: 'rgba(0, 128, 0, 0.1)', 
+    <div
+        style={{
+            ...customNodeRootStyle,
+            backgroundColor: 'rgba(0, 128, 0, 0.1)',
             border: '1px solid green',
             pointerEvents: 'none', // Make the node body non-interactive
         }}
@@ -93,7 +93,7 @@ export const CustomNode: FC<NodeProps> = ({
     >
       {showResizer && (
         <NodeResizer
-          minWidth={data.minWidth || 60} 
+          minWidth={data.minWidth || 60}
           minHeight={data.minHeight || 40}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
@@ -101,23 +101,20 @@ export const CustomNode: FC<NodeProps> = ({
           style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
         />
       )}
-      <div 
+      <div
         className="w-full h-full flex items-center justify-center"
         // This inner div also inherits pointerEvents: 'none' from its parent
       >
         <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
       </div>
-      
-      {/* Wrapper DIV for handles, also non-interactive */}
-      <div style={{ pointerEvents: 'none' }}> 
-          {/* Handles no longer have inline style for pointerEvents. Rely on RF default + CSS. */}
-          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} />
-          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} />
-          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} />
-          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} />
+
+      {/* NEW WRAPPER DIV for handles */}
+      <div style={{ pointerEvents: 'none' }}>
+          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
       </div>
     </div>
   );
 };
-
-```
