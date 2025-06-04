@@ -81,13 +81,11 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   // Simplified rendering for NON-BOUNDARY nodes for diagnostics
-  // Main container div has pointerEvents: 'none'
-  // Handles have pointerEvents: 'all'
   return (
     <div 
         style={{ 
-            ...customNodeRootStyle,
-            backgroundColor: 'rgba(0, 128, 0, 0.1)', // Light green, semi-transparent for visibility
+            ...customNodeRootStyle, // This includes width: 100%, height: 100%
+            backgroundColor: 'rgba(0, 128, 0, 0.1)', 
             border: '1px solid green',
             pointerEvents: 'none', // Make the node body non-interactive
         }}
@@ -110,10 +108,14 @@ export const CustomNode: FC<NodeProps> = ({
         <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
       </div>
       
-      <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-      <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-      <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-      <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+      {/* NEW WRAPPER DIV for handles */}
+      <div style={{ pointerEvents: 'none' }}> 
+          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+      </div>
     </div>
   );
 };
+
