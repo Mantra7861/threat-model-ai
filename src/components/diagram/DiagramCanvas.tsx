@@ -15,6 +15,7 @@ import {
   type OnNodesChange,
   type Viewport,
   type NodeChange,
+  type Connection, // Added Connection type for onConnectStart
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -77,9 +78,9 @@ export function DiagramCanvas({
   setEdges,
   onViewportChange,
   selectedElementId,
-  panOnDrag = false, 
-  zoomOnScroll = false, 
-  zoomOnPinch = false, 
+  panOnDrag = false,
+  zoomOnScroll = false,
+  zoomOnPinch = false,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -190,7 +191,7 @@ export function DiagramCanvas({
         position: flowPosition,
         data: newNodeData,
         style: nodeStyle,
-        connectable: !isDroppedStencilBoundary, 
+        connectable: !isDroppedStencilBoundary,
         ...(parentBoundaryNode && !isDroppedStencilBoundary && {
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
@@ -218,6 +219,33 @@ export function DiagramCanvas({
     [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
   );
 
+  const onConnectStart = useCallback((event: React.MouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => {
+    console.log('[DIAG] onConnectStart:', params, 'Event X:', event.clientX, 'Event Y:', event.clientY);
+  }, []);
+
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => { // Native MouseEvent or TouchEvent
+    console.log('[DIAG] onConnectEnd event:', event);
+    // Log the element React Flow thinks the connection ended on
+    if (event.target) {
+        console.log('[DIAG] onConnectEnd - event.target:', event.target);
+        // You might need to inspect event.target's classes, data attributes, etc.
+        // For example: (event.target as HTMLElement).closest('.react-flow__handle')
+        const targetElement = event.target as HTMLElement;
+        const handle = targetElement.closest('.react-flow__handle');
+        if (handle) {
+            console.log('[DIAG] onConnectEnd - ended on handle:', handle.getAttribute('data-handleid'), 'of node:', handle.getAttribute('data-nodeid'));
+        } else {
+            const nodeElement = targetElement.closest('.react-flow__node');
+            if (nodeElement) {
+                console.log('[DIAG] onConnectEnd - ended on node:', nodeElement.getAttribute('data-id'));
+            } else {
+                console.log('[DIAG] onConnectEnd - ended on pane or unknown element.');
+            }
+        }
+    }
+  }, []);
+
+
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
       <ReactFlow
@@ -232,17 +260,18 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        nodesDraggable={false} // Temporarily set to false for diagnostics
-        nodesConnectable={true} 
-        elementsSelectable={true} 
-        selectNodesOnDrag={false} 
-        multiSelectionKeyCode={['Meta', 'Control']} 
-        nodeDragThreshold={1} 
-        elevateNodesOnSelect={true} 
-        panOnDrag={panOnDrag} 
-        zoomOnScroll={zoomOnScroll} 
-        zoomOnPinch={zoomOnPinch} 
-        panOnScroll={false} 
+        nodesDraggable={false} // Kept false for diagnostics
+        nodesConnectable={true}
+        elementsSelectable={true}
+        selectNodesOnDrag={false}
+        nodeDragThreshold={1}
+        elevateNodesOnSelect={true}
+        panOnDrag={panOnDrag}
+        zoomOnScroll={zoomOnScroll}
+        zoomOnPinch={zoomOnPinch}
+        panOnScroll={false}
+        onConnectStart={onConnectStart}
+        onConnectEnd={onConnectEnd}
       >
         <Controls />
         <Background gap={16} />
