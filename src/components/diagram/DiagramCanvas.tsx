@@ -238,12 +238,12 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        nodesDraggable={true} // Explicitly true
-        nodesConnectable={true} // Explicitly true
-        elementsSelectable={true} // Explicitly true
-        selectNodesOnDrag={true} 
+        nodesDraggable={true} 
+        nodesConnectable={true} 
+        elementsSelectable={true} 
+        selectNodesOnDrag={false} 
         multiSelectionKeyCode={['Meta', 'Control']} 
-        nodeDragThreshold={1} // Changed from 0 to 1
+        nodeDragThreshold={1} 
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
