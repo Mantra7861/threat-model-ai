@@ -69,7 +69,7 @@ interface DiagramCanvasProps {
   connectionMode?: ConnectionMode;
   nodesDraggable?: boolean;
   elementsSelectable?: boolean;
-  // paneMoveable?: boolean; // Removed from props
+  // paneMoveable was removed here
   zoomOnDoubleClick?: boolean;
   selectionOnDrag?: boolean;
   nodeDragThreshold?: number;
@@ -89,13 +89,13 @@ export function DiagramCanvas({
   panOnDrag = false,
   zoomOnScroll = false,
   zoomOnPinch = false,
-  connectionMode = ConnectionMode.Loose,
-  nodesDraggable = false,
-  elementsSelectable = false,
-  // paneMoveable = false, // Removed from destructuring and default
-  zoomOnDoubleClick = false,
-  selectionOnDrag = false,
-  nodeDragThreshold = 1,
+  connectionMode = ConnectionMode.Loose, // Kept from previous step
+  nodesDraggable = false, // Kept from previous step
+  elementsSelectable = false, // Kept from previous step
+  // paneMoveable prop removed from destructuring and default
+  zoomOnDoubleClick = false, // Kept from previous step
+  selectionOnDrag = false, // Kept from previous step
+  nodeDragThreshold = 1, // Kept from previous step
   onConnectStart,
   onConnectEnd,
 }: DiagramCanvasProps) {
@@ -288,9 +288,6 @@ export function DiagramCanvas({
         zoomOnPinch={zoomOnPinch}
         panOnScroll={false} 
         
-        /* paneMoveable prop removed, ReactFlow will use its default (true)
-           but panOnDrag={false} should keep it from moving with mouse drag */
-        
         zoomOnDoubleClick={zoomOnDoubleClick} 
         selectionOnDrag={selectionOnDrag} 
 
@@ -298,6 +295,7 @@ export function DiagramCanvas({
 
         onConnectStart={onConnectStartInternal}
         onConnectEnd={onConnectEndInternal}
+        // paneMoveable prop removed entirely
       >
         <Controls />
         <Background gap={16} />
@@ -308,4 +306,6 @@ export function DiagramCanvas({
     </div>
   );
 }
+    
+
     
