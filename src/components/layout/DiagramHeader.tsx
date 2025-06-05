@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Keep useState for other potential local states if any, useEffect and useCallback are used
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -31,72 +31,58 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSaving }: DiagramHeaderProps) {
   const { toast } = useToast();
   const { modelName, setModelName } = useProjectContext();
-  const [localDiagramName, setLocalDiagramName] = useState<string>(modelName);
-
-  // Effect to sync localDiagramName FROM context modelName
-  // This runs when modelName (from context) changes.
-  // It updates localDiagramName if the context value is different.
-  useEffect(() => {
-    if (modelName !== localDiagramName) {
-      setLocalDiagramName(modelName);
-    }
-  }, [modelName]); // Only depends on modelName (from context)
+  // No localDiagramName state anymore. Input directly uses modelName from context.
 
   // Debounced function to update the context modelName
   const debouncedSetContextModelName = useCallback(
     debounce((name: string) => {
-      if (name.trim() !== "") { // Only update context if name is not empty
-        setModelName(name);
+      const trimmedName = name.trim();
+      // Only update context if the new trimmed name is different from current context modelName
+      if (trimmedName !== modelName) { // Compare with current context modelName
+        // Allow setting to empty string if that's the intent
+        setModelName(trimmedName);
       }
     }, 750),
-    [setModelName] // Depends only on the stable setModelName from context
+    [setModelName, modelName] // modelName is needed here to ensure the debounced function's closure has the latest value for comparison
   );
 
-  // Effect to call debounced update when localDiagramName changes (e.g., user typing)
-  // This syncs local changes TO the context after a delay.
-  useEffect(() => {
-    if (localDiagramName.trim() !== "" && localDiagramName !== modelName) {
-      debouncedSetContextModelName(localDiagramName);
-    }
-    return () => {
-      (debouncedSetContextModelName as any).cancel?.();
-    };
-  }, [localDiagramName, modelName, debouncedSetContextModelName]);
-
-
   const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalDiagramName(e.target.value); // Update local state immediately on input
+    // When input changes, call the debounced function to update context.
+    // The input uses defaultValue + key, so it updates visually immediately.
+    debouncedSetContextModelName(e.target.value);
   };
 
-  const handleNameInputBlur = () => {
+  const handleNameInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     (debouncedSetContextModelName as any).cancel?.(); // Cancel any pending debounced update
-    if (localDiagramName.trim() === "") {
-      toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-      setLocalDiagramName(modelName); // Revert to current context modelName if input is empty
-    } else if (localDiagramName !== modelName) {
-      setModelName(localDiagramName); // Update context immediately if valid and different
+    const currentInputValue = e.target.value;
+    const trimmedInputValue = currentInputValue.trim();
+
+    // If the final trimmed value is different from context, update context.
+    // This handles cases where user types then blurs without waiting for debounce.
+    if (trimmedInputValue !== modelName) {
+        setModelName(trimmedInputValue); // Allow setting to empty string
     }
+    // If they are the same after trimming (e.g. user added spaces then removed), no update needed if modelName already reflects the trimmed state.
   };
 
   const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       (debouncedSetContextModelName as any).cancel?.();
-      if (localDiagramName.trim() === "") {
-        toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-        setLocalDiagramName(modelName);
-      } else if (localDiagramName !== modelName) {
-        setModelName(localDiagramName);
+      const trimmedValue = (e.target as HTMLInputElement).value.trim();
+      if (trimmedValue !== modelName) {
+        setModelName(trimmedValue); // Allow setting to empty string
       }
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
       (debouncedSetContextModelName as any).cancel?.();
-      setLocalDiagramName(modelName); // Revert to current context modelName on Escape
+      // On escape, the input value should revert to the current modelName from context.
+      // Setting target.value directly and then blurring is a common pattern for uncontrolled-like behavior.
+      (e.target as HTMLInputElement).value = modelName;
       e.currentTarget.blur();
     }
   };
 
   const handleShare = () => {
-    console.log("Sharing diagram...");
     toast({
       title: "Sharing Options",
       description: "Sharing functionality not yet implemented.",
@@ -108,7 +94,8 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
       <header className="flex h-16 items-center justify-between border-b bg-background px-4 shrink-0">
         <div className="flex items-center gap-4">
           <Input
-            value={localDiagramName}
+            key={modelName} // Adding key here forces re-mount (and thus re-read of defaultValue) if modelName changes externally
+            defaultValue={modelName} // Use defaultValue to allow typing, onBlur/Enter/debounce will sync to context
             onChange={handleNameInputChange}
             onBlur={handleNameInputBlur}
             onKeyDown={handleNameInputKeyDown}
@@ -167,3 +154,4 @@ interface DiagramHeaderProps {
   onLoad: () => void;
   isSaving: boolean;
 }
+    
