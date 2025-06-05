@@ -15,8 +15,8 @@ import {
   type OnNodesChange,
   type Viewport,
   type NodeChange,
-  type Connection, 
-  ConnectionMode,
+  type Connection,
+  ConnectionMode, // Import ConnectionMode
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -69,7 +69,7 @@ interface DiagramCanvasProps {
   connectionMode?: ConnectionMode;
   nodesDraggable?: boolean;
   elementsSelectable?: boolean;
-  // paneMoveable was removed here
+  // paneMoveable prop removed from here
   zoomOnDoubleClick?: boolean;
   selectionOnDrag?: boolean;
   nodeDragThreshold?: number;
@@ -86,16 +86,16 @@ export function DiagramCanvas({
   setNodes,
   setEdges,
   onViewportChange,
-  panOnDrag = false,
+  panOnDrag = false, // Explicitly false to control pane dragging
   zoomOnScroll = false,
   zoomOnPinch = false,
-  connectionMode = ConnectionMode.Loose, // Kept from previous step
-  nodesDraggable = false, // Kept from previous step
-  elementsSelectable = false, // Kept from previous step
+  connectionMode = ConnectionMode.Loose,
+  nodesDraggable = false,
+  elementsSelectable = false,
   // paneMoveable prop removed from destructuring and default
-  zoomOnDoubleClick = false, // Kept from previous step
-  selectionOnDrag = false, // Kept from previous step
-  nodeDragThreshold = 1, // Kept from previous step
+  zoomOnDoubleClick = false,
+  selectionOnDrag = false,
+  nodeDragThreshold = 1,
   onConnectStart,
   onConnectEnd,
 }: DiagramCanvasProps) {
@@ -241,7 +241,7 @@ export function DiagramCanvas({
     if (onConnectStart) onConnectStart(event, params);
   }, [onConnectStart]);
 
-  const onConnectEndInternal = useCallback((event: MouseEvent | TouchEvent) => { 
+  const onConnectEndInternal = useCallback((event: MouseEvent | TouchEvent) => {
     console.log('[DIAG] onConnectEnd event:', event);
     if (event.target) {
         console.log('[DIAG] onConnectEnd - event.target:', event.target);
@@ -276,26 +276,27 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        
-        nodesDraggable={nodesDraggable} 
+
+        nodesDraggable={nodesDraggable}
         nodesConnectable={true}
-        elementsSelectable={elementsSelectable} 
+        elementsSelectable={elementsSelectable}
         nodeDragThreshold={nodeDragThreshold}
-        
-        elevateNodesOnSelect={true} 
+
+        elevateNodesOnSelect={true}
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
         zoomOnPinch={zoomOnPinch}
-        panOnScroll={false} 
-        
-        zoomOnDoubleClick={zoomOnDoubleClick} 
-        selectionOnDrag={selectionOnDrag} 
+        panOnScroll={false}
+
+        zoomOnDoubleClick={zoomOnDoubleClick}
+        selectionOnDrag={selectionOnDrag}
 
         connectionMode={connectionMode}
 
         onConnectStart={onConnectStartInternal}
         onConnectEnd={onConnectEndInternal}
-        // paneMoveable prop removed entirely
+        // paneMoveable prop is removed to use default (true),
+        // but panOnDrag={false} should prevent mouse pane dragging.
       >
         <Controls />
         <Background gap={16} />
@@ -306,6 +307,4 @@ export function DiagramCanvas({
     </div>
   );
 }
-    
-
     
