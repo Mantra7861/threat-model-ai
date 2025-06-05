@@ -323,12 +323,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const onNodeClick = useCallback((event: ReactMouseEvent, node: Node) => {
         setSelectedElementId(node.id);
-        event.stopPropagation(); // Prevent pane click from firing
+        if (event && typeof event.stopPropagation === 'function') {
+            event.stopPropagation(); // Prevent pane click from firing
+        }
     }, [setSelectedElementId]);
 
     const onEdgeClick = useCallback((event: ReactMouseEvent, edge: Edge) => {
         setSelectedElementId(edge.id);
-        event.stopPropagation(); // Prevent pane click from firing
+        if (event && typeof event.stopPropagation === 'function') {
+            event.stopPropagation(); // Prevent pane click from firing
+        }
     }, [setSelectedElementId]);
 
     const onPaneClick = useCallback(() => {
@@ -667,5 +671,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     );
 }
 
+
+    
 
     
