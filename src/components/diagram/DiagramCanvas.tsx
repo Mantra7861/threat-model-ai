@@ -16,15 +16,14 @@ import {
   type Viewport,
   type NodeChange,
   type Connection,
-  ConnectionMode, // Import ConnectionMode
+  ConnectionMode,
+  type SelectionChangedParams,
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
 import type { StencilData, InfrastructureStencilData, ProcessStencilData } from '@/services/stencilService';
 
-// nodeTypes map keys should be PascalCase, matching node.type set from stencil.iconName or "Boundary"
 const nodeTypes = {
-  // Infrastructure Icons
   Server: CustomNode,
   HardDrive: CustomNode,
   HardDrives: CustomNode,
@@ -33,8 +32,6 @@ const nodeTypes = {
   Router: CustomNode,
   ShieldCheck: CustomNode,
   User: CustomNode,
-
-  // Process Icons / Shapes
   Rectangle: CustomNode,
   Circle: CustomNode,
   Diamond: CustomNode,
@@ -44,11 +41,7 @@ const nodeTypes = {
   PencilSimpleLine: CustomNode,
   StickyNote: CustomNode,
   ArrowRight: CustomNode,
-
-  // Boundary Type
   Boundary: CustomNode,
-
-  // Fallback/Default Icons from Phosphor
   Question: CustomNode,
   Package: CustomNode,
   Default: CustomNode,
@@ -63,18 +56,9 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
-  panOnDrag?: boolean | undefined; // Keep for flexibility if ProjectClientLayout wants to control it
-  zoomOnScroll?: boolean | undefined;
-  zoomOnPinch?: boolean | undefined;
-  connectionMode?: ConnectionMode;
-  nodesDraggable?: boolean;
-  elementsSelectable?: boolean;
-  zoomOnDoubleClick?: boolean;
-  selectionOnDrag?: boolean;
-  nodeDragThreshold?: number;
-  onNodeClick?: (event: ReactMouseEvent, node: Node) => void;
-  onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void;
-  onPaneClick?: (event: ReactMouseEvent) => void;
+  onPaneClick?: (event: ReactMouseEvent) => void; // Keep for centralized click handling
+  onSelectionChange?: (params: SelectionChangedParams) => void;
+  isSelectionModifierKeyPressed: boolean;
 }
 
 export function DiagramCanvas({
@@ -86,18 +70,9 @@ export function DiagramCanvas({
   setNodes,
   setEdges,
   onViewportChange,
-  onNodeClick,
-  onEdgeClick,
   onPaneClick,
-  panOnDrag = true, 
-  zoomOnScroll = true,
-  zoomOnPinch = true,
-  connectionMode = ConnectionMode.Loose, // Crucial for fixing connection
-  nodesDraggable = true,
-  elementsSelectable = true,
-  zoomOnDoubleClick = true,
-  selectionOnDrag = true,
-  nodeDragThreshold = 1,
+  onSelectionChange,
+  isSelectionModifierKeyPressed,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -114,9 +89,7 @@ export function DiagramCanvas({
       if (!reactFlowWrapper.current) return;
 
       const stencilDataString = event.dataTransfer.getData('application/reactflow');
-
       if (!stencilDataString) {
-        console.log("DiagramCanvas onDrop: No stencilDataString. Likely not a library stencil drop. Ignoring.");
         return;
       }
 
@@ -131,11 +104,10 @@ export function DiagramCanvas({
 
       const nodeIconName = droppedStencil.iconName || 'Package';
       const isDroppedStencilBoundary = droppedStencil.stencilType === 'infrastructure' && (droppedStencil as InfrastructureStencilData).isBoundary === true;
-
       const newNodeType = isDroppedStencilBoundary ? 'Boundary' : nodeIconName;
 
       if (!(newNodeType in nodeTypes)) {
-        console.warn(`DiagramCanvas: Dropped stencil's effective type "${newNodeType}" (iconName from stencil: ${nodeIconName}) not found in nodeTypes. Defaulting to 'Default'. Add "${newNodeType}: CustomNode" to DiagramCanvas nodeTypes if it's a valid Phosphor icon name.`);
+        console.warn(`DiagramCanvas: Dropped stencil's effective type "${newNodeType}" not found in nodeTypes. Defaulting to 'Default'.`);
       }
 
       const flowPosition = screenToFlowPosition({
@@ -179,7 +151,6 @@ export function DiagramCanvas({
       }
 
       const newNodeId = `${droppedStencil.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
       const newNodeData: Record<string, any> = {
         label: droppedStencil.name,
         properties: { ...(droppedStencil.properties || {}), name: droppedStencil.name },
@@ -197,7 +168,6 @@ export function DiagramCanvas({
         width: defaultWidth,
         height: defaultHeight,
       };
-
       if (isDroppedStencilBoundary && newNodeData.boundaryColor) {
          nodeStyle['--dynamic-boundary-color' as any] = newNodeData.boundaryColor;
       }
@@ -213,11 +183,8 @@ export function DiagramCanvas({
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        selected: true, // New nodes are selected by default
+        selected: true, 
       };
-
-      console.log("DiagramCanvas onDrop - newNode created:", JSON.stringify(newNode, null, 2));
-
 
       setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
       setEdges((eds) => eds.map(e => ({...e, selected: false})));
@@ -230,17 +197,22 @@ export function DiagramCanvas({
           {type: 'select', id: newNode.id, selected: true} as NodeChange
         ]);
       }
-      // Trigger onNodeClick for the newly added node so properties panel updates
-      if (onNodeClick) {
-        // Simulate a click event (or pass null if event not strictly needed by handler)
-        // The actual event object might be complex to construct, so passing a simplified one.
-        onNodeClick({} as ReactMouseEvent, newNode);
+      
+      // Manually trigger pane click logic to ensure the new node is selected for properties panel
+      if (onPaneClick) {
+        // Simulate a basic click event on the location of the new node
+        // This helps ProjectClientLayout's onPaneClick->getTopmostElementAtClick to select it
+        const pseudoEvent = { 
+            clientX: event.clientX, // Use original drop event clientX/Y
+            clientY: event.clientY,
+            // Add other minimal properties if your onPaneClick or getTopmostElementAtClick expects them
+        } as unknown as ReactMouseEvent; // Cast to avoid full event construction
+        onPaneClick(pseudoEvent);
       }
-
 
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project, onNodeClick]
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project, onPaneClick]
   );
 
   return (
@@ -256,37 +228,34 @@ export function DiagramCanvas({
         nodeTypes={nodeTypes}
         onViewportChange={onViewportChange}
         className="bg-background"
-        deleteKeyCode={['Backspace', 'Delete']} // Re-enable delete key
+        deleteKeyCode={['Backspace', 'Delete']}
 
-        nodesDraggable={nodesDraggable}
-        nodesConnectable={true} // Always true for connection functionality
-        elementsSelectable={elementsSelectable}
-        nodeDragThreshold={nodeDragThreshold}
+        nodesDraggable={true} 
+        nodesConnectable={true} 
+        elementsSelectable={true}
+        nodeDragThreshold={1}
 
         elevateNodesOnSelect={true}
-        panOnDrag={panOnDrag}
-        zoomOnScroll={zoomOnScroll}
-        zoomOnPinch={zoomOnPinch}
-        panOnScroll={false} // Typically false, panOnDrag handles mouse panning
+        panOnDrag={!isSelectionModifierKeyPressed} // Pan if Ctrl/Meta not pressed
+        zoomOnScroll={true}
+        zoomOnPinch={true}
+        panOnScroll={false} 
 
-        zoomOnDoubleClick={zoomOnDoubleClick}
-        selectionOnDrag={selectionOnDrag} // For area selection
+        zoomOnDoubleClick={true}
+        selectionOnDrag={isSelectionModifierKeyPressed} // Area selection if Ctrl/Meta pressed
 
-        connectionMode={connectionMode} // KEEP THIS! Crucial for working connections.
+        connectionMode={ConnectionMode.Loose}
 
-        onNodeClick={onNodeClick}
-        onEdgeClick={onEdgeClick}
-        onPaneClick={onPaneClick}
+        onPaneClick={onPaneClick} // Centralized click logic
+        onSelectionChange={onSelectionChange} // For multi-select updates
+        // onNodeClick and onEdgeClick are removed, handled by onPaneClick + getTopmostElementAtClick
       >
         <Controls />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
-          Drag components. Click to select. Connect handles.
+          Drag components. Click to select. Ctrl/Cmd+Drag for multi-select.
         </Panel>
       </ReactFlow>
     </div>
   );
 }
-    
-
-    

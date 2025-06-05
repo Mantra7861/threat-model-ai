@@ -15,6 +15,7 @@ import {
     applyEdgeChanges,
     addEdge,
     useReactFlow,
+    type SelectionChangedParams,
 } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
@@ -36,10 +37,11 @@ import {
     componentToNode,
     connectionToEdge,
     nodeToComponent,
-    edgeToConnection
+    edgeToConnection,
+    calculateEffectiveZIndex, // Import calculateEffectiveZIndex
+    getTopmostElementAtClick, // Import getTopmostElementAtClick
 } from '@/lib/diagram-utils';
 import { useToast } from '@/hooks/use-toast';
-import { calculateEffectiveZIndex, getTopmostElementAtClick } from '@/lib/diagram-utils';
 import { DiagramHeader } from "@/components/layout/DiagramHeader";
 import { ThreatReportPanel } from "@/components/diagram/ThreatReportPanel";
 import { NewModelDialog } from '@/components/dialogs/NewModelDialog';
@@ -58,7 +60,7 @@ interface ProjectClientLayoutProps {
 export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: ProjectClientLayoutProps) {
     const { modelType, setModelType: setProjectContextModelType, modelName, setModelName } = useProjectContext();
     const { currentUser, loading: authLoading, firebaseReady } = useAuth();
-    const { getNodes, getEdges, getViewport, fitView, project, setViewport: rfSetViewport } = useReactFlow<Node, Edge>();
+    const { getNodes, getEdges, getViewport, fitView, project, setViewport: rfSetViewport, screenToFlowPosition, getSelectedNodes, getSelectedEdges } = useReactFlow<Node, Edge>();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -68,16 +70,17 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [currentViewport, setCurrentViewport] = useState<Viewport | undefined>(undefined);
 
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+    const [multipleElementsSelected, setMultipleElementsSelected] = useState(false);
 
     const [loading, setLoading] = useState(true);
-    const [isLoadingModel, setIsLoadingModel] = useState(false); // Specific to model load/save ops
+    const [isLoadingModel, setIsLoadingModel] = useState(false); 
     const [error, setError] = useState<string | null>(null);
     const { toast, dismiss: dismissToast } = useToast();
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
     const [isLoadModelDialogOpen, setIsLoadModelDialogOpen] = useState(false);
     const [userModels, setUserModels] = useState<SavedModelInfo[]>([]);
 
-    const [modelId, setModelId] = useState<string | null>(null); // Tracks the ID of the currently loaded model on canvas
+    const [modelId, setModelId] = useState<string | null>(null); 
     
     const [diagramDataForAI, setDiagramDataForAI] = useState<Diagram | null>(
         getDefaultDiagram(null, modelName, modelType)
@@ -86,34 +89,49 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     
     const justCreatedNewModelFromDialog = useRef(false); 
     const lastToastTime = useRef(Date.now());
-    const TOAST_DEBOUNCE_DURATION = 2500; // 2.5 seconds
+    const TOAST_DEBOUNCE_DURATION = 2500;
     const initialLoadAttempted = useRef(false);
     const isDirectlyLoading = useRef(false);
+    const [isSelectionModifierKeyPressed, setIsSelectionModifierKeyPressed] = useState(false);
+
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Control' || event.metaKey) {
+                setIsSelectionModifierKeyPressed(true);
+            }
+        };
+        const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.key === 'Control' || event.metaKey) {
+                setIsSelectionModifierKeyPressed(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, []);
 
 
     const resetDiagramState = useCallback((name: string, type: ModelType) => {
-        console.log(`RESET_DIAGRAM_STATE: Called with Name: ${name}, Type: ${type}. Current canvas modelId: ${modelId}`);
-        
         setModelName(name); 
         setProjectContextModelType(type);
-
         setNodesInternal([]);
         setEdgesInternal([]);
-        
         const defaultVp = { x: 0, y: 0, zoom: 1 };
         if (typeof rfSetViewport === 'function') {
             rfSetViewport(defaultVp, { duration: 0 });
         }
         setCurrentViewport(defaultVp);
-
         setSelectedElementId(null);
+        setMultipleElementsSelected(false);
         setModelId(null); 
         setDiagramDataForAI(getDefaultDiagram(null, name, type)); 
         setSessionReports([]);
         setError(null); 
-        
     }, [
-        modelId, 
         setModelName, setProjectContextModelType, 
         setNodesInternal, setEdgesInternal, 
         rfSetViewport, setCurrentViewport, 
@@ -122,10 +140,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
 
     const loadModel = useCallback(async (idToLoad: string) => {
-        console.log(`LOADMODEL: Attempting to load model ID: ${idToLoad}. Current canvas modelId: ${modelId}. IsLoadingModel: ${isLoadingModel}`);
-
         if (isDirectlyLoading.current && modelId === idToLoad) {
-            console.log(`LOADMODEL: Already directly loading model ${idToLoad}. Skipping.`);
             return;
         }
         isDirectlyLoading.current = true;
@@ -135,12 +150,10 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
         try {
             const loadedModelData = await getThreatModelById(idToLoad);
-            
             if (!loadedModelData) {
                  throw new Error(`Model with ID ${idToLoad} not found or couldn't be loaded.`);
             }
             const loadedModelType = loadedModelData.modelType || 'infrastructure'; 
-            console.log(`LOADMODEL: Data for ${idToLoad} fetched. Name: ${loadedModelData.name}, Type: ${loadedModelType}`);
             
             setModelName(loadedModelData.name); 
             setProjectContextModelType(loadedModelType); 
@@ -162,6 +175,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             
             setModelId(loadedModelData.id); 
             setSelectedElementId(null);
+            setMultipleElementsSelected(false);
             setSessionReports(loadedModelData.reports || []);
 
             setDiagramDataForAI({
@@ -209,33 +223,27 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const targetNewName = modelName;
         const targetNewType = modelType;
     
-        console.log(`EFFECT[URL_PROJECT_ID]: Triggered. URL_ID: ${initialProjectIdFromUrl}, Canvas_modelId: ${modelId}, AuthLoading: ${authLoading}, FirebaseReady: ${firebaseReady}, InitialLoadAttempted: ${initialLoadAttempted.current}, JustCreatedDialog: ${justCreatedNewModelFromDialog.current}, CtxName: ${targetNewName}, CtxType: ${targetNewType}`);
-    
         if (authLoading || !firebaseReady ) {
             if (!authLoading && !firebaseReady) setError("Firebase connection failed.");
             setLoading(true); 
             return;
         }
         if (!currentUser) {
-             console.log("EFFECT[URL_PROJECT_ID]: No current user. AuthProvider should handle redirection.");
              setLoading(false); 
              return;
         }
         
         if (isDirectlyLoading.current && initialProjectIdFromUrl === modelId) {
-             console.log(`EFFECT[URL_PROJECT_ID]: isDirectlyLoading is true for URL model ${initialProjectIdFromUrl}, deferring effect action.`);
              return; 
         }
         
         if (!initialLoadAttempted.current || (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new' && initialProjectIdFromUrl !== modelId)) {
             if (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
                 if (!isLoadingModel) { 
-                     console.log(`EFFECT[URL_PROJECT_ID]: Attempting initial load for model ${initialProjectIdFromUrl}.`);
                      loadModel(initialProjectIdFromUrl); 
                 }
             } else if (initialProjectIdFromUrl === 'new') {
                 if (justCreatedNewModelFromDialog.current) {
-                    console.log(`EFFECT[URL_PROJECT_ID]: Finalizing new model creation from dialog. Context Name: ${targetNewName}, Context Type: ${targetNewType}. Canvas is already reset.`);
                     if (typeof fitView === 'function') {
                         setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
                     }
@@ -243,10 +251,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                     justCreatedNewModelFromDialog.current = false; 
                 } else {
                     if (modelId !== null || modelType !== targetNewType || modelName !== targetNewName) { 
-                        console.log(`EFFECT[URL_PROJECT_ID]: URL is /projects/new. Resetting to default new model of type '${targetNewType}' and name '${targetNewName}'.`);
                         resetDiagramState(targetNewName, targetNewType); 
                     } else {
-                        console.log(`EFFECT[URL_PROJECT_ID]: On /projects/new, modelId is null, canvas empty, context matches. Current new model (Name: ${targetNewName}, Type: ${targetNewType}) is active. Fitting view.`);
                         if (typeof fitView === 'function') {
                            setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
                         }
@@ -254,7 +260,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                     }
                 }
             } else { 
-                 console.log(`EFFECT[URL_PROJECT_ID]: No valid project ID in URL ('${initialProjectIdFromUrl}'). Resetting to default new model 'infrastructure'.`);
                  resetDiagramState("Untitled Model", 'infrastructure'); 
                  if (pathname !== '/projects/new') {
                      router.push('/projects/new', { scroll: false }); 
@@ -262,7 +267,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             }
             initialLoadAttempted.current = true; 
         } else { 
-            console.log(`EFFECT[URL_PROJECT_ID]: Initial load for ${initialProjectIdFromUrl} already attempted or matches current state. Context (Name: ${targetNewName}, Type: ${targetNewType}). Finalizing.`);
             if (modelId === initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new' && (nodes.length > 0 || edges.length > 0)) {
                 if (typeof fitView === 'function' && !currentViewport) { 
                    setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
@@ -288,6 +292,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             prevNodes.map(n => ({
                 ...n,
                 selected: selectedElementId === n.id,
+                zIndex: calculateEffectiveZIndex(n.id, n.type as string, selectedElementId === n.id, n.zIndex, selectedElementId)
             }))
         );
         setEdgesInternal(prevEdges =>
@@ -321,23 +326,38 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         [setEdgesInternal] 
     );
 
-    const onNodeClick = useCallback((event: ReactMouseEvent, node: Node) => {
-        setSelectedElementId(node.id);
-        if (event && typeof event.stopPropagation === 'function') {
-            event.stopPropagation(); // Prevent pane click from firing
-        }
-    }, [setSelectedElementId]);
+    const onPaneClick = useCallback((event: ReactMouseEvent) => {
+        const currentNodes = getNodes();
+        const currentEdges = getEdges();
+        const currentVp = getViewport();
+        const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY }, false);
 
-    const onEdgeClick = useCallback((event: ReactMouseEvent, edge: Edge) => {
-        setSelectedElementId(edge.id);
-        if (event && typeof event.stopPropagation === 'function') {
-            event.stopPropagation(); // Prevent pane click from firing
-        }
-    }, [setSelectedElementId]);
+        const clickedElement = getTopmostElementAtClick(currentNodes, currentEdges, flowPosition, currentVp.zoom, selectedElementId);
 
-    const onPaneClick = useCallback(() => {
-        setSelectedElementId(null);
-    }, [setSelectedElementId]);
+        if (clickedElement) {
+            setSelectedElementId(clickedElement.id);
+            setMultipleElementsSelected(false);
+        } else {
+            setSelectedElementId(null);
+            // Do not clear multiple selection state here if Ctrl is not pressed during selection drag end.
+            // React Flow's onSelectionChange will handle it.
+        }
+    }, [getNodes, getEdges, getViewport, screenToFlowPosition, selectedElementId, setSelectedElementId, setMultipleElementsSelected]);
+
+
+    const onSelectionChange = useCallback(({ nodes: selNodes, edges: selEdges }: SelectionChangedParams) => {
+        const totalSelected = selNodes.length + selEdges.length;
+        if (totalSelected > 1) {
+            setSelectedElementId(null); // No single element is primary
+            setMultipleElementsSelected(true);
+        } else if (totalSelected === 1) {
+            setSelectedElementId(selNodes[0]?.id || selEdges[0]?.id);
+            setMultipleElementsSelected(false);
+        } else {
+            setSelectedElementId(null);
+            setMultipleElementsSelected(false);
+        }
+    }, [setSelectedElementId, setMultipleElementsSelected]);
 
 
     const selectedNode = useMemo(() => nodes.find(node => node.id === selectedElementId) ?? null, [nodes, selectedElementId]);
@@ -393,6 +413,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         }
         if (selectedElementId === elementId) {
             setSelectedElementId(null); 
+            setMultipleElementsSelected(false);
         }
         toast({ title: `${isNode ? 'Component' : 'Connection'} Deleted`, description: `${isNode ? 'Component' : 'Connection'} removed from the diagram.` });
         setDiagramDataForAI(prev => {
@@ -405,6 +426,31 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         });
     }, [setNodesInternal, setEdgesInternal, toast, selectedElementId, setSelectedElementId, getNodes, getEdges]);
 
+    const deleteAllSelectedElements = useCallback(() => {
+        const selNodes = getSelectedNodes();
+        const selEdges = getSelectedEdges();
+
+        if (selNodes.length === 0 && selEdges.length === 0) {
+            toast({ title: "Nothing to delete", description: "No elements are currently selected.", variant: "default" });
+            return;
+        }
+
+        setNodesInternal(nds => nds.filter(n => !selNodes.find(sn => sn.id === n.id)));
+        setEdgesInternal(eds => eds.filter(e => !selEdges.find(se => se.id === e.id) && !selNodes.find(sn => sn.id === e.source || sn.id === e.target)));
+        
+        setSelectedElementId(null);
+        setMultipleElementsSelected(false);
+        toast({ title: "Elements Deleted", description: `Removed ${selNodes.length} components and ${selEdges.length} connections.` });
+         setDiagramDataForAI(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                components: getNodes().map(n => nodeToComponent(n)), // getNodes() will reflect changes after state update
+                connections: getEdges().map(e => edgeToConnection(e)),
+            };
+        });
+    }, [getSelectedNodes, getSelectedEdges, setNodesInternal, setEdgesInternal, toast, getNodes, getEdges]);
+
 
     const handleSave = useCallback(async () => {
         const currentContextModelType = modelType;
@@ -416,7 +462,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         }
         if (typeof getViewport !== 'function' || typeof getNodes !== 'function' || typeof getEdges !== 'function') {
             toast({ title: 'Error', description: 'Diagram canvas not ready.', variant: 'destructive' });
-            console.error("handleSave: ReactFlow functions (getViewport, getNodes, getEdges) not available.");
             return;
         }
          if (!currentContextModelName || currentContextModelName.trim() === "") {
@@ -474,7 +519,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Could not save diagram.';
             toast({ title: 'Error Saving Model', description: errorMessage, variant: 'destructive' });
-            console.error("Error in handleSave:", err);
         } finally {
             setIsLoadingModel(false);
         }
@@ -507,7 +551,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const handleLoadModelSelect = useCallback(async (selectedModelIdFromDialog: string) => {
         setIsLoadModelDialogOpen(false);
-        console.log(`LOAD_MODEL_SELECT: Dialog requested load for model ID: ${selectedModelIdFromDialog}. Current canvas modelId: ${modelId}`);
 
         if (selectedModelIdFromDialog === modelId && (nodes.length > 0 || edges.length > 0)) {
              const now = Date.now();
@@ -521,10 +564,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         initialLoadAttempted.current = false; 
         
         if (pathname !== `/projects/${selectedModelIdFromDialog}`) {
-            console.log(`LOAD_MODEL_SELECT: Navigating to /projects/${selectedModelIdFromDialog} for loading.`);
             router.push(`/projects/${selectedModelIdFromDialog}`, { scroll: false });
         } else {
-            console.log(`LOAD_MODEL_SELECT: Already on /projects/${selectedModelIdFromDialog}. Main effect will handle load if needed.`);
             if (modelId !== selectedModelIdFromDialog || nodes.length === 0) {
                 loadModel(selectedModelIdFromDialog); 
             }
@@ -534,7 +575,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
         setIsNewModelDialogOpen(false);
-        console.log(`HANDLE_CREATE_NEW_MODEL: Name: ${newModelName}, Type: ${newModelType}`);
         
         justCreatedNewModelFromDialog.current = true; 
         initialLoadAttempted.current = false; 
@@ -626,17 +666,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         setNodes={setNodesInternal} 
                         setEdges={setEdgesInternal} 
                         onViewportChange={onViewportChangeInternal}
-                        onNodeClick={onNodeClick} // Pass the handler
-                        onEdgeClick={onEdgeClick} // Pass the handler
-                        onPaneClick={onPaneClick} // Pass the handler
-                        // Re-enable interactive features
-                        nodesDraggable={true}
-                        elementsSelectable={true}
-                        panOnDrag={true}
-                        zoomOnScroll={true}
-                        zoomOnPinch={true}
-                        zoomOnDoubleClick={true}
-                        selectionOnDrag={true}
+                        onPaneClick={onPaneClick}
+                        onSelectionChange={onSelectionChange}
+                        isSelectionModifierKeyPressed={isSelectionModifierKeyPressed}
                     />
                 </main>
 
@@ -651,6 +683,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                                 selectedElement={selectedElement} 
                                 onUpdateProperties={updateElementProperties}
                                 onDeleteElement={deleteElement}
+                                multipleElementsSelected={multipleElementsSelected}
+                                onDeleteAllSelected={deleteAllSelectedElements}
                             />
                         </TabsContent>
                         <TabsContent value="report" className="flex-1 overflow-auto p-4 mt-0">
