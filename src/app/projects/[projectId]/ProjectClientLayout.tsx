@@ -626,9 +626,17 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                         setNodes={setNodesInternal} 
                         setEdges={setEdgesInternal} 
                         onViewportChange={onViewportChangeInternal}
-                        onNodeClick={onNodeClick}
-                        onEdgeClick={onEdgeClick}
-                        onPaneClick={onPaneClick}
+                        onNodeClick={onNodeClick} // Pass the handler
+                        onEdgeClick={onEdgeClick} // Pass the handler
+                        onPaneClick={onPaneClick} // Pass the handler
+                        // Re-enable interactive features
+                        nodesDraggable={true}
+                        elementsSelectable={true}
+                        panOnDrag={true}
+                        zoomOnScroll={true}
+                        zoomOnPinch={true}
+                        zoomOnDoubleClick={true}
+                        selectionOnDrag={true}
                     />
                 </main>
 
@@ -670,8 +678,3 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         </>
     );
 }
-
-
-    
-
-    
