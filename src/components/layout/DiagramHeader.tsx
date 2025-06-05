@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react'; // Keep useState for other potential local states if any, useEffect and useCallback are used
+import React, { useState, useEffect, useCallback, type ChangeEvent, type FocusEvent, type KeyboardEvent } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,76 +9,47 @@ import { ShareNetwork, PlusCircle, FolderOpen, FloppyDisk, Spinner } from "@phos
 import { useToast } from "@/hooks/use-toast";
 import { useProjectContext } from '@/contexts/ProjectContext';
 
-// Debounce function
-function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  const debounced = (...args: Parameters<F>) => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => func(...args), waitFor);
-  };
-  (debounced as any).cancel = () => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-  };
-  return debounced as F & { cancel?: () => void };
-}
-
-
 export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSaving }: DiagramHeaderProps) {
   const { toast } = useToast();
   const { modelName, setModelName } = useProjectContext();
-  // No localDiagramName state anymore. Input directly uses modelName from context.
+  const [inputValue, setInputValue] = useState<string>(modelName);
 
-  // Debounced function to update the context modelName
-  const debouncedSetContextModelName = useCallback(
-    debounce((name: string) => {
-      const trimmedName = name.trim();
-      // Only update context if the new trimmed name is different from current context modelName
-      if (trimmedName !== modelName) { // Compare with current context modelName
-        // Allow setting to empty string if that's the intent
-        setModelName(trimmedName);
-      }
-    }, 750),
-    [setModelName, modelName] // modelName is needed here to ensure the debounced function's closure has the latest value for comparison
-  );
-
-  const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // When input changes, call the debounced function to update context.
-    // The input uses defaultValue + key, so it updates visually immediately.
-    debouncedSetContextModelName(e.target.value);
-  };
-
-  const handleNameInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    (debouncedSetContextModelName as any).cancel?.(); // Cancel any pending debounced update
-    const currentInputValue = e.target.value;
-    const trimmedInputValue = currentInputValue.trim();
-
-    // If the final trimmed value is different from context, update context.
-    // This handles cases where user types then blurs without waiting for debounce.
-    if (trimmedInputValue !== modelName) {
-        setModelName(trimmedInputValue); // Allow setting to empty string
+  // Sync inputValue FROM context modelName if context changes externally
+  useEffect(() => {
+    // Only update if the external modelName is different from the current input value
+    // This helps prevent an update loop if the change originated from this component's blur/enter handler
+    if (modelName !== inputValue) {
+      setInputValue(modelName);
     }
-    // If they are the same after trimming (e.g. user added spaces then removed), no update needed if modelName already reflects the trimmed state.
+  }, [modelName]); // Removed inputValue from dependency array
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
   };
 
-  const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      (debouncedSetContextModelName as any).cancel?.();
-      const trimmedValue = (e.target as HTMLInputElement).value.trim();
-      if (trimmedValue !== modelName) {
-        setModelName(trimmedValue); // Allow setting to empty string
+  const updateContextModelName = (currentValue: string) => {
+    const trimmedValue = currentValue.trim();
+    if (trimmedValue !== modelName) {
+      if (trimmedValue === "" && modelName !== "") { // Allow clearing the name
+         setModelName("");
+      } else if (trimmedValue !== "") {
+         setModelName(trimmedValue);
       }
-      e.currentTarget.blur();
+      // If trimmedValue is "" and modelName is already "", no update needed.
+    }
+  };
+
+  const handleInputBlur = (e: FocusEvent<HTMLInputElement>) => {
+    updateContextModelName(e.target.value);
+  };
+
+  const handleInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      updateContextModelName((e.target as HTMLInputElement).value);
+      (e.target as HTMLInputElement).blur(); // Optional: blur on enter
     } else if (e.key === 'Escape') {
-      (debouncedSetContextModelName as any).cancel?.();
-      // On escape, the input value should revert to the current modelName from context.
-      // Setting target.value directly and then blurring is a common pattern for uncontrolled-like behavior.
-      (e.target as HTMLInputElement).value = modelName;
-      e.currentTarget.blur();
+      setInputValue(modelName); // Revert to context modelName
+      (e.target as HTMLInputElement).blur();
     }
   };
 
@@ -94,11 +65,10 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
       <header className="flex h-16 items-center justify-between border-b bg-background px-4 shrink-0">
         <div className="flex items-center gap-4">
           <Input
-            key={modelName} // Adding key here forces re-mount (and thus re-read of defaultValue) if modelName changes externally
-            defaultValue={modelName} // Use defaultValue to allow typing, onBlur/Enter/debounce will sync to context
-            onChange={handleNameInputChange}
-            onBlur={handleNameInputBlur}
-            onKeyDown={handleNameInputKeyDown}
+            value={inputValue} // Controlled component
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
             className="text-lg font-semibold w-auto border-none shadow-none focus-visible:ring-0 px-1 py-0 h-auto"
             aria-label="Diagram Name"
             placeholder="Untitled Model"
@@ -154,4 +124,3 @@ interface DiagramHeaderProps {
   onLoad: () => void;
   isSaving: boolean;
 }
-    
