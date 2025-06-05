@@ -34,11 +34,13 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
   const [localDiagramName, setLocalDiagramName] = useState<string>(modelName);
 
   // Effect to sync localDiagramName FROM context modelName
+  // This runs when modelName (from context) changes.
+  // It updates localDiagramName if the context value is different.
   useEffect(() => {
     if (modelName !== localDiagramName) {
       setLocalDiagramName(modelName);
     }
-  }, [modelName, localDiagramName]); // Added localDiagramName to dependencies
+  }, [modelName]); // Only depends on modelName (from context)
 
   // Debounced function to update the context modelName
   const debouncedSetContextModelName = useCallback(
@@ -46,52 +48,49 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
       if (name.trim() !== "") { // Only update context if name is not empty
         setModelName(name);
       }
-    }, 750), // 750ms debounce
-    [setModelName] // Only depends on the stable setModelName from context
+    }, 750),
+    [setModelName] // Depends only on the stable setModelName from context
   );
 
   // Effect to call debounced update when localDiagramName changes (e.g., user typing)
+  // This syncs local changes TO the context after a delay.
   useEffect(() => {
-    // Condition to call debounce:
-    // 1. localDiagramName is not empty/whitespace.
-    // 2. localDiagramName is actually different from the context's modelName.
     if (localDiagramName.trim() !== "" && localDiagramName !== modelName) {
       debouncedSetContextModelName(localDiagramName);
     }
     return () => {
-      // Cancel any pending debounced update on unmount or if dependencies change
       (debouncedSetContextModelName as any).cancel?.();
     };
   }, [localDiagramName, modelName, debouncedSetContextModelName]);
 
 
   const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setLocalDiagramName(e.target.value);
+    setLocalDiagramName(e.target.value); // Update local state immediately on input
   };
 
   const handleNameInputBlur = () => {
-    (debouncedSetContextModelName as any).cancel?.(); // Cancel pending debounce
+    (debouncedSetContextModelName as any).cancel?.(); // Cancel any pending debounced update
     if (localDiagramName.trim() === "") {
       toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-      setLocalDiagramName(modelName); // Revert to current context modelName
+      setLocalDiagramName(modelName); // Revert to current context modelName if input is empty
     } else if (localDiagramName !== modelName) {
-      setModelName(localDiagramName); // Update context immediately
+      setModelName(localDiagramName); // Update context immediately if valid and different
     }
   };
 
   const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      (debouncedSetContextModelName as any).cancel?.(); // Cancel pending debounce
+      (debouncedSetContextModelName as any).cancel?.();
       if (localDiagramName.trim() === "") {
         toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-        setLocalDiagramName(modelName); // Revert
+        setLocalDiagramName(modelName);
       } else if (localDiagramName !== modelName) {
-        setModelName(localDiagramName); // Update context
+        setModelName(localDiagramName);
       }
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
-      (debouncedSetContextModelName as any).cancel?.(); // Cancel pending debounce
-      setLocalDiagramName(modelName); // Revert to current context modelName
+      (debouncedSetContextModelName as any).cancel?.();
+      setLocalDiagramName(modelName); // Revert to current context modelName on Escape
       e.currentTarget.blur();
     }
   };
