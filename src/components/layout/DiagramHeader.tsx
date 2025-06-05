@@ -5,17 +5,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ShareNetwork, PlusCircle, FolderOpen, FloppyDisk, Spinner } from "@phosphor-icons/react"; // Corrected import
+import { ShareNetwork, PlusCircle, FolderOpen, FloppyDisk, Spinner } from "@phosphor-icons/react";
 import { useToast } from "@/hooks/use-toast";
 import { useProjectContext } from '@/contexts/ProjectContext';
-
-interface DiagramHeaderProps {
-  projectId: string;
-  onNewModelClick: () => void;
-  onSave: () => void;
-  onLoad: () => void;
-  isSaving: boolean;
-}
 
 // Debounce function
 function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
@@ -26,7 +18,7 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
     }
     timeout = setTimeout(() => func(...args), waitFor);
   };
-  (debounced as any).cancel = () => { // Type assertion for cancel
+  (debounced as any).cancel = () => {
     if (timeout !== null) {
       clearTimeout(timeout);
       timeout = null;
@@ -46,28 +38,31 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
     if (modelName !== localDiagramName) {
       setLocalDiagramName(modelName);
     }
-  }, [modelName, localDiagramName]);
+  }, [modelName, localDiagramName]); // Added localDiagramName to dependencies
 
-  const debouncedSetModelName = useCallback(
+  // Debounced function to update the context modelName
+  const debouncedSetContextModelName = useCallback(
     debounce((name: string) => {
-      if (name.trim() === "") {
-        toast({ title: "Info", description: "Model name cannot be empty.", variant: "default" });
-        setLocalDiagramName(modelName); 
-      } else {
-        setModelName(name); 
+      if (name.trim() !== "") { // Only update context if name is not empty
+        setModelName(name);
       }
-    }, 500),
-    [setModelName, toast, modelName] 
+    }, 750), // 750ms debounce
+    [setModelName] // Only depends on the stable setModelName from context
   );
 
+  // Effect to call debounced update when localDiagramName changes (e.g., user typing)
   useEffect(() => {
-    if (localDiagramName !== modelName && localDiagramName.trim() !== "") {
-      debouncedSetModelName(localDiagramName);
+    // Condition to call debounce:
+    // 1. localDiagramName is not empty/whitespace.
+    // 2. localDiagramName is actually different from the context's modelName.
+    if (localDiagramName.trim() !== "" && localDiagramName !== modelName) {
+      debouncedSetContextModelName(localDiagramName);
     }
     return () => {
-      (debouncedSetModelName as any).cancel?.(); // Type assertion for cancel
+      // Cancel any pending debounced update on unmount or if dependencies change
+      (debouncedSetContextModelName as any).cancel?.();
     };
-  }, [localDiagramName, modelName, debouncedSetModelName]);
+  }, [localDiagramName, modelName, debouncedSetContextModelName]);
 
 
   const handleNameInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,28 +70,28 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
   };
 
   const handleNameInputBlur = () => {
-    (debouncedSetModelName as any).cancel?.(); 
+    (debouncedSetContextModelName as any).cancel?.(); // Cancel pending debounce
     if (localDiagramName.trim() === "") {
       toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-      setLocalDiagramName(modelName); 
+      setLocalDiagramName(modelName); // Revert to current context modelName
     } else if (localDiagramName !== modelName) {
-      setModelName(localDiagramName); 
+      setModelName(localDiagramName); // Update context immediately
     }
   };
 
   const handleNameInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      (debouncedSetModelName as any).cancel?.(); 
+      (debouncedSetContextModelName as any).cancel?.(); // Cancel pending debounce
       if (localDiagramName.trim() === "") {
         toast({ title: "Info", description: "Model name cannot be empty. Reverted to previous name.", variant: "default" });
-        setLocalDiagramName(modelName); 
+        setLocalDiagramName(modelName); // Revert
       } else if (localDiagramName !== modelName) {
-        setModelName(localDiagramName); 
+        setModelName(localDiagramName); // Update context
       }
       e.currentTarget.blur();
     } else if (e.key === 'Escape') {
-      (debouncedSetModelName as any).cancel?.(); 
-      setLocalDiagramName(modelName); 
+      (debouncedSetContextModelName as any).cancel?.(); // Cancel pending debounce
+      setLocalDiagramName(modelName); // Revert to current context modelName
       e.currentTarget.blur();
     }
   };
@@ -164,4 +159,12 @@ export function DiagramHeader({ projectId, onNewModelClick, onSave, onLoad, isSa
       </header>
     </TooltipProvider>
   );
+}
+
+interface DiagramHeaderProps {
+  projectId: string;
+  onNewModelClick: () => void;
+  onSave: () => void;
+  onLoad: () => void;
+  isSaving: boolean;
 }
