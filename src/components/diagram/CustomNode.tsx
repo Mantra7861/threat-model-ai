@@ -35,25 +35,24 @@ export const CustomNode: FC<NodeProps> = ({
 
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%',
-    height: '100%',
+    width: '100%', // Ensure it fills the React Flow node container
+    height: '100%', // Ensure it fills the React Flow node container
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    position: 'relative', // For z-index and absolute positioning of children like resizer
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
   const nodeLabel = data.label || data.name || 'Unnamed';
 
-  // Handles should be connectable if the node itself is.
-  // Default to true if nodeIsConnectableProp is undefined, as non-boundary nodes should be connectable.
   const isHandleConnectable = nodeIsConnectableProp !== undefined ? nodeIsConnectableProp : !isBoundary;
 
 
   if (isBoundary) {
+    // Boundary nodes still use their specific styling
     return (
       <div style={customNodeRootStyle} className="group">
         {showResizer && (
@@ -80,16 +79,15 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
-  // Simplified rendering for NON-BOUNDARY nodes for diagnostics
+  // Non-Boundary Nodes
   return (
     <div
         style={{
             ...customNodeRootStyle,
-            backgroundColor: 'rgba(0, 128, 0, 0.1)',
-            border: '1px solid green',
-            pointerEvents: 'none', // Make the node body non-interactive
+            // Removed pointerEvents: 'none' to allow node dragging
+            // Removed diagnostic background/border
         }}
-        className="group"
+        className="group" // 'group' class can be used by Tailwind for group-hover states if needed
     >
       {showResizer && (
         <NodeResizer
@@ -97,24 +95,29 @@ export const CustomNode: FC<NodeProps> = ({
           minHeight={data.minHeight || 40}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
-          isVisible={selected}
-          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
+          isVisible={selected} // Resizer only visible when node is selected
+          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} // Ensure resizer is above other elements
         />
       )}
+      
+      {/* Container for the label/icon, inherits pointer-events from parent (auto) by default */}
       <div
         className="w-full h-full flex items-center justify-center"
-        // This inner div also inherits pointerEvents: 'none' from its parent
+        style={{ pointerEvents: 'none' }} // Make label area non-interactive to pass clicks to node
       >
         <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
       </div>
 
-      {/* NEW WRAPPER DIV for handles */}
-      <div style={{ pointerEvents: 'none' }}>
-          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
-          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={true} style={{ pointerEvents: 'all' }} />
+      {/* Wrapper DIV for handles - keep this non-interactive */}
+      <div style={{ pointerEvents: 'none' }}> 
+          <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+          <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
       </div>
     </div>
   );
 };
+
+
+    

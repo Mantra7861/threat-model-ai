@@ -63,18 +63,18 @@ interface DiagramCanvasProps {
   setNodes: Dispatch<SetStateAction<Node[]>>;
   setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
-  panOnDrag?: boolean | undefined;
+  panOnDrag?: boolean | undefined; // Keep for flexibility if ProjectClientLayout wants to control it
   zoomOnScroll?: boolean | undefined;
   zoomOnPinch?: boolean | undefined;
   connectionMode?: ConnectionMode;
   nodesDraggable?: boolean;
   elementsSelectable?: boolean;
-  // paneMoveable prop removed from here
   zoomOnDoubleClick?: boolean;
   selectionOnDrag?: boolean;
   nodeDragThreshold?: number;
-  onConnectStart?: (event: ReactMouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => void;
-  onConnectEnd?: (event: MouseEvent | TouchEvent) => void;
+  onNodeClick?: (event: ReactMouseEvent, node: Node) => void;
+  onEdgeClick?: (event: ReactMouseEvent, edge: Edge) => void;
+  onPaneClick?: (event: ReactMouseEvent) => void;
 }
 
 export function DiagramCanvas({
@@ -86,18 +86,18 @@ export function DiagramCanvas({
   setNodes,
   setEdges,
   onViewportChange,
-  panOnDrag = false, // Explicitly false to control pane dragging
-  zoomOnScroll = false,
-  zoomOnPinch = false,
-  connectionMode = ConnectionMode.Loose,
-  nodesDraggable = false,
-  elementsSelectable = false,
-  // paneMoveable prop removed from destructuring and default
-  zoomOnDoubleClick = false,
-  selectionOnDrag = false,
+  onNodeClick,
+  onEdgeClick,
+  onPaneClick,
+  panOnDrag = true, 
+  zoomOnScroll = true,
+  zoomOnPinch = true,
+  connectionMode = ConnectionMode.Loose, // Crucial for fixing connection
+  nodesDraggable = true,
+  elementsSelectable = true,
+  zoomOnDoubleClick = true,
+  selectionOnDrag = true,
   nodeDragThreshold = 1,
-  onConnectStart,
-  onConnectEnd,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition, getNodes: rfGetNodesFromHook, project } = useReactFlow();
@@ -213,7 +213,7 @@ export function DiagramCanvas({
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        selected: true,
+        selected: true, // New nodes are selected by default
       };
 
       console.log("DiagramCanvas onDrop - newNode created:", JSON.stringify(newNode, null, 2));
@@ -230,37 +230,18 @@ export function DiagramCanvas({
           {type: 'select', id: newNode.id, selected: true} as NodeChange
         ]);
       }
+      // Trigger onNodeClick for the newly added node so properties panel updates
+      if (onNodeClick) {
+        // Simulate a click event (or pass null if event not strictly needed by handler)
+        // The actual event object might be complex to construct, so passing a simplified one.
+        onNodeClick({} as ReactMouseEvent, newNode);
+      }
+
 
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project]
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project, onNodeClick]
   );
-
-  const onConnectStartInternal = useCallback((event: ReactMouseEvent, params: { nodeId?: string; handleId?: string; handleType?: string }) => {
-    console.log('[DIAG] onConnectStart:', params, 'Event X:', event.clientX, 'Event Y:', event.clientY);
-    if (onConnectStart) onConnectStart(event, params);
-  }, [onConnectStart]);
-
-  const onConnectEndInternal = useCallback((event: MouseEvent | TouchEvent) => {
-    console.log('[DIAG] onConnectEnd event:', event);
-    if (event.target) {
-        console.log('[DIAG] onConnectEnd - event.target:', event.target);
-        const targetElement = event.target as HTMLElement;
-        const handle = targetElement.closest('.react-flow__handle');
-        if (handle) {
-            console.log('[DIAG] onConnectEnd - ended on handle:', handle.getAttribute('data-handleid'), 'of node:', handle.getAttribute('data-nodeid'));
-        } else {
-            const nodeElement = targetElement.closest('.react-flow__node');
-            if (nodeElement) {
-                console.log('[DIAG] onConnectEnd - ended on node:', nodeElement.getAttribute('data-id'));
-            } else {
-                console.log('[DIAG] onConnectEnd - ended on pane or unknown element.');
-            }
-        }
-    }
-    if (onConnectEnd) onConnectEnd(event);
-  }, [onConnectEnd]);
-
 
   return (
     <div className="h-full w-full absolute inset-0" ref={reactFlowWrapper}>
@@ -275,10 +256,10 @@ export function DiagramCanvas({
         nodeTypes={nodeTypes}
         onViewportChange={onViewportChange}
         className="bg-background"
-        deleteKeyCode={['Backspace', 'Delete']}
+        deleteKeyCode={['Backspace', 'Delete']} // Re-enable delete key
 
         nodesDraggable={nodesDraggable}
-        nodesConnectable={true}
+        nodesConnectable={true} // Always true for connection functionality
         elementsSelectable={elementsSelectable}
         nodeDragThreshold={nodeDragThreshold}
 
@@ -286,17 +267,16 @@ export function DiagramCanvas({
         panOnDrag={panOnDrag}
         zoomOnScroll={zoomOnScroll}
         zoomOnPinch={zoomOnPinch}
-        panOnScroll={false}
+        panOnScroll={false} // Typically false, panOnDrag handles mouse panning
 
         zoomOnDoubleClick={zoomOnDoubleClick}
-        selectionOnDrag={selectionOnDrag}
+        selectionOnDrag={selectionOnDrag} // For area selection
 
-        connectionMode={connectionMode}
+        connectionMode={connectionMode} // KEEP THIS! Crucial for working connections.
 
-        onConnectStart={onConnectStartInternal}
-        onConnectEnd={onConnectEndInternal}
-        // paneMoveable prop is removed to use default (true),
-        // but panOnDrag={false} should prevent mouse pane dragging.
+        onNodeClick={onNodeClick}
+        onEdgeClick={onEdgeClick}
+        onPaneClick={onPaneClick}
       >
         <Controls />
         <Background gap={16} />
@@ -307,4 +287,6 @@ export function DiagramCanvas({
     </div>
   );
 }
+    
+
     
