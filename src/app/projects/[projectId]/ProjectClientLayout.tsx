@@ -73,8 +73,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [multipleElementsSelected, setMultipleElementsSelected] = useState(false);
 
-    const [loading, setLoading] = useState(true);
-    const [isLoadingModel, setIsLoadingModel] = useState(false);
+    const [loading, setLoading] = useState(true); // For async data loading like models
+    const [isReactFlowReady, setIsReactFlowReady] = useState(false); // For React Flow instance readiness
+    const [isLoadingModel, setIsLoadingModel] = useState(false); // Specifically for model load operations
     const [error, setError] = useState<string | null>(null);
     const { toast, dismiss: dismissToast } = useToast();
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
@@ -94,6 +95,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const initialLoadAttempted = useRef(false);
     const isDirectlyLoading = useRef(false);
     const [isSelectionModifierKeyPressed, setIsSelectionModifierKeyPressed] = useState(false);
+
+    useEffect(() => {
+        if (typeof project === 'function') {
+            setIsReactFlowReady(true);
+        }
+    }, [project]);
 
 
     useEffect(() => {
@@ -289,37 +296,28 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     ]);
 
 
-    // Effect to update node z-index based on selection
     useEffect(() => {
         setNodesInternal(prevNodes => {
             let nodesChanged = false;
             const newNodes = prevNodes.map(node => {
-                // Determine if the node is selected for z-index purposes
-                // This means either it's the single selectedElementId, or it's part of a multiple selection
                 const isNodeSelectedForZIndex =
-                    node.id === selectedElementId || // Single selection
-                    (multipleElementsSelected && node.selected); // Part of multiple selection (node.selected is updated by RF)
-
+                    node.id === selectedElementId || (multipleElementsSelected && node.selected);
                 const newZIndex = calculateEffectiveZIndex(
                     node.id,
                     node.type as string,
-                    isNodeSelectedForZIndex, // Pass our combined selection status
+                    isNodeSelectedForZIndex,
                     node.zIndex,
-                    selectedElementId // Pass the single selected ID for priority
+                    selectedElementId
                 );
-
                 if (node.zIndex !== newZIndex) {
                     nodesChanged = true;
                     return { ...node, zIndex: newZIndex };
                 }
                 return node;
             });
-            if (nodesChanged) {
-                return newNodes;
-            }
-            return prevNodes; // Important: return prevNodes if no changes to avoid loop
+            return nodesChanged ? newNodes : prevNodes;
         });
-    }, [selectedElementId, multipleElementsSelected, setNodesInternal]); // Removed nodes from here, rely on functional update
+    }, [selectedElementId, multipleElementsSelected, setNodesInternal]); // Removed `nodes` from dependency array as we use functional update
 
 
     const onNodesChange = useCallback(
@@ -353,8 +351,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
         const clickedElement = getTopmostElementAtClick(currentNodes, currentEdges, flowPosition, currentVp.zoom, selectedElementId);
 
-        // Instruct React Flow to update its internal selection
-        // This will trigger onSelectionChange where we update our state (selectedElementId, etc.)
         project().setNodes(currentNodes.map(n => ({
             ...n,
             selected: clickedElement?.id === n.id && 'position' in clickedElement,
@@ -623,7 +619,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const currentContextModelName = modelName;
 
         if (typeof project !== 'function') {
-            toast({ title: "Diagram Not Ready", description: "Cannot generate report, canvas not fully initialized.", variant: "destructive" });
+            toast({ title: "Diagram Not Ready", description: "Cannot generate report, React Flow instance not fully available.", variant: "destructive" });
             return null;
         }
         const currentNodesForReport = project().getNodes();
@@ -651,11 +647,19 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [setSessionReports]);
 
 
-    if ((authLoading || loading) && !isNewModelDialogOpen && !isLoadModelDialogOpen && !initialLoadAttempted.current && initialProjectIdFromUrl !== 'new' ) {
+    // Combined loading state check
+    const showLoadingScreen = authLoading || loading || !isReactFlowReady;
+
+    if (showLoadingScreen && !isNewModelDialogOpen && !isLoadModelDialogOpen && !initialLoadAttempted.current && initialProjectIdFromUrl !== 'new' ) {
+        let loadingMessage = "Initializing Canvas...";
+        if (authLoading) loadingMessage = "Authenticating...";
+        else if (loading && initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') loadingMessage = "Loading Model Data...";
+        else if (!isReactFlowReady) loadingMessage = "Preparing Diagram Editor...";
+
         return (
             <div className="flex items-center justify-center h-full text-muted-foreground flex-1 p-4">
                 <Spinner className="mr-2 h-5 w-5 animate-spin" />
-                {authLoading ? "Authenticating..." : (isLoadingModel ? "Loading Model Data..." : "Initializing Canvas...")}
+                {loadingMessage}
             </div>
         );
     }
@@ -667,6 +671,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                 <Button onClick={() => {
                     setError(null);
                     initialLoadAttempted.current = false;
+                    setIsReactFlowReady(false); // Reset React Flow readiness as well
                     if (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
                         loadModel(initialProjectIdFromUrl);
                     } else {
@@ -743,3 +748,5 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         </>
     );
 }
+
+    
