@@ -14,7 +14,7 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
-  type NodeChange,
+  // type NodeChange, // No longer explicitly used in onDrop
   type Connection,
   ConnectionMode,
   type SelectionChangedParams,
@@ -53,25 +53,25 @@ interface DiagramCanvasProps {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setNodes: Dispatch<SetStateAction<Node[]>>;
-  setEdges: Dispatch<SetStateAction<Edge[]>>;
+  setNodes: Dispatch<SetStateAction<Node[]>>; // This is useNodesState's setter
+  setEdges: Dispatch<SetStateAction<Edge[]>>; // This is useEdgesState's setter
   onViewportChange?: (viewport: Viewport) => void;
-  onPaneClick?: (event: ReactMouseEvent) => void; // Keep for centralized click handling
-  onSelectionChange?: (params: SelectionChangedParams) => void;
+  onPaneClick: (event: ReactMouseEvent) => void; 
+  onSelectionChange: (params: SelectionChangedParams) => void;
   isSelectionModifierKeyPressed: boolean;
 }
 
 export function DiagramCanvas({
-  nodes,
-  edges,
-  onNodesChange,
-  onEdgesChange,
-  onConnect,
-  setNodes,
-  setEdges,
+  nodes, // Current nodes from ProjectClientLayout
+  edges, // Current edges from ProjectClientLayout
+  onNodesChange, // Passed from ProjectClientLayout (useNodesState)
+  onEdgesChange, // Passed from ProjectClientLayout (useEdgesState)
+  onConnect,     // Passed from ProjectClientLayout
+  setNodes,      // This is the direct setter from useNodesState in ProjectClientLayout
+  setEdges,      // This is the direct setter from useEdgesState in ProjectClientLayout
   onViewportChange,
-  onPaneClick,
-  onSelectionChange,
+  onPaneClick,    // Passed from ProjectClientLayout
+  onSelectionChange, // Passed from ProjectClientLayout
   isSelectionModifierKeyPressed,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -115,10 +115,10 @@ export function DiagramCanvas({
         y: event.clientY,
       });
 
-      const currentNodes = rfGetNodesFromHook();
+      const currentNodes = rfGetNodesFromHook(); // Get current nodes for parent check
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
-        project &&
+        project && // Ensure project (react flow instance) is available for screenToFlowPosition to work reliably
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -142,10 +142,10 @@ export function DiagramCanvas({
               case 'ArrowRight':
                   defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
                   break;
-              default:
+              default: // Covers ArchiveBox, FileText, PencilSimpleLine, StickyNote, and any other icon-based process stencils
                   defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
-      } else {
+      } else { // Infrastructure (non-boundary)
           nodeIsResizable = true;
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
@@ -183,36 +183,23 @@ export function DiagramCanvas({
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        selected: true, 
+        selected: true, // New node should be selected
       };
 
-      setNodes((nds) => nds.map(n => ({...n, selected: false})).concat(newNode));
+      // Directly update nodes state: deselect all current nodes, then add the new selected node.
+      setNodes((nds) => 
+        nds.map(n => ({...n, selected: false})).concat(newNode)
+      );
+      // Deselect all edges
       setEdges((eds) => eds.map(e => ({...e, selected: false})));
 
-      if (onNodesChange) {
-         const selectChanges = currentNodes.filter(n => n.selected).map(n => ({ type: 'select', id: n.id, selected: false } as NodeChange));
-         onNodesChange([
-          {type: 'add', item: newNode},
-          ...selectChanges,
-          {type: 'select', id: newNode.id, selected: true} as NodeChange
-        ]);
-      }
+      // Removed problematic calls to onNodesChange and onPaneClick from here.
+      // The selection of the newNode (set to selected: true above) should be handled
+      // by the onSelectionChange callback in ProjectClientLayout.tsx.
       
-      // Manually trigger pane click logic to ensure the new node is selected for properties panel
-      if (onPaneClick) {
-        // Simulate a basic click event on the location of the new node
-        // This helps ProjectClientLayout's onPaneClick->getTopmostElementAtClick to select it
-        const pseudoEvent = { 
-            clientX: event.clientX, // Use original drop event clientX/Y
-            clientY: event.clientY,
-            // Add other minimal properties if your onPaneClick or getTopmostElementAtClick expects them
-        } as unknown as ReactMouseEvent; // Cast to avoid full event construction
-        onPaneClick(pseudoEvent);
-      }
-
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, onNodesChange, project, onPaneClick]
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, project] // Ensure all dependencies are listed
   );
 
   return (
@@ -236,19 +223,18 @@ export function DiagramCanvas({
         nodeDragThreshold={1}
 
         elevateNodesOnSelect={true}
-        panOnDrag={!isSelectionModifierKeyPressed} // Pan if Ctrl/Meta not pressed
+        panOnDrag={!isSelectionModifierKeyPressed}
         zoomOnScroll={true}
         zoomOnPinch={true}
         panOnScroll={false} 
 
         zoomOnDoubleClick={true}
-        selectionOnDrag={isSelectionModifierKeyPressed} // Area selection if Ctrl/Meta pressed
+        selectionOnDrag={isSelectionModifierKeyPressed}
 
         connectionMode={ConnectionMode.Loose}
 
-        onPaneClick={onPaneClick} // Centralized click logic
-        onSelectionChange={onSelectionChange} // For multi-select updates
-        // onNodeClick and onEdgeClick are removed, handled by onPaneClick + getTopmostElementAtClick
+        onPaneClick={onPaneClick} 
+        onSelectionChange={onSelectionChange}
       >
         <Controls />
         <Background gap={16} />
@@ -259,3 +245,4 @@ export function DiagramCanvas({
     </div>
   );
 }
+
