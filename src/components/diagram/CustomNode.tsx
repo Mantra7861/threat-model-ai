@@ -6,6 +6,7 @@ import React from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { calculateEffectiveZIndex } from '@/lib/diagram-utils';
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Import the icon component
 
 export const CustomNode: FC<NodeProps> = ({
   id,
@@ -29,19 +30,23 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--border))') : (data.textColor || 'currentColor');
+  // For boundary nodes, nodeDisplayColor is primarily for the label. Border is handled by CSS var.
+  // For regular nodes, it's for icon and label.
+  const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--foreground))') : (data.textColor || 'hsl(var(--foreground))');
+
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
+  // Base style for the root div of our custom node content
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%', // Ensure it fills the React Flow node container
-    height: '100%', // Ensure it fills the React Flow node container
+    width: '100%', 
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative', // For z-index and absolute positioning of children like resizer
+    position: 'relative', 
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
@@ -52,9 +57,11 @@ export const CustomNode: FC<NodeProps> = ({
 
 
   if (isBoundary) {
-    // Boundary nodes still use their specific styling
+    // Boundary nodes are styled by globals.css via .react-flow__node-Boundary
+    // This div is the *content* of the React Flow node wrapper.
+    // It should be transparent to let the wrapper's border show.
     return (
-      <div style={customNodeRootStyle} className="group">
+      <div style={{...customNodeRootStyle, background: 'transparent' }} className="group">
         {showResizer && (
           <NodeResizer
             minWidth={data.minWidth || 150}
@@ -65,12 +72,13 @@ export const CustomNode: FC<NodeProps> = ({
             style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
           />
         )}
+        {/* Label for boundary */}
         <span
           className={cn(
             "text-sm font-semibold absolute -translate-x-1/2 left-1/2 px-1 py-0.5 rounded",
-            "top-1 bg-background/80 backdrop-blur-sm shadow-sm"
+            "top-1 bg-background/80 backdrop-blur-sm shadow-sm" // Semi-transparent background for label
           )}
-          style={{ color: data.boundaryColor || 'hsl(var(--border))' }}
+          style={{ color: nodeDisplayColor }} // Label color uses nodeDisplayColor
         >
           {nodeLabel}
         </span>
@@ -79,15 +87,13 @@ export const CustomNode: FC<NodeProps> = ({
     );
   }
 
-  // Non-Boundary Nodes
+  // Non-Boundary Nodes - Icon + Label
+  // This div is the content of the React Flow node wrapper.
+  // The wrapper gets background/border from globals.css (e.g., .react-flow__node-HardDrive)
   return (
     <div
-        style={{
-            ...customNodeRootStyle,
-            // Removed pointerEvents: 'none' to allow node dragging
-            // Removed diagnostic background/border
-        }}
-        className="group" // 'group' class can be used by Tailwind for group-hover states if needed
+        style={{...customNodeRootStyle, background: 'transparent'}} // Content div should be transparent
+        className="group"
     >
       {showResizer && (
         <NodeResizer
@@ -95,20 +101,30 @@ export const CustomNode: FC<NodeProps> = ({
           minHeight={data.minHeight || 40}
           lineClassName="!border-primary"
           handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
-          isVisible={selected} // Resizer only visible when node is selected
-          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }} // Ensure resizer is above other elements
+          isVisible={selected}
+          style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
         />
       )}
       
-      {/* Container for the label/icon, inherits pointer-events from parent (auto) by default */}
+      {/* Container for the icon and label */}
       <div
-        className="w-full h-full flex items-center justify-center"
-        style={{ pointerEvents: 'none' }} // Make label area non-interactive to pass clicks to node
+        className="w-full h-full flex flex-col items-center justify-center p-1 space-y-1" // Added space-y-1
+        style={{ pointerEvents: 'none' }} 
       >
-        <span className="text-xs p-1" style={{ color: nodeDisplayColor }}>{nodeLabel}</span>
+        <DynamicPhosphorIcon
+            name={data.iconName || 'Package'} 
+            size={24} // Fixed size for simplicity, can be made dynamic later
+            style={{ color: nodeDisplayColor }} 
+        />
+        <span 
+            className="text-xs text-center break-words max-w-full" // Allow word breaking for long labels
+            style={{ color: nodeDisplayColor }}
+        >
+            {nodeLabel}
+        </span>
       </div>
 
-      {/* Wrapper DIV for handles - keep this non-interactive */}
+      {/* Handles */}
       <div style={{ pointerEvents: 'none' }}> 
           <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
           <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
@@ -119,5 +135,3 @@ export const CustomNode: FC<NodeProps> = ({
   );
 };
 
-
-    
