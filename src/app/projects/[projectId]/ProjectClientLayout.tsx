@@ -209,7 +209,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             isDirectlyLoading.current = false;
         }
     }, [
-        modelId, isLoadingModel, 
+        modelId, // isLoadingModel removed from here as it caused issues with re-creation
         rfSetViewport, fitView, 
         setNodesInternal, setEdgesInternal, 
         setCurrentViewport, 
@@ -287,20 +287,36 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     ]);
 
 
+    // This effect updates nodes/edges based on selection, using functional updates
     useEffect(() => {
-        setNodesInternal(prevNodes =>
-            prevNodes.map(n => ({
-                ...n,
-                selected: selectedElementId === n.id,
-                zIndex: calculateEffectiveZIndex(n.id, n.type as string, selectedElementId === n.id, n.zIndex, selectedElementId)
-            }))
-        );
-        setEdgesInternal(prevEdges =>
-            prevEdges.map(e => ({
-                ...e,
-                selected: selectedElementId === e.id
-            }))
-        );
+        setNodesInternal(prevNodes => {
+            let nodesChanged = false;
+            const updatedNodes = prevNodes.map(n => {
+                const isSelected = selectedElementId === n.id;
+                const currentRFZIndex = n.zIndex; 
+                const newZIndex = calculateEffectiveZIndex(n.id, n.type as string, isSelected, currentRFZIndex, selectedElementId);
+
+                if (n.selected !== isSelected || n.zIndex !== newZIndex) {
+                    nodesChanged = true;
+                    return { ...n, selected: isSelected, zIndex: newZIndex };
+                }
+                return n;
+            });
+            return nodesChanged ? updatedNodes : prevNodes;
+        });
+
+        setEdgesInternal(prevEdges => {
+            let edgesChanged = false;
+            const updatedEdges = prevEdges.map(e => {
+                const isSelected = selectedElementId === e.id;
+                if (e.selected !== isSelected) {
+                    edgesChanged = true;
+                    return { ...e, selected: isSelected };
+                }
+                return e;
+            });
+            return edgesChanged ? updatedEdges : prevEdges;
+        });
     }, [selectedElementId, setNodesInternal, setEdgesInternal]);
 
 
@@ -320,16 +336,15 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const onConnect = useCallback(
         (connection: Connection) => {
-          console.log('onConnect attempted:', connection); 
           setEdgesInternal((eds) => addEdge(connection, eds));
         },
         [setEdgesInternal] 
     );
 
     const onPaneClick = useCallback((event: ReactMouseEvent) => {
-        const currentNodes = getNodes();
-        const currentEdges = getEdges();
-        const currentVp = getViewport();
+        const currentNodes = getNodes(); // Use reactFlowInstance.getNodes()
+        const currentEdges = getEdges(); // Use reactFlowInstance.getEdges()
+        const currentVp = getViewport(); // Use reactFlowInstance.getViewport()
         const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY }, false);
 
         const clickedElement = getTopmostElementAtClick(currentNodes, currentEdges, flowPosition, currentVp.zoom, selectedElementId);
@@ -339,8 +354,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             setMultipleElementsSelected(false);
         } else {
             setSelectedElementId(null);
-            // Do not clear multiple selection state here if Ctrl is not pressed during selection drag end.
-            // React Flow's onSelectionChange will handle it.
         }
     }, [getNodes, getEdges, getViewport, screenToFlowPosition, selectedElementId, setSelectedElementId, setMultipleElementsSelected]);
 
@@ -348,7 +361,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const onSelectionChange = useCallback(({ nodes: selNodes, edges: selEdges }: SelectionChangedParams) => {
         const totalSelected = selNodes.length + selEdges.length;
         if (totalSelected > 1) {
-            setSelectedElementId(null); // No single element is primary
+            setSelectedElementId(null); 
             setMultipleElementsSelected(true);
         } else if (totalSelected === 1) {
             setSelectedElementId(selNodes[0]?.id || selEdges[0]?.id);
@@ -393,12 +406,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                 })
             );
         }
+        // Update diagramDataForAI using functional updates to ensure it captures the latest state
         setDiagramDataForAI(prev => {
             if (!prev) return null;
+            // Use getNodes() and getEdges() from ReactFlow to ensure latest data after async state updates
+            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
             return {
                 ...prev,
-                components: getNodes().map(n => nodeToComponent(n)),
-                connections: getEdges().map(e => edgeToConnection(e)),
+                components: currentDiagramNodes,
+                connections: currentDiagramEdges,
             };
         });
     }, [setNodesInternal, setEdgesInternal, getNodes, getEdges]); 
@@ -418,10 +435,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         toast({ title: `${isNode ? 'Component' : 'Connection'} Deleted`, description: `${isNode ? 'Component' : 'Connection'} removed from the diagram.` });
         setDiagramDataForAI(prev => {
             if (!prev) return null;
+            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
             return {
                 ...prev,
-                components: getNodes().map(n => nodeToComponent(n)),
-                connections: getEdges().map(e => edgeToConnection(e)),
+                components: currentDiagramNodes,
+                connections: currentDiagramEdges,
             };
         });
     }, [setNodesInternal, setEdgesInternal, toast, selectedElementId, setSelectedElementId, getNodes, getEdges]);
@@ -443,10 +462,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         toast({ title: "Elements Deleted", description: `Removed ${selNodes.length} components and ${selEdges.length} connections.` });
          setDiagramDataForAI(prev => {
             if (!prev) return null;
+            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
             return {
                 ...prev,
-                components: getNodes().map(n => nodeToComponent(n)), // getNodes() will reflect changes after state update
-                connections: getEdges().map(e => edgeToConnection(e)),
+                components: currentDiagramNodes, 
+                connections: currentDiagramEdges,
             };
         });
     }, [getSelectedNodes, getSelectedEdges, setNodesInternal, setEdgesInternal, toast, getNodes, getEdges]);
@@ -712,3 +733,4 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         </>
     );
 }
+
