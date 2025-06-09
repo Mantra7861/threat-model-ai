@@ -76,7 +76,7 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
     resizable: true,
     minWidth: minWidth,
     minHeight: minHeight,
-    stencilId: component.id,
+    stencilId: component.id, // This should be the stencil's original ID, not the node instance ID
     isBoundary: isActualBoundary,
   };
 
@@ -95,7 +95,7 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
 
 
   const returnedNode: Node = {
-    id: component.id,
+    id: component.id, // This should be the unique instance ID of the node on the canvas
     type: type,
     position: position,
     data: nodeData,
@@ -103,12 +103,10 @@ export const componentToNode = (component: DiagramComponent, isSelectedOverride?
     connectable: !isActualBoundary,
     ...(isActualBoundary && {
         selectable: true,
-        // connectable: false, // Already handled by the line above
     }),
     ...(component.properties?.parentNode && !isActualBoundary && { parentNode: component.properties.parentNode }),
     selected: selected,
   };
-  // console.log("diagram-utils componentToNode - returnedNode:", JSON.stringify(returnedNode, null, 2));
   return returnedNode;
 };
 
@@ -137,18 +135,22 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
   }
 
   propertiesToSave.selected = !!node.selected;
-  delete propertiesToSave.label;
+  // Do not delete node.data.label from properties if it's the source of the name
+  // delete propertiesToSave.label; 
 
-  const baseComponent: Omit<DiagramComponent, 'stencilType' | 'iconName' | 'textColor' | 'boundaryColor' | 'isBoundary' > = {
-    id: node.id,
-    type: node.type || 'Package',
+  const baseDiagramComponent: Omit<DiagramComponent, 'stencilType' | 'iconName' | 'textColor' | 'boundaryColor' | 'isBoundary' | 'name' > = {
+    id: node.id, // This is the unique instance ID of the node on the canvas
+    type: node.type || 'Package', // This is the React Flow node type
     properties: propertiesToSave,
   };
+   // Add name at the root of DiagramComponent, taken from propertiesToSave.name
+  const componentName = propertiesToSave.name;
 
 
   if (node.data.isBoundary) {
     return {
-      ...baseComponent,
+      ...baseDiagramComponent,
+      name: componentName,
       stencilType: 'infrastructure',
       iconName: node.data.iconName || 'ShieldCheck',
       textColor: node.data.textColor,
@@ -156,11 +158,23 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
       isBoundary: true,
     } as DiagramComponent;
   } else {
-    const inferredStencilType = (node.data.iconName === 'Circle' || node.data.iconName === 'Diamond' || node.data.iconName === 'Rectangle' || node.data.iconName === 'Parallelogram') ? 'process' : 'infrastructure';
+    let stencilType: 'infrastructure' | 'process' = node.data.stencilType;
+    if (!stencilType) {
+      const processShapes = ['Circle', 'Diamond', 'Rectangle', 'Parallelogram', 'ArrowRight'];
+      const infraIcons = ['HardDrive', 'Database', 'Cloud', 'Router', 'Server', 'ShieldCheck', 'User', 'Package', 'HardDrives'];
+      if (processShapes.includes(node.type || '')) {
+        stencilType = 'process';
+      } else if (infraIcons.includes(node.type || '')) {
+        stencilType = 'infrastructure';
+      } else {
+        stencilType = 'infrastructure'; 
+      }
+    }
 
     return {
-      ...baseComponent,
-      stencilType: node.data.stencilType || inferredStencilType,
+      ...baseDiagramComponent,
+      name: componentName,
+      stencilType: stencilType,
       iconName: node.data.iconName || node.type || 'Package',
       textColor: node.data.textColor,
       isBoundary: false,
@@ -172,21 +186,23 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
 export const connectionToEdge = (connection: DiagramConnection, isSelectedOverride?: boolean): Edge => {
   const selected = typeof isSelectedOverride === 'boolean' ? isSelectedOverride : (connection.selected || false);
 
-  // Prioritize properties.name, then connection.label for the visual and data label
-  let edgeVisualLabel = connection.properties?.name || connection.label;
-  if (!edgeVisualLabel || edgeVisualLabel === connection.id) {
-    edgeVisualLabel = 'Data Flow'; // Default visual label if others are missing or are the ID
+  let userFacingName = connection.properties?.name || connection.label;
+  if (!userFacingName || userFacingName.trim() === '' || userFacingName === connection.id) {
+    userFacingName = 'Data Flow';
   }
 
-  const edgeDataProperties = {
-    name: edgeVisualLabel, // Ensure 'name' is in properties
+  const defaultProps = {
     description: 'A data or process flow connection.',
     dataType: 'Generic',
-    protocol: 'Sequence/TCP', // Or a more generic default
+    protocol: 'Sequence/TCP',
     securityConsiderations: 'Needs review',
-    ...(connection.properties || {}), // Spread existing properties; 'name' will be overwritten if it exists
   };
-  edgeDataProperties.name = edgeVisualLabel; // Ensure definitive name is set
+
+  const edgeDataProperties: Record<string, any> = {
+    ...defaultProps,
+    ...(connection.properties || {}),
+    name: userFacingName,
+  };
 
   return {
     id: connection.id,
@@ -194,32 +210,34 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
     target: connection.target,
     sourceHandle: connection.sourceHandle || undefined,
     targetHandle: connection.targetHandle || undefined,
-    label: edgeVisualLabel, // This is what React Flow uses for the visual label on the canvas
+    label: userFacingName,
     type: 'default',
     data: {
-      label: edgeVisualLabel, // Store it in data.label for consistency
-      properties: edgeDataProperties, // Pass all properties, including the definitive 'name'
+      label: userFacingName,
+      properties: edgeDataProperties,
     },
     selected: selected,
   };
 };
 
-
 export const edgeToConnection = (edge: Edge): DiagramConnection => {
-  const currentEdgeProperties = edge.data?.properties || {};
+  const currentEdgeDataProperties = edge.data?.properties || {};
 
-  // Determine the definitive name for the connection
-  // Priority: 1. edge.data.properties.name, 2. edge.label (visual label), 3. edge.data.label
-  let connectionName = currentEdgeProperties.name || edge.label || edge.data?.label;
-
-  // If still no meaningful name (undefined, null, empty string, or equals the edge ID itself), default to 'Data Flow'.
+  let connectionName = currentEdgeDataProperties.name || edge.label || edge.data?.label;
   if (!connectionName || connectionName.trim() === '' || connectionName === edge.id) {
     connectionName = 'Data Flow';
   }
+  
+  const defaultProps = {
+    description: 'A data or process flow connection.',
+    dataType: 'Generic',
+    protocol: 'Sequence/TCP',
+    securityConsiderations: 'Needs review',
+  };
 
-  // Ensure the 'properties' object we save *also* has this definitive name.
-  const propertiesToSave = {
-    ...currentEdgeProperties,
+  const propertiesToSave: Record<string, any> = {
+    ...defaultProps,
+    ...currentEdgeDataProperties,
     name: connectionName,
   };
 
@@ -229,8 +247,8 @@ export const edgeToConnection = (edge: Edge): DiagramConnection => {
     target: edge.target,
     sourceHandle: edge.sourceHandle || undefined,
     targetHandle: edge.targetHandle || undefined,
-    label: connectionName, // This is what the report will likely use for the main connection title
-    properties: propertiesToSave, // These are listed under "Properties" in the report
+    label: connectionName,
+    properties: propertiesToSave,
     selected: !!edge.selected,
   };
 };
@@ -325,67 +343,52 @@ export const getTopmostElementAtClick = (
     const clickedBoundaryBoxes: Node[] = [];
     const clickedEdges: Edge[] = [];
 
-    // console.log("[DIAG] getTopmostElementAtClick: Checking nodes at click", clickPos, "Zoom:", zoom);
     for (const node of nodes) {
         if (isClickOnNode(node, clickPos)) {
-            // console.log(`[DIAG] Node ${node.id} (type: ${node.type}, data.isBoundary: ${node.data?.isBoundary}, zIndex: ${node.zIndex}) is at click point.`);
             if (node.data && node.data.isBoundary === true) {
                 clickedBoundaryBoxes.push(node);
-                // console.log(`[DIAG]   -> Classified as Boundary: ${node.id}`);
             } else {
                 clickedNonBoundaryNodes.push(node);
-                // console.log(`[DIAG]   -> Classified as Non-Boundary: ${node.id}`);
             }
         }
     }
 
-    if (clickedNonBoundaryNodes.length === 0 || clickedBoundaryBoxes.length > 0) {
+    // Only check edges if no non-boundary node was directly clicked, or if a boundary box was clicked
+    // This prioritizes clicking nodes over edges if they overlap.
+    if (clickedNonBoundaryNodes.length === 0 || clickedBoundaryBoxes.some(bn => isClickOnNode(bn, clickPos))) {
        for (const edge of edges) {
            if (isPointNearEdge(edge, clickPos, nodes)) {
-               // console.log(`[DIAG] Edge ${edge.id} is near click point.`);
                clickedEdges.push(edge);
            }
        }
     }
 
-    // console.log("[DIAG] Clicked Non-Boundary Nodes:", clickedNonBoundaryNodes.map(n => ({id: n.id, z: n.zIndex})));
-    // console.log("[DIAG] Clicked Edges:", clickedEdges.map(e => e.id));
-    // console.log("[DIAG] Clicked Boundary Boxes:", clickedBoundaryBoxes.map(n => ({id: n.id, z: n.zIndex})));
-
-
     if (clickedNonBoundaryNodes.length > 0) {
-        const topNode = clickedNonBoundaryNodes.sort((a, b) => {
+        return clickedNonBoundaryNodes.sort((a, b) => {
             const zIndexA = calculateEffectiveZIndex(a.id, a.type as string, a.selected, a.zIndex, selectedElementIdGlobal);
             const zIndexB = calculateEffectiveZIndex(b.id, b.type as string, b.selected, b.zIndex, selectedElementIdGlobal);
             if (zIndexA !== zIndexB) return zIndexB - zIndexA;
             const areaA = (a.width || 0) * (a.height || 0);
             const areaB = (b.width || 0) * (b.height || 0);
-            return areaA - areaB;
+            return areaA - areaB; // Smaller area on top
         })[0];
-        // console.log("[DIAG] Returning top Non-Boundary Node:", topNode.id);
-        return topNode;
     }
 
     if (clickedEdges.length > 0) {
-        const topEdge = clickedEdges[0];
-        // console.log("[DIAG] Returning top Edge:", topEdge.id);
-        return topEdge;
+        return clickedEdges[0]; // Simplistic: take the first one. Could be improved if z-indexing edges is needed.
     }
 
     if (clickedBoundaryBoxes.length > 0) {
-        const topBoundary = clickedBoundaryBoxes.sort((a, b) => {
+        return clickedBoundaryBoxes.sort((a, b) => {
             const zIndexA = calculateEffectiveZIndex(a.id, a.type as string, a.selected, a.zIndex, selectedElementIdGlobal);
             const zIndexB = calculateEffectiveZIndex(b.id, b.type as string, b.selected, b.zIndex, selectedElementIdGlobal);
             if (zIndexA !== zIndexB) return zIndexB - zIndexA;
             const areaA = (a.width || 0) * (a.height || 0);
             const areaB = (b.width || 0) * (b.height || 0);
-            return areaA - areaB;
+            return areaA - areaB; // Smaller area (more specific boundary) on top
         })[0];
-        // console.log("[DIAG] Returning top Boundary Box:", topBoundary.id);
-        return topBoundary;
     }
 
-    // console.log("[DIAG] No specific element found at click point by getTopmostElementAtClick.");
     return null;
 };
 
@@ -414,3 +417,5 @@ export function isPointInsideBounds(point: XYPosition, bounds: Bounds): boolean 
     return point.x >= bounds.x && point.x <= bounds.x + bounds.width &&
            point.y >= bounds.y && point.y <= bounds.y + bounds.height;
 }
+
+    
