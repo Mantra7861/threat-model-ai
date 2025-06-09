@@ -60,10 +60,20 @@ interface ProjectClientLayoutProps {
 export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: ProjectClientLayoutProps) {
     const router = useRouter();
     const pathname = usePathname();
-
+    
     const { modelType, setModelType: setProjectContextModelType, modelName, setModelName } = useProjectContext();
     const { currentUser, loading: authLoading, firebaseReady } = useAuth();
-    const { project, fitView, setViewport: rfSetViewport, screenToFlowPosition, getSelectedNodes, getSelectedEdges } = useReactFlow<Node, Edge>();
+    const { 
+        project: projectCoords, // Renamed to avoid confusion with a general 'project' concept
+        fitView, 
+        setViewport: rfSetViewport, 
+        screenToFlowPosition, 
+        getNodes, 
+        getEdges, 
+        getViewport: getReactFlowViewport, // Renamed to avoid conflict
+        getSelectedNodes, 
+        getSelectedEdges 
+    } = useReactFlow<Node, Edge>();
 
     const [nodes, setNodesInternal] = useNodesState<Node[]>([]);
     const [edges, setEdgesInternal] = useEdgesState<Edge[]>([]);
@@ -97,10 +107,13 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [isSelectionModifierKeyPressed, setIsSelectionModifierKeyPressed] = useState(false);
 
     useEffect(() => {
-        if (typeof project === 'function') {
+        // Check if essential React Flow functions are available
+        if (typeof getNodes === 'function' && typeof getEdges === 'function' && typeof getReactFlowViewport === 'function') {
             setIsReactFlowReady(true);
+        } else {
+            setIsReactFlowReady(false); // Explicitly set to false if not ready
         }
-    }, [project]);
+    }, [getNodes, getEdges, getReactFlowViewport]); // Depend on these functions from useReactFlow
 
 
     useEffect(() => {
@@ -217,14 +230,14 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             isDirectlyLoading.current = false;
         }
     }, [
-        modelId,
+        modelId, // Current modelId from state
         rfSetViewport, fitView,
         setNodesInternal, setEdgesInternal,
-        setCurrentViewport,
-        setModelName, setProjectContextModelType,
-        setModelId, setSelectedElementId, setDiagramDataForAI, setSessionReports,
-        toast, router, pathname,
-        currentViewport
+        setCurrentViewport, // Local state for viewport
+        setModelName, setProjectContextModelType, // Context setters
+        setModelId, setSelectedElementId, setDiagramDataForAI, setSessionReports, // Local state setters
+        toast, router, pathname, // Hooks and utilities
+        currentViewport // Local state for viewport
     ]);
 
    useEffect(() => {
@@ -276,7 +289,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             initialLoadAttempted.current = true;
         } else {
             if (modelId === initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new' &&
-                (typeof project === 'function' && (project().getNodes().length > 0 || project().getEdges().length > 0))
+                (typeof getNodes === 'function' && (getNodes().length > 0 || (typeof getEdges === 'function' && getEdges().length > 0)))
             ) {
                 if (typeof fitView === 'function' && !currentViewport) {
                    setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
@@ -291,23 +304,28 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     }, [
         initialProjectIdFromUrl, currentUser, authLoading, firebaseReady,
-        modelId, modelName, modelType,
-        loadModel, resetDiagramState, fitView, router, pathname, currentViewport, isLoadingModel, project
+        modelId, modelName, modelType, // Context and local state values
+        loadModel, resetDiagramState, fitView, router, pathname, currentViewport, isLoadingModel, 
+        getNodes, getEdges // Functions from useReactFlow
     ]);
 
 
+    // Effect to update z-index based on selection state
     useEffect(() => {
         setNodesInternal(prevNodes => {
             let nodesChanged = false;
             const newNodes = prevNodes.map(node => {
-                const isNodeSelectedForZIndex =
-                    node.id === selectedElementId || (multipleElementsSelected && node.selected);
+                // Node's `selected` property is managed by React Flow itself.
+                // `multipleElementsSelected` true means we are in multi-select mode.
+                // `selectedElementId` being this node's ID means it's the single selected element.
+                const isNodeSelectedForZIndex = multipleElementsSelected ? node.selected : (node.id === selectedElementId);
+                
                 const newZIndex = calculateEffectiveZIndex(
                     node.id,
                     node.type as string,
                     isNodeSelectedForZIndex,
-                    node.zIndex,
-                    selectedElementId
+                    node.zIndex, // Pass current RF zIndex if any
+                    selectedElementId // Global selected element ID for context
                 );
                 if (node.zIndex !== newZIndex) {
                     nodesChanged = true;
@@ -315,9 +333,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                 }
                 return node;
             });
-            return nodesChanged ? newNodes : prevNodes;
+            if (nodesChanged) {
+                return newNodes;
+            }
+            return prevNodes;
         });
-    }, [selectedElementId, multipleElementsSelected, setNodesInternal]); // Removed `nodes` from dependency array as we use functional update
+    }, [selectedElementId, multipleElementsSelected, setNodesInternal]); // Removed nodes array itself, rely on functional update
 
 
     const onNodesChange = useCallback(
@@ -342,25 +363,39 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     );
 
     const onPaneClick = useCallback((event: ReactMouseEvent) => {
-        if (typeof project !== 'function' || typeof screenToFlowPosition !== 'function') return;
+        if (typeof getNodes !== 'function' || typeof getEdges !== 'function' || typeof getReactFlowViewport !== 'function' || typeof screenToFlowPosition !== 'function') return;
 
-        const currentNodes = project().getNodes();
-        const currentEdges = project().getEdges();
-        const currentVp = project().getViewport();
+        const currentFlowNodes = getNodes();
+        const currentFlowEdges = getEdges();
+        const currentFlowVp = getReactFlowViewport();
         const flowPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY }, false);
 
-        const clickedElement = getTopmostElementAtClick(currentNodes, currentEdges, flowPosition, currentVp.zoom, selectedElementId);
+        const clickedElement = getTopmostElementAtClick(currentFlowNodes, currentFlowEdges, flowPosition, currentFlowVp.zoom, selectedElementId);
 
-        project().setNodes(currentNodes.map(n => ({
-            ...n,
-            selected: clickedElement?.id === n.id && 'position' in clickedElement,
-        })));
-        project().setEdges(currentEdges.map(e => ({
-            ...e,
-            selected: clickedElement?.id === e.id && !('position' in clickedElement),
-        })));
+        if (typeof rfSetViewport === 'function') { // rfSetViewport is actually useReactFlow's setViewport
+             // This part might be tricky. We want React Flow to handle the selection, then onSelectionChange updates our state.
+             // For deselecting everything on pane click if no element is clicked:
+             if (!clickedElement) {
+                 // Instruct React Flow to deselect all nodes and edges
+                 // This will trigger onSelectionChange which will update our state
+                 if (typeof getSelectedNodes === 'function' && typeof getSelectedEdges === 'function') {
+                    const currentlySelectedNodes = getSelectedNodes();
+                    const currentlySelectedEdges = getSelectedEdges();
+                    
+                    const nodeChanges: NodeChange[] = currentlySelectedNodes.map(n => ({id: n.id, type: 'select', selected: false}));
+                    const edgeChanges: EdgeChange[] = currentlySelectedEdges.map(e => ({id: e.id, type: 'select', selected: false}));
+                    
+                    if (nodeChanges.length > 0) onNodesChange(nodeChanges);
+                    if (edgeChanges.length > 0) onEdgesChange(edgeChanges);
+                 }
+             } else {
+                  // If an element *is* clicked, React Flow's default behavior might handle single selection.
+                  // For multi-selection or ensuring our state aligns, we might need more direct control here if default isn't enough.
+                  // However, let's rely on onSelectionChange for now after RF handles the click.
+             }
+        }
 
-    }, [project, screenToFlowPosition, selectedElementId]);
+    }, [getNodes, getEdges, getReactFlowViewport, screenToFlowPosition, selectedElementId, rfSetViewport, getSelectedNodes, getSelectedEdges, onNodesChange, onEdgesChange]);
 
 
     const onSelectionChange = useCallback(({ nodes: selNodes, edges: selEdges }: SelectionChangedParams) => {
@@ -413,16 +448,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         }
 
         setDiagramDataForAI(prev => {
-            if (!prev || typeof project !== 'function') return null;
-            const currentDiagramNodes = project().getNodes().map(n => nodeToComponent(n));
-            const currentDiagramEdges = project().getEdges().map(e => edgeToConnection(e));
+            if (!prev || typeof getNodes !== 'function' || typeof getEdges !== 'function') return null;
+            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
             return {
                 ...prev,
                 components: currentDiagramNodes,
                 connections: currentDiagramEdges,
             };
         });
-    }, [setNodesInternal, setEdgesInternal, project]);
+    }, [setNodesInternal, setEdgesInternal, getNodes, getEdges]);
 
 
     const deleteElement = useCallback((elementId: string, isNode: boolean) => {
@@ -438,19 +473,19 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         }
         toast({ title: `${isNode ? 'Component' : 'Connection'} Deleted`, description: `${isNode ? 'Component' : 'Connection'} removed from the diagram.` });
         setDiagramDataForAI(prev => {
-            if (!prev || typeof project !== 'function') return null;
-            const currentDiagramNodes = project().getNodes().map(n => nodeToComponent(n));
-            const currentDiagramEdges = project().getEdges().map(e => edgeToConnection(e));
+            if (!prev || typeof getNodes !== 'function' || typeof getEdges !== 'function') return null;
+            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
             return {
                 ...prev,
                 components: currentDiagramNodes,
                 connections: currentDiagramEdges,
             };
         });
-    }, [setNodesInternal, setEdgesInternal, toast, selectedElementId, setSelectedElementId, project]);
+    }, [setNodesInternal, setEdgesInternal, toast, selectedElementId, setSelectedElementId, getNodes, getEdges]);
 
     const deleteAllSelectedElements = useCallback(() => {
-        if (typeof project !== 'function' || typeof getSelectedNodes !== 'function' || typeof getSelectedEdges !== 'function') return;
+        if (typeof getSelectedNodes !== 'function' || typeof getSelectedEdges !== 'function') return;
         const selNodes = getSelectedNodes();
         const selEdges = getSelectedEdges();
 
@@ -465,16 +500,16 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         toast({ title: "Elements Deleted", description: `Removed ${selNodes.length} components and ${selEdges.length} connections.` });
          setDiagramDataForAI(prev => {
             if (!prev) return null;
-            if (typeof project !== 'function') return prev;
-            const currentDiagramNodes = project().getNodes().map(n => nodeToComponent(n));
-            const currentDiagramEdges = project().getEdges().map(e => edgeToConnection(e));
+            if (typeof getNodes !== 'function' || typeof getEdges !== 'function') return prev;
+            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
             return {
                 ...prev,
                 components: currentDiagramNodes,
                 connections: currentDiagramEdges,
             };
         });
-    }, [getSelectedNodes, getSelectedEdges, setNodesInternal, setEdgesInternal, toast, project]);
+    }, [getSelectedNodes, getSelectedEdges, setNodesInternal, setEdgesInternal, toast, getNodes, getEdges]);
 
 
     const handleSave = useCallback(async () => {
@@ -485,7 +520,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             toast({ title: 'Error', description: 'You must be logged in to save.', variant: 'destructive' });
             return;
         }
-        if (typeof project !== 'function') {
+        if (typeof getNodes !== 'function' || typeof getEdges !== 'function' || typeof getReactFlowViewport !== 'function') {
             toast({ title: 'Error', description: 'Diagram canvas not ready.', variant: 'destructive' });
             return;
         }
@@ -495,9 +530,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
          }
 
         setIsLoadingModel(true);
-        const currentNodesForSave = project().getNodes();
-        const currentEdgesForSave = project().getEdges();
-        const viewportToSave = project().getViewport();
+        const currentNodesForSave = getNodes();
+        const currentEdgesForSave = getEdges();
+        const viewportToSave = getReactFlowViewport();
 
         const nodesToSave = currentNodesForSave.map(n => nodeToComponent(n));
         const edgesToSave = currentEdgesForSave.map(e => edgeToConnection(e));
@@ -548,11 +583,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             setIsLoadingModel(false);
         }
     }, [
-        modelName, modelType,
-        toast, currentUser, modelId,
-        project,
-        setCurrentViewport, setModelId, setDiagramDataForAI,
-        router, pathname, sessionReports
+        modelName, modelType, // Context values
+        toast, currentUser, modelId, // Hooks, auth, local state
+        getNodes, getEdges, getReactFlowViewport, // React Flow functions
+        setCurrentViewport, setModelId, setDiagramDataForAI, // Local state setters
+        router, pathname, sessionReports // Navigation, local state
     ]);
 
 
@@ -576,10 +611,10 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     const handleLoadModelSelect = useCallback(async (selectedModelIdFromDialog: string) => {
         setIsLoadModelDialogOpen(false);
-        if (typeof project !== 'function') return;
+        if (typeof getNodes !== 'function') return;
 
 
-        if (selectedModelIdFromDialog === modelId && (project().getNodes().length > 0 || project().getEdges().length > 0)) {
+        if (selectedModelIdFromDialog === modelId && (getNodes().length > 0 || (typeof getEdges === 'function' && getEdges().length > 0))) {
              const now = Date.now();
             if (now - lastToastTime.current > TOAST_DEBOUNCE_DURATION) {
                 toast({title: "Model Active", description: "This model is already loaded on the canvas."});
@@ -593,11 +628,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         if (pathname !== `/projects/${selectedModelIdFromDialog}`) {
             router.push(`/projects/${selectedModelIdFromDialog}`, { scroll: false });
         } else {
-            if (modelId !== selectedModelIdFromDialog || project().getNodes().length === 0) {
+            if (modelId !== selectedModelIdFromDialog || getNodes().length === 0) {
                 loadModel(selectedModelIdFromDialog);
             }
         }
-    }, [modelId, router, setIsLoadModelDialogOpen, pathname, toast, loadModel, project]);
+    }, [modelId, router, setIsLoadModelDialogOpen, pathname, toast, loadModel, getNodes, getEdges]);
 
 
     const handleCreateNewModel = (newModelName: string, newModelType: ModelType) => {
@@ -618,13 +653,13 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         const currentContextModelType = modelType;
         const currentContextModelName = modelName;
 
-        if (typeof project !== 'function') {
-            toast({ title: "Diagram Not Ready", description: "Cannot generate report, React Flow instance not fully available.", variant: "destructive" });
+        if (typeof getNodes !== 'function' || typeof getEdges !== 'function' || typeof getReactFlowViewport !== 'function') {
+            toast({ title: "Diagram Not Ready", description: "Cannot generate report, React Flow core functions not ready.", variant: "destructive" });
             return null;
         }
-        const currentNodesForReport = project().getNodes();
-        const currentEdgesForReport = project().getEdges();
-        const currentViewportForReport = project().getViewport();
+        const currentNodesForReport = getNodes();
+        const currentEdgesForReport = getEdges();
+        const currentViewportForReport = getReactFlowViewport();
 
         return {
             id: modelId,
@@ -635,7 +670,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             viewport: currentViewportForReport,
             reports: sessionReports,
         };
-    }, [project, modelId, modelName, modelType, toast, sessionReports ]);
+    }, [getNodes, getEdges, getReactFlowViewport, modelId, modelName, modelType, toast, sessionReports ]);
 
 
     const onViewportChangeInternal = useCallback((vp: Viewport) => {
@@ -748,5 +783,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         </>
     );
 }
+    
 
     
