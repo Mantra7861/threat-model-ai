@@ -6,7 +6,43 @@ import React from 'react';
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { calculateEffectiveZIndex } from '@/lib/diagram-utils';
-import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon'; // Import the icon component
+import DynamicPhosphorIcon from '@/components/ui/DynamicPhosphorIcon';
+
+// Helper function for text contrast (simplified)
+// Determines if a color is light to decide on black or white text.
+function getContrastingTextColor(backgroundColor?: string): string {
+  if (!backgroundColor) return '#000000'; // Default to black text
+
+  // Basic check for HSL (assuming lightness is the last significant number)
+  if (backgroundColor.startsWith('hsl')) {
+    try {
+      const parts = backgroundColor.match(/(\d+(\.\d+)?)%?\)/g); // Regex to find numbers before % or )
+      if (parts && parts.length >= 1) { // Check the last part for lightness
+        const lightnessMatch = parts[parts.length -1];
+        const lightness = parseFloat(lightnessMatch);
+        return lightness > 50 ? '#000000' : '#FFFFFF'; // Dark text on light, light text on dark
+      }
+    } catch (e) { /* ignore parsing error, fallback */ }
+  }
+  // Basic check for hex colors
+  else if (backgroundColor.startsWith('#')) {
+    try {
+      let hex = backgroundColor.replace('#', '');
+      if (hex.length === 3) {
+        hex = hex.split('').map(char => char + char).join('');
+      }
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      // Simple luminance check (more accurate formulas exist)
+      const luminance = (0.299 * r + 0.587 * g + 0.114 * b);
+      return luminance > 186 ? '#000000' : '#FFFFFF';
+    } catch (e) { /* ignore parsing error, fallback */ }
+  }
+  // Fallback for other color formats or if parsing failed
+  return '#000000';
+}
+
 
 export const CustomNode: FC<NodeProps> = ({
   id,
@@ -30,38 +66,33 @@ export const CustomNode: FC<NodeProps> = ({
   }
 
   const isBoundary = data.isBoundary === true;
-  // For boundary nodes, nodeDisplayColor is primarily for the label. Border is handled by CSS var.
-  // For regular nodes, it's for icon and label.
-  const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--foreground))') : (data.textColor || 'hsl(var(--foreground))');
+  const nodeLabel = data.label || data.name || 'Unnamed';
+  // For boundary, nodeDisplayColor is for label. For regular, it's icon/shape color.
+  const nodeDisplayColor = isBoundary ? (data.boundaryColor || 'hsl(var(--foreground))') : (data.textColor || '#333333');
 
 
   const effectiveZIndex = calculateEffectiveZIndex(id, type || 'default', selected, rfProvidedZIndex, selected ? id : null);
 
-  // Base style for the root div of our custom node content
   const customNodeRootStyle: React.CSSProperties = {
     zIndex: effectiveZIndex,
-    width: '100%', 
+    width: '100%',
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative', 
+    position: 'relative',
+    background: 'transparent', // Content div should be transparent
   };
 
   const isNodeResizable = data.resizable === true || isBoundary;
   const showResizer = selected && isNodeResizable;
-  const nodeLabel = data.label || data.name || 'Unnamed';
-
   const isHandleConnectable = nodeIsConnectableProp !== undefined ? nodeIsConnectableProp : !isBoundary;
 
 
   if (isBoundary) {
-    // Boundary nodes are styled by globals.css via .react-flow__node-Boundary
-    // This div is the *content* of the React Flow node wrapper.
-    // It should be transparent to let the wrapper's border show.
     return (
-      <div style={{...customNodeRootStyle, background: 'transparent' }} className="group">
+      <div style={{...customNodeRootStyle }} className="group">
         {showResizer && (
           <NodeResizer
             minWidth={data.minWidth || 150}
@@ -72,27 +103,121 @@ export const CustomNode: FC<NodeProps> = ({
             style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
           />
         )}
-        {/* Label for boundary */}
         <span
           className={cn(
             "text-sm font-semibold absolute -translate-x-1/2 left-1/2 px-1 py-0.5 rounded",
-            "top-1 bg-background/80 backdrop-blur-sm shadow-sm" // Semi-transparent background for label
+            "top-1 bg-background/80 backdrop-blur-sm shadow-sm"
           )}
-          style={{ color: nodeDisplayColor }} // Label color uses nodeDisplayColor
+          style={{ color: nodeDisplayColor }}
         >
           {nodeLabel}
         </span>
-        {/* No handles for boundary nodes */}
       </div>
     );
   }
 
-  // Non-Boundary Nodes - Icon + Label
-  // This div is the content of the React Flow node wrapper.
-  // The wrapper gets background/border from globals.css (e.g., .react-flow__node-HardDrive)
+  // Handle Process Shapes (Circle, Rectangle, Diamond, Parallelogram)
+  const processShapeTypes = ['Circle', 'Rectangle', 'Diamond', 'Parallelogram'];
+  if (processShapeTypes.includes(type || '')) {
+    const shapeFillColor = data.textColor || '#cccccc'; // Default fill if not specified
+    const shapeBorderColor = data.borderColor || shapeFillColor; // Default border to fill or a specific border color
+    const labelColor = getContrastingTextColor(shapeFillColor);
+
+    const shapeBaseStyle: React.CSSProperties = {
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      boxSizing: 'border-box',
+      overflow: 'hidden', // Important for shapes like Diamond with rotated content
+    };
+
+    const labelElement = (
+      <span className="text-xs break-words max-w-[90%] max-h-[90%] overflow-hidden" style={{ color: labelColor }}>
+        {nodeLabel}
+      </span>
+    );
+
+    let shapeRendered;
+
+    switch (type) {
+      case 'Circle':
+        shapeRendered = (
+          <div style={{ ...shapeBaseStyle, backgroundColor: shapeFillColor, border: `2px solid ${shapeBorderColor}`, borderRadius: '50%' }}>
+            {labelElement}
+          </div>
+        );
+        break;
+      case 'Rectangle':
+        shapeRendered = (
+          <div style={{ ...shapeBaseStyle, backgroundColor: shapeFillColor, border: `2px solid ${shapeBorderColor}`, borderRadius: '0.25rem' }}>
+            {labelElement}
+          </div>
+        );
+        break;
+      case 'Diamond':
+        shapeRendered = (
+          <div style={{ ...shapeBaseStyle, position: 'relative' }}>
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polygon points="50,5 95,50 50,95 5,50" style={{ fill: shapeFillColor, stroke: shapeBorderColor, strokeWidth: 2 }} />
+            </svg>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10%'}}>
+              {labelElement}
+            </div>
+          </div>
+        );
+        break;
+      case 'Parallelogram':
+         shapeRendered = (
+          <div style={{ ...shapeBaseStyle, position: 'relative' }}>
+            <svg width="100%" height="100%" viewBox="0 0 100 60" preserveAspectRatio="none">
+              <polygon points="20,0 100,0 80,60 0,60" style={{ fill: shapeFillColor, stroke: shapeBorderColor, strokeWidth: 2 }} />
+            </svg>
+             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 15%'}}>
+              {labelElement}
+            </div>
+          </div>
+        );
+        break;
+      default:
+        // Fallback for any other type caught here, though icon-based should be default
+        shapeRendered = (
+            <div style={{ ...shapeBaseStyle, backgroundColor: shapeFillColor, border: `2px solid ${shapeBorderColor}` }}>
+                 {labelElement}
+            </div>
+        );
+    }
+
+    return (
+      <div style={customNodeRootStyle} className="group">
+        {showResizer && (
+          <NodeResizer
+            minWidth={data.minWidth || 50}
+            minHeight={data.minHeight || 50}
+            lineClassName="!border-primary"
+            handleClassName="!h-3 !w-3 !bg-background !border-2 !border-primary !rounded-sm !opacity-100"
+            isVisible={selected}
+            style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
+          />
+        )}
+        {shapeRendered}
+        <div style={{ pointerEvents: 'none' }}>
+            <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+            <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+            <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+            <Handle type="both" position={Position.Right} id="right" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
+        </div>
+      </div>
+    );
+  }
+
+
+  // Default: Icon-based nodes (Infrastructure, or other Process nodes not matching above shapes)
   return (
     <div
-        style={{...customNodeRootStyle, background: 'transparent'}} // Content div should be transparent
+        style={{...customNodeRootStyle }}
         className="group"
     >
       {showResizer && (
@@ -105,27 +230,25 @@ export const CustomNode: FC<NodeProps> = ({
           style={{ zIndex: (effectiveZIndex ?? 0) + 10 }}
         />
       )}
-      
-      {/* Container for the icon and label */}
+
       <div
-        className="w-full h-full flex flex-col items-center justify-center p-1 space-y-1" // Added space-y-1
-        style={{ pointerEvents: 'none' }} 
+        className="w-full h-full flex flex-col items-center justify-center p-1 space-y-1"
+        style={{ pointerEvents: 'none' }}
       >
         <DynamicPhosphorIcon
-            name={data.iconName || 'Package'} 
-            size={24} // Fixed size for simplicity, can be made dynamic later
-            style={{ color: nodeDisplayColor }} 
+            name={data.iconName || 'Package'}
+            size={24}
+            style={{ color: nodeDisplayColor }}
         />
-        <span 
-            className="text-xs text-center break-words max-w-full" // Allow word breaking for long labels
+        <span
+            className="text-xs text-center break-words max-w-full"
             style={{ color: nodeDisplayColor }}
         >
             {nodeLabel}
         </span>
       </div>
 
-      {/* Handles */}
-      <div style={{ pointerEvents: 'none' }}> 
+      <div style={{ pointerEvents: 'none' }}>
           <Handle type="both" position={Position.Top} id="top" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
           <Handle type="both" position={Position.Bottom} id="bottom" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
           <Handle type="both" position={Position.Left} id="left" className="nodrag" isConnectable={isHandleConnectable} style={{ pointerEvents: 'all' }} />
@@ -134,4 +257,3 @@ export const CustomNode: FC<NodeProps> = ({
     </div>
   );
 };
-
