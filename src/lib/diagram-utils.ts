@@ -185,8 +185,9 @@ export const nodeToComponent = (node: Node): DiagramComponent => {
 
 export const connectionToEdge = (connection: DiagramConnection, isSelectedOverride?: boolean): Edge => {
   const selected = typeof isSelectedOverride === 'boolean' ? isSelectedOverride : (connection.selected || false);
+  const connectionProperties = connection.properties || {};
 
-  let userFacingName = connection.properties?.name || connection.label;
+  let userFacingName = connectionProperties.name || connection.label;
   if (!userFacingName || userFacingName.trim() === '' || userFacingName === connection.id) {
     userFacingName = 'Data Flow';
   }
@@ -196,13 +197,16 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
     dataType: 'Generic',
     protocol: 'Sequence/TCP',
     securityConsiderations: 'Needs review',
+    isBiDirectional: false,
   };
 
   const edgeDataProperties: Record<string, any> = {
     ...defaultProps,
-    ...(connection.properties || {}),
-    name: userFacingName,
+    ...connectionProperties, // Saved properties override defaults
+    name: userFacingName, // Ensure name is prioritized
   };
+  
+  const isBi = edgeDataProperties.isBiDirectional === true;
 
   return {
     id: connection.id,
@@ -211,19 +215,22 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
     sourceHandle: connection.sourceHandle || undefined,
     targetHandle: connection.targetHandle || undefined,
     label: userFacingName,
-    type: 'default',
+    type: 'default', // Could be extended for different edge types later
     data: {
       label: userFacingName,
       properties: edgeDataProperties,
     },
     selected: selected,
+    markerEnd: { type: 'arrowclosed' },
+    markerStart: isBi ? { type: 'arrowclosed' } : undefined,
   };
 };
 
 export const edgeToConnection = (edge: Edge): DiagramConnection => {
-  const currentEdgeDataProperties = edge.data?.properties || {};
+  const edgeData = edge.data || {};
+  const currentEdgeDataProperties = edgeData.properties || {};
 
-  let connectionName = currentEdgeDataProperties.name || edge.label || edge.data?.label;
+  let connectionName = currentEdgeDataProperties.name || edge.label || edgeData.label;
   if (!connectionName || connectionName.trim() === '' || connectionName === edge.id) {
     connectionName = 'Data Flow';
   }
@@ -233,12 +240,14 @@ export const edgeToConnection = (edge: Edge): DiagramConnection => {
     dataType: 'Generic',
     protocol: 'Sequence/TCP',
     securityConsiderations: 'Needs review',
+    isBiDirectional: false,
   };
 
   const propertiesToSave: Record<string, any> = {
     ...defaultProps,
-    ...currentEdgeDataProperties,
-    name: connectionName,
+    ...currentEdgeDataProperties, // Properties from edge data override defaults
+    name: connectionName, // Ensure name is prioritized
+    isBiDirectional: currentEdgeDataProperties.isBiDirectional === true, // Ensure boolean
   };
 
   return {
@@ -283,52 +292,46 @@ export const isPointNearEdge = (edge: Edge, point: XYPosition, nodes: Node[], to
         return false;
     }
 
-    const sourceCenter = {
+    // Get center points of nodes, or handle points if available
+    let sourcePos = {
         x: sourceNode.positionAbsolute.x + sourceNode.width / 2,
         y: sourceNode.positionAbsolute.y + sourceNode.height / 2
     };
-    const targetCenter = {
+    let targetPos = {
         x: targetNode.positionAbsolute.x + targetNode.width / 2,
         y: targetNode.positionAbsolute.y + targetNode.height / 2
     };
 
-    const minX = Math.min(sourceCenter.x, targetCenter.x) - tolerance;
-    const maxX = Math.max(sourceCenter.x, targetCenter.x) + tolerance;
-    const minY = Math.min(sourceCenter.y, targetCenter.y) - tolerance;
-    const maxY = Math.max(sourceCenter.y, targetCenter.y) + tolerance;
+    // A simple straight line distance for now.
+    // More complex calculations could use sourceHandle/targetHandle positions if available on edge.
+    
+    const minX = Math.min(sourcePos.x, targetPos.x) - tolerance;
+    const maxX = Math.max(sourcePos.x, targetPos.x) + tolerance;
+    const minY = Math.min(sourcePos.y, targetPos.y) - tolerance;
+    const maxY = Math.max(sourcePos.y, targetPos.y) + tolerance;
 
     if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) {
-        return false;
+        return false; // Quick check: if point is outside bounding box of segment + tolerance
     }
 
-    const A = sourceCenter;
-    const B = targetCenter;
+    const A = sourcePos;
+    const B = targetPos;
     const P = point;
 
-    const ABx = B.x - A.x;
-    const ABy = B.y - A.y;
-    const APx = P.x - A.x;
-    const APy = P.y - A.y;
+    // Distance from point P to line segment AB
+    const l2 = (B.x - A.x) * (B.x - A.x) + (B.y - A.y) * (B.y - A.y);
+    if (l2 === 0) return Math.sqrt((P.x - A.x) * (P.x - A.x) + (P.y - A.y) * (P.y - A.y)) < tolerance; // A and B are the same point
 
-    const dotProduct = APx * ABx + APy * ABy;
-    if (dotProduct < 0) {
-        return Math.sqrt(APx * APx + APy * APy) < tolerance;
-    }
+    let t = ((P.x - A.x) * (B.x - A.x) + (P.y - A.y) * (B.y - A.y)) / l2;
+    t = Math.max(0, Math.min(1, t)); // Clamp t to the segment
 
-    const squaredLengthAB = ABx * ABx + ABy * ABy;
-    if (squaredLengthAB === 0) {
-        return Math.sqrt(APx * APx + APy * APy) < tolerance;
-    }
-    if (dotProduct > squaredLengthAB) {
-        const BPx = P.x - B.x;
-        const BPy = P.y - B.y;
-        return Math.sqrt(BPx * BPx + BPy * BPy) < tolerance;
-    }
+    const closestPointX = A.x + t * (B.x - A.x);
+    const closestPointY = A.y + t * (B.y - A.y);
 
-    const crossProduct = APx * ABy - APy * ABx;
-    const distance = Math.abs(crossProduct) / Math.sqrt(squaredLengthAB);
-
-    return distance < tolerance;
+    const dx = P.x - closestPointX;
+    const dy = P.y - closestPointY;
+    
+    return (dx * dx + dy * dy) < (tolerance * tolerance);
 };
 
 
@@ -353,11 +356,9 @@ export const getTopmostElementAtClick = (
         }
     }
 
-    // Only check edges if no non-boundary node was directly clicked, or if a boundary box was clicked
-    // This prioritizes clicking nodes over edges if they overlap.
     if (clickedNonBoundaryNodes.length === 0 || clickedBoundaryBoxes.some(bn => isClickOnNode(bn, clickPos))) {
        for (const edge of edges) {
-           if (isPointNearEdge(edge, clickPos, nodes)) {
+           if (isPointNearEdge(edge, clickPos, nodes, 10 / zoom)) { // Adjust tolerance by zoom
                clickedEdges.push(edge);
            }
        }
@@ -367,25 +368,28 @@ export const getTopmostElementAtClick = (
         return clickedNonBoundaryNodes.sort((a, b) => {
             const zIndexA = calculateEffectiveZIndex(a.id, a.type as string, a.selected, a.zIndex, selectedElementIdGlobal);
             const zIndexB = calculateEffectiveZIndex(b.id, b.type as string, b.selected, b.zIndex, selectedElementIdGlobal);
-            if (zIndexA !== zIndexB) return zIndexB - zIndexA;
+            if (zIndexA !== zIndexB) return zIndexB - zIndexA; // Higher z-index first
+            // If z-index is the same, smaller area nodes are considered "on top"
             const areaA = (a.width || 0) * (a.height || 0);
             const areaB = (b.width || 0) * (b.height || 0);
-            return areaA - areaB; // Smaller area on top
+            return areaA - areaB; 
         })[0];
     }
 
     if (clickedEdges.length > 0) {
-        return clickedEdges[0]; // Simplistic: take the first one. Could be improved if z-indexing edges is needed.
+        // Basic: return the first one. Could be improved if edge z-indexing becomes necessary.
+        // For now, edges are generally "behind" nodes unless nodes are transparent.
+        return clickedEdges[0];
     }
 
     if (clickedBoundaryBoxes.length > 0) {
         return clickedBoundaryBoxes.sort((a, b) => {
             const zIndexA = calculateEffectiveZIndex(a.id, a.type as string, a.selected, a.zIndex, selectedElementIdGlobal);
             const zIndexB = calculateEffectiveZIndex(b.id, b.type as string, b.selected, b.zIndex, selectedElementIdGlobal);
-            if (zIndexA !== zIndexB) return zIndexB - zIndexA;
+             if (zIndexA !== zIndexB) return zIndexB - zIndexA; // Higher z-index first
             const areaA = (a.width || 0) * (a.height || 0);
             const areaB = (b.width || 0) * (b.height || 0);
-            return areaA - areaB; // Smaller area (more specific boundary) on top
+            return areaB - areaA; // Larger area (more encompassing boundary) considered "behind" smaller ones
         })[0];
     }
 
@@ -417,5 +421,3 @@ export function isPointInsideBounds(point: XYPosition, bounds: Bounds): boolean 
     return point.x >= bounds.x && point.x <= bounds.x + bounds.width &&
            point.y >= bounds.y && point.y <= bounds.y + bounds.height;
 }
-
-    

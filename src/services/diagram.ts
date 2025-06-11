@@ -78,7 +78,9 @@ export interface Connection {
   /**
    * Custom properties of the connection (e.g., data type, protocol).
    */
-  properties?: Record<string, any>;
+  properties?: Record<string, any> & {
+    isBiDirectional?: boolean; // New property for bi-directional arrows
+  };
   /**
    * Optional selected state for the connection.
    */

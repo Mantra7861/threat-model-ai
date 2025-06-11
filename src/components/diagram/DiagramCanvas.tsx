@@ -14,10 +14,9 @@ import {
   type OnEdgesChange,
   type OnNodesChange,
   type Viewport,
-  // type NodeChange, // No longer explicitly used in onDrop
-  type Connection,
   ConnectionMode,
   type SelectionChangedParams,
+  MarkerType, // Import MarkerType for defining markers
 } from '@xyflow/react';
 import { useToast } from '@/hooks/use-toast';
 import { CustomNode } from './CustomNode';
@@ -47,14 +46,26 @@ const nodeTypes = {
   Default: CustomNode,
 };
 
+// Define default edge options including markers
+const defaultEdgeOptions = {
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    width: 20,
+    height: 20,
+    color: 'hsl(var(--foreground))', // Default arrow color
+  },
+  // style: { stroke: 'hsl(var(--foreground))' }, // Default edge color
+};
+
+
 interface DiagramCanvasProps {
   nodes: Node[];
   edges: Edge[];
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setNodes: Dispatch<SetStateAction<Node[]>>; // This is useNodesState's setter
-  setEdges: Dispatch<SetStateAction<Edge[]>>; // This is useEdgesState's setter
+  setNodes: Dispatch<SetStateAction<Node[]>>; 
+  setEdges: Dispatch<SetStateAction<Edge[]>>; 
   onViewportChange?: (viewport: Viewport) => void;
   onPaneClick: (event: ReactMouseEvent) => void; 
   onSelectionChange: (params: SelectionChangedParams) => void;
@@ -62,16 +73,16 @@ interface DiagramCanvasProps {
 }
 
 export function DiagramCanvas({
-  nodes, // Current nodes from ProjectClientLayout
-  edges, // Current edges from ProjectClientLayout
-  onNodesChange, // Passed from ProjectClientLayout (useNodesState)
-  onEdgesChange, // Passed from ProjectClientLayout (useEdgesState)
-  onConnect,     // Passed from ProjectClientLayout
-  setNodes,      // This is the direct setter from useNodesState in ProjectClientLayout
-  setEdges,      // This is the direct setter from useEdgesState in ProjectClientLayout
+  nodes, 
+  edges, 
+  onNodesChange, 
+  onEdgesChange, 
+  onConnect,     
+  setNodes,      
+  setEdges,      
   onViewportChange,
-  onPaneClick,    // Passed from ProjectClientLayout
-  onSelectionChange, // Passed from ProjectClientLayout
+  onPaneClick,    
+  onSelectionChange, 
   isSelectionModifierKeyPressed,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -115,10 +126,10 @@ export function DiagramCanvas({
         y: event.clientY,
       });
 
-      const currentNodes = rfGetNodesFromHook(); // Get current nodes for parent check
+      const currentNodes = rfGetNodesFromHook(); 
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
-        project && // Ensure project (react flow instance) is available for screenToFlowPosition to work reliably
+        project && 
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -142,10 +153,10 @@ export function DiagramCanvas({
               case 'ArrowRight':
                   defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
                   break;
-              default: // Covers ArchiveBox, FileText, PencilSimpleLine, StickyNote, and any other icon-based process stencils
+              default: 
                   defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
-      } else { // Infrastructure (non-boundary)
+      } else { 
           nodeIsResizable = true;
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
@@ -183,23 +194,17 @@ export function DiagramCanvas({
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        selected: true, // New node should be selected
+        selected: true, 
       };
 
-      // Directly update nodes state: deselect all current nodes, then add the new selected node.
       setNodes((nds) => 
         nds.map(n => ({...n, selected: false})).concat(newNode)
       );
-      // Deselect all edges
       setEdges((eds) => eds.map(e => ({...e, selected: false})));
-
-      // Removed problematic calls to onNodesChange and onPaneClick from here.
-      // The selection of the newNode (set to selected: true above) should be handled
-      // by the onSelectionChange callback in ProjectClientLayout.tsx.
       
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, project] // Ensure all dependencies are listed
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, project] 
   );
 
   return (
@@ -216,6 +221,7 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
+        defaultEdgeOptions={defaultEdgeOptions} // Apply default marker options
 
         nodesDraggable={true} 
         nodesConnectable={true} 
@@ -236,6 +242,20 @@ export function DiagramCanvas({
         onPaneClick={onPaneClick} 
         onSelectionChange={onSelectionChange}
       >
+        <defs>
+          <marker
+            id="arrowclosed"
+            viewBox="-5 -5 10 10" 
+            refX="0" // Position marker at the end of the line
+            refY="0"
+            markerUnits="strokeWidth"
+            markerWidth="8" // Adjust size as needed
+            markerHeight="8"
+            orient="auto-start-reverse"
+          >
+            <polygon points="-5,-4 5,0 -5,4" fill="currentColor" className="text-foreground group-[.selected]:text-primary group-[.focused]:text-primary" />
+          </marker>
+        </defs>
         <Controls />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
@@ -245,4 +265,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-

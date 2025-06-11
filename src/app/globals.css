@@ -103,13 +103,8 @@ body {
   .react-flow__node {
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
     overflow: visible;
-    /* background: transparent !important; */ /* Removed for diagnostics */
-    /* border: none !important; */ /* Removed for diagnostics */
-    /* box-shadow: none !important; */ /* Removed for diagnostics */
   }
 
-  /* Default border and bg for ICON-ONLY nodes (Server, Database, Cloud, etc.) */
-  /* These specific type selectors will still apply their backgrounds/borders */
   div.react-flow__node.react-flow__node-HardDrive,
   div.react-flow__node.react-flow__node-HardDrives,
   div.react-flow__node.react-flow__node-Database,
@@ -120,7 +115,6 @@ body {
   div.react-flow__node.react-flow__node-Default,
   div.react-flow__node.react-flow__node-Question,
   div.react-flow__node.react-flow__node-Package,
-  /* Process Stencils that are ICON-ONLY (not shapes) */
   div.react-flow__node.react-flow__node-ArchiveBox,
   div.react-flow__node.react-flow__node-FileText,
   div.react-flow__node.react-flow__node-PencilSimpleLine,
@@ -145,13 +139,6 @@ body {
   div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
   div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
 
-  div.react-flow__node.react-flow__node-Circle,
-  div.react-flow__node.react-flow__node-Rectangle,
-  div.react-flow__node.react-flow__node-Diamond,
-  div.react-flow__node.react-flow__node-Parallelogram {
-     /* These will now inherit the base .react-flow__node background unless CustomNode styles override */
-  }
-
   div.react-flow__node.react-flow__node-Boundary {
     @apply !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
     border-width: 2px !important;
@@ -167,45 +154,24 @@ body {
     @apply ring-1 ring-offset-0 ring-primary;
   }
 
-  /* Minimal Handle Styling - Let React Flow defaults mostly apply */
-  /* The @xyflow/react/dist/style.css import should provide base handle styles */
-
-  /* Provide a clear visual cue for valid target handles */
-  .react-flow__handle.valid, /* For older versions or different class naming */
-  .react-flow__handle-valid { /* Standard class for valid connection target */
-    background-color: lightgreen !important; /* Make it obvious */
-    /* React Flow's default CSS should handle size, border-radius, etc. */
+  .react-flow__handle.valid, 
+  .react-flow__handle-valid { 
+    background-color: lightgreen !important; 
   }
 
-  /* Visual cue for the handle that is currently being dragged (source of connection) */
   .react-flow__handle-connecting {
-    background-color: orange !important; /* Make it obvious */
+    background-color: orange !important; 
   }
-
-  /* Basic visibility and interactivity for default handles */
-  /* Comment block from line 229 to 238 (original file) removed */
-
-  /* Ensure handles are visible and distinct when node is hovered or selected */
-  /*
-  .react-flow__node:hover .react-flow__handle,
-  .react-flow__node.selected .react-flow__handle {
-    visibility: visible !important;
-    opacity: 1 !important;
-    background-color: hsl(var(--primary)) !important;
-  }
-  */
-
+  
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
      stroke-dasharray: none;
-     /* marker-end: url(#arrowclosed); */ /* Custom markers temporarily removed for diagnosis */
    }
 
    .react-flow__edge.selected .react-flow__edge-path,
    .react-flow__edge:focus .react-flow__edge-path,
    .react-flow__edge:focus-within .react-flow__edge-path {
        @apply stroke-primary stroke-[3px];
-       /* marker-end: url(#arrowclosed-selected); */ /* Custom markers temporarily removed for diagnosis */
    }
     .react-flow__edge.selected .react-flow__edge-text,
     .react-flow__edge:focus .react-flow__edge-text,

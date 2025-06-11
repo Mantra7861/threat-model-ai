@@ -43,14 +43,24 @@ export function SidebarPropertiesPanel({
 
   useEffect(() => {
     if (selectedElement?.data?.properties) {
-      setLocalProperties({ ...selectedElement.data.properties });
-    } else if (selectedElement?.data && !selectedElement.data.properties && 'source' in selectedElement && 'target' in selectedElement) {
+      // Ensure isBiDirectional has a boolean value if it's an edge
+      if ('source' in selectedElement && 'target' in selectedElement) {
+        const props = { ...selectedElement.data.properties };
+        if (props.isBiDirectional === undefined) {
+          props.isBiDirectional = false; 
+        }
+        setLocalProperties(props);
+      } else {
+        setLocalProperties({ ...selectedElement.data.properties });
+      }
+    } else if (selectedElement?.data && 'source' in selectedElement && 'target' in selectedElement) { // Edge with no 'properties' field yet
       const defaultEdgeProps = {
         name: selectedElement.data.label || 'Data Flow', 
         description: 'A data flow connection.',
         dataType: 'Generic',
         protocol: 'TCP/IP',
         securityConsiderations: 'Needs review',
+        isBiDirectional: false, // Default for new edges
       };
       setLocalProperties(defaultEdgeProps);
     } else if (selectedElement?.data) { 
@@ -78,7 +88,9 @@ export function SidebarPropertiesPanel({
     };
     setLocalProperties(newProps);
 
-    if (propName === 'name') {
+    // For direct updates like name or checkbox, update immediately.
+    // For text inputs, debouncedUpdate will handle it.
+    if (propName === 'name' || typeof value === 'boolean') {
       onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement);
     } else {
       debouncedUpdate(selectedElement.id, newProps, isNodeElement);
@@ -140,7 +152,6 @@ export function SidebarPropertiesPanel({
   }
 
 
-  // Guard for selectedElement being non-null if not multipleElementsSelected
   if (!selectedElement) {
       return <div className="p-4 text-muted-foreground">No element selected.</div>;
   }
@@ -155,17 +166,23 @@ export function SidebarPropertiesPanel({
   let elementName = localProperties.name || elementData.label || (elementData.properties?.name) ||elementType;
 
   let currentPropsToIterate = localProperties;
-  if (!isNode && selectedElement.data?.properties && Object.keys(localProperties).length === 0) {
-     currentPropsToIterate = selectedElement.data.properties;
-  } else if (!isNode && Object.keys(localProperties).length === 0) {
+  // Initialize default properties for an edge if 'properties' field doesn't exist or is empty
+  if (!isNode && (!elementData.properties || Object.keys(elementData.properties).length === 0) && Object.keys(localProperties).length === 0) {
      currentPropsToIterate = {
-        name: selectedElement.data?.label || 'Data Flow',
+        name: elementData.label || 'Data Flow',
         description: 'A data flow connection.',
         dataType: 'Generic',
         protocol: 'TCP/IP',
         securityConsiderations: 'Needs review',
+        isBiDirectional: false,
      };
+     // Persist these defaults if they were just created
+     // This will be handled by onUpdateProperties when any field is changed
+  } else if (!isNode && localProperties.isBiDirectional === undefined) {
+    // Ensure isBiDirectional exists for edges in local state
+    currentPropsToIterate = {...localProperties, isBiDirectional: false };
   }
+
 
   return (
     <ScrollArea className="h-full">
@@ -180,20 +197,21 @@ export function SidebarPropertiesPanel({
             const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 
             'source', 'target', 'sourceHandle', 'targetHandle' 
             ];
+            // Allow editing 'name' and 'description' even if they might be considered "structural" by some definitions
             if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { 
-                 if (key === 'name' && value === elementName) { /* Allow editing if it's the primary name/label */ }
-                 else if (key === 'description') { /* Allow editing description */ }
-                 else return null; 
+                 return null; 
             }
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+
+            if (key === 'isBiDirectional' && isNode) return null; // Only show for edges
 
             return (
                 <div key={key} className="space-y-1">
                   <Label htmlFor={`prop-${key}`}>
                     {labelText}
                   </Label>
-                  {typeof value === 'boolean' ? (
+                  {typeof value === 'boolean' && key === 'isBiDirectional' ? (
                      <div className="flex items-center space-x-2 mt-2">
                          <Checkbox
                             id={`prop-${key}`}
@@ -204,11 +222,23 @@ export function SidebarPropertiesPanel({
                             {value ? 'Enabled' : 'Disabled'} 
                          </Label>
                      </div>
+                  ) : typeof value === 'boolean' ? ( // Other booleans
+                     <div className="flex items-center space-x-2 mt-2">
+                         <Checkbox
+                            id={`prop-${key}`}
+                            checked={value}
+                            onCheckedChange={(checked) => handleInputChange(key, Boolean(checked))}
+                          />
+                         <Label htmlFor={`prop-${key}`} className="text-sm font-normal">
+                            {value ? 'Yes' : 'No'} {/* More generic for other booleans */}
+                         </Label>
+                     </div>
                   ) : typeof value === 'string' && value.length > 60 ? (
                     <Textarea
                       id={`prop-${key}`}
                       value={value}
                       onChange={(e) => handleInputChange(key, e.target.value)}
+                      onBlur={(e) => debouncedUpdate(selectedElement.id, { ...localProperties, [key]: e.target.value }, isNode)}
                       className="text-sm"
                       rows={3}
                       placeholder={`Enter ${labelText}...`}
@@ -219,12 +249,21 @@ export function SidebarPropertiesPanel({
                       value={String(value ?? '')} 
                       onChange={(e) => {
                           const val = e.target.value;
-                          const originalValue = currentPropsToIterate[key]; 
-                          if (typeof originalValue === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
-                              handleInputChange(key, Number(val));
+                          const originalValueType = typeof currentPropsToIterate[key];
+                          if (originalValueType === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
+                            setLocalProperties(prev => ({...prev, [key]: Number(val)}));
                           } else {
-                              handleInputChange(key, val);
+                            setLocalProperties(prev => ({...prev, [key]: val}));
                           }
+                      }}
+                      onBlur={(e) => {
+                        const val = e.target.value;
+                        const originalValueType = typeof currentPropsToIterate[key];
+                        if (originalValueType === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
+                           debouncedUpdate(selectedElement.id, { ...localProperties, [key]: Number(val) }, isNode);
+                        } else {
+                           debouncedUpdate(selectedElement.id, { ...localProperties, [key]: val }, isNode);
+                        }
                       }}
                       className="text-sm"
                       type={typeof currentPropsToIterate[key] === 'number' ? 'number' : 'text'}
@@ -234,7 +273,7 @@ export function SidebarPropertiesPanel({
                 </div>
             );
           })}
-           {Object.keys(currentPropsToIterate).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description').length === 0 && (
+           {Object.keys(currentPropsToIterate).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description' || (!isNode && k === 'isBiDirectional')).length === 0 && (
                <p className="text-sm text-muted-foreground">No editable properties for this element.</p>
             )}
         </div>
