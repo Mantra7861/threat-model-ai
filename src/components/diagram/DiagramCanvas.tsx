@@ -129,7 +129,7 @@ export function DiagramCanvas({
       const currentNodes = rfGetNodesFromHook(); 
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
-        project && 
+        typeof project === 'function' && // Ensure project is a function before calling
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -253,7 +253,8 @@ export function DiagramCanvas({
             markerHeight="8"
             orient="auto-start-reverse"
           >
-            <polygon points="-5,-4 5,0 -5,4" fill="currentColor" className="text-foreground group-[.selected]:text-primary group-[.focused]:text-primary" />
+            {/* className removed from polygon to prevent React warning */}
+            <polygon points="-5,-4 5,0 -5,4" fill="currentColor" />
           </marker>
         </defs>
         <Controls />
@@ -265,3 +266,4 @@ export function DiagramCanvas({
     </div>
   );
 }
+
