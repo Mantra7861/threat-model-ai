@@ -52,10 +52,10 @@ const defaultEdgeOptions = {
     type: MarkerType.ArrowClosed,
     width: 20,
     height: 20,
-    color: 'hsl(var(--foreground))', // Default arrow color, will be used by React Flow
+    color: 'hsl(var(--foreground))',
   },
-  // markerStart is handled dynamically in diagram-utils.ts connectionToEdge
-  style: { strokeWidth: 2 }, // Ensures edges have a decent stroke width
+  // markerStart is handled dynamically in diagram-utils.ts connectionToEdge by setting the markerStart property on the edge itself
+  style: { strokeWidth: 2 }, 
 };
 
 
@@ -130,7 +130,7 @@ export function DiagramCanvas({
       const currentNodes = rfGetNodesFromHook();
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
-        typeof project === 'function' && // Ensure project is a function before calling
+        typeof project === 'function' && 
         flowPosition.x >= n.positionAbsolute.x &&
         flowPosition.x <= n.positionAbsolute.x + n.width &&
         flowPosition.y >= n.positionAbsolute.y &&
@@ -222,7 +222,7 @@ export function DiagramCanvas({
         onViewportChange={onViewportChange}
         className="bg-background"
         deleteKeyCode={['Backspace', 'Delete']}
-        defaultEdgeOptions={defaultEdgeOptions} // Apply default marker options
+        defaultEdgeOptions={defaultEdgeOptions} 
 
         nodesDraggable={true}
         nodesConnectable={true}
@@ -243,7 +243,7 @@ export function DiagramCanvas({
         onPaneClick={onPaneClick}
         onSelectionChange={onSelectionChange}
       >
-        {/* Manual <defs> block removed to rely on React Flow's internal marker handling via defaultEdgeOptions */}
+        {/* Manual <defs> block is removed. React Flow handles markers via defaultEdgeOptions. */}
         <Controls />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
@@ -253,3 +253,4 @@ export function DiagramCanvas({
     </div>
   );
 }
+    
