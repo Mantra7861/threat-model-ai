@@ -52,9 +52,10 @@ const defaultEdgeOptions = {
     type: MarkerType.ArrowClosed,
     width: 20,
     height: 20,
-    color: 'hsl(var(--foreground))', // Default arrow color
+    color: 'hsl(var(--foreground))', // Default arrow color, will be used by React Flow
   },
-  // style: { stroke: 'hsl(var(--foreground))' }, // Default edge color
+  // markerStart is handled dynamically in diagram-utils.ts connectionToEdge
+  style: { strokeWidth: 2 }, // Ensures edges have a decent stroke width
 };
 
 
@@ -242,21 +243,7 @@ export function DiagramCanvas({
         onPaneClick={onPaneClick}
         onSelectionChange={onSelectionChange}
       >
-        <defs>
-          <marker
-            id="arrowclosed"
-            viewBox="-5 -5 10 10"
-            refX="0" // Position marker at the end of the line
-            refY="0"
-            markerUnits="strokeWidth"
-            markerWidth="8" // Adjust size as needed
-            markerHeight="8"
-            orient="auto-start-reverse"
-          >
-            {/* className removed from polygon to prevent React warning */}
-            <polygon points="-5,-4 5,0 -5,4" fill="#333333" />
-          </marker>
-        </defs>
+        {/* Manual <defs> block removed to rely on React Flow's internal marker handling via defaultEdgeOptions */}
         <Controls />
         <Background gap={16} />
         <Panel position="top-left" className="text-xs text-muted-foreground p-2 bg-card/80 rounded shadow">
