@@ -64,25 +64,25 @@ interface DiagramCanvasProps {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  setNodes: Dispatch<SetStateAction<Node[]>>; 
-  setEdges: Dispatch<SetStateAction<Edge[]>>; 
+  setNodes: Dispatch<SetStateAction<Node[]>>;
+  setEdges: Dispatch<SetStateAction<Edge[]>>;
   onViewportChange?: (viewport: Viewport) => void;
-  onPaneClick: (event: ReactMouseEvent) => void; 
+  onPaneClick: (event: ReactMouseEvent) => void;
   onSelectionChange: (params: SelectionChangedParams) => void;
   isSelectionModifierKeyPressed: boolean;
 }
 
 export function DiagramCanvas({
-  nodes, 
-  edges, 
-  onNodesChange, 
-  onEdgesChange, 
-  onConnect,     
-  setNodes,      
-  setEdges,      
+  nodes,
+  edges,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  setNodes,
+  setEdges,
   onViewportChange,
-  onPaneClick,    
-  onSelectionChange, 
+  onPaneClick,
+  onSelectionChange,
   isSelectionModifierKeyPressed,
 }: DiagramCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -126,7 +126,7 @@ export function DiagramCanvas({
         y: event.clientY,
       });
 
-      const currentNodes = rfGetNodesFromHook(); 
+      const currentNodes = rfGetNodesFromHook();
       const parentBoundaryNode = currentNodes.find(
         (n) => n.data?.isBoundary === true && n.positionAbsolute && n.width && n.height &&
         typeof project === 'function' && // Ensure project is a function before calling
@@ -153,10 +153,10 @@ export function DiagramCanvas({
               case 'ArrowRight':
                   defaultWidth = 120; defaultHeight = 50; minWidthForNode = 80; minHeightForNode = 30;
                   break;
-              default: 
+              default:
                   defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
           }
-      } else { 
+      } else {
           nodeIsResizable = true;
           defaultWidth = 80; defaultHeight = 80; minWidthForNode = 40; minHeightForNode = 40;
       }
@@ -194,17 +194,17 @@ export function DiagramCanvas({
             parentNode: parentBoundaryNode.id,
             extent: 'parent',
         }),
-        selected: true, 
+        selected: true,
       };
 
-      setNodes((nds) => 
+      setNodes((nds) =>
         nds.map(n => ({...n, selected: false})).concat(newNode)
       );
       setEdges((eds) => eds.map(e => ({...e, selected: false})));
-      
+
       toast({ title: 'Element Added', description: `${newNode.data.label} added to the diagram.` });
     },
-    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, project] 
+    [screenToFlowPosition, setNodes, setEdges, toast, rfGetNodesFromHook, project]
   );
 
   return (
@@ -223,8 +223,8 @@ export function DiagramCanvas({
         deleteKeyCode={['Backspace', 'Delete']}
         defaultEdgeOptions={defaultEdgeOptions} // Apply default marker options
 
-        nodesDraggable={true} 
-        nodesConnectable={true} 
+        nodesDraggable={true}
+        nodesConnectable={true}
         elementsSelectable={true}
         nodeDragThreshold={1}
 
@@ -232,20 +232,20 @@ export function DiagramCanvas({
         panOnDrag={!isSelectionModifierKeyPressed}
         zoomOnScroll={true}
         zoomOnPinch={true}
-        panOnScroll={false} 
+        panOnScroll={false}
 
         zoomOnDoubleClick={true}
         selectionOnDrag={isSelectionModifierKeyPressed}
 
         connectionMode={ConnectionMode.Loose}
 
-        onPaneClick={onPaneClick} 
+        onPaneClick={onPaneClick}
         onSelectionChange={onSelectionChange}
       >
         <defs>
           <marker
             id="arrowclosed"
-            viewBox="-5 -5 10 10" 
+            viewBox="-5 -5 10 10"
             refX="0" // Position marker at the end of the line
             refY="0"
             markerUnits="strokeWidth"
@@ -254,7 +254,7 @@ export function DiagramCanvas({
             orient="auto-start-reverse"
           >
             {/* className removed from polygon to prevent React warning */}
-            <polygon points="-5,-4 5,0 -5,4" fill="currentColor" />
+            <polygon points="-5,-4 5,0 -5,4" fill="#333333" />
           </marker>
         </defs>
         <Controls />
@@ -266,4 +266,3 @@ export function DiagramCanvas({
     </div>
   );
 }
-
