@@ -42,36 +42,45 @@ export function SidebarPropertiesPanel({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (selectedElement?.data?.properties) {
-      const currentProps = { ...selectedElement.data.properties };
-      // For edges, ensure isBiDirectional has a default value if not present
-      if ('source' in selectedElement && 'target' in selectedElement) { // It's an Edge
-        if (typeof currentProps.isBiDirectional !== 'boolean') {
-          currentProps.isBiDirectional = false; 
+    if (selectedElement) {
+        const isEdge = 'source' in selectedElement && 'target' in selectedElement;
+        let newLocalProps: Record<string, any> = {};
+
+        if (isEdge) {
+            const defaultEdgeProps = {
+                name: 'Data Flow',
+                description: 'A data flow connection.',
+                dataType: 'Generic',
+                protocol: 'TCP/IP',
+                securityConsiderations: 'Needs review',
+                isBiDirectional: false,
+            };
+            newLocalProps = { ...defaultEdgeProps }; // Start with defaults
+
+            if (selectedElement.data?.properties) {
+                newLocalProps = { ...newLocalProps, ...selectedElement.data.properties }; // Overlay existing properties
+            }
+            // Ensure 'name' is populated from visual label if not in properties
+            if (!newLocalProps.name && selectedElement.data?.label) {
+                 newLocalProps.name = selectedElement.data.label;
+            }
+             // Ensure isBiDirectional is explicitly a boolean
+            newLocalProps.isBiDirectional = newLocalProps.isBiDirectional === true;
+
+        } else { // It's a Node
+            if (selectedElement.data?.properties) {
+                newLocalProps = { ...selectedElement.data.properties };
+            }
+             // Ensure 'name' is populated from visual label if not in properties
+            if (!newLocalProps.name && selectedElement.data?.label) {
+                 newLocalProps.name = selectedElement.data.label;
+            }
         }
-      }
-      setLocalProperties(currentProps);
-    } else if (selectedElement?.data && 'source' in selectedElement && 'target' in selectedElement) { // Edge with data but no 'properties' field yet
-      const defaultEdgeProps = {
-        name: selectedElement.data.label || 'Data Flow', 
-        description: 'A data flow connection.',
-        dataType: 'Generic',
-        protocol: 'TCP/IP',
-        securityConsiderations: 'Needs review',
-        isBiDirectional: false, // Default for new edges
-      };
-      setLocalProperties(defaultEdgeProps);
-      // Trigger an update to persist these defaults if the element was just selected
-      // and didn't have properties.
-      // This will be handled if a user interacts, or could be done explicitly:
-      // onUpdateProperties(selectedElement.id, defaultEdgeProps, false); 
-    } else if (selectedElement?.data) { // Node with data but no 'properties' field (less common for nodes as data is usually properties)
-        setLocalProperties({...selectedElement.data}); 
+        setLocalProperties(newLocalProps);
+    } else {
+        setLocalProperties({});
     }
-    else {
-      setLocalProperties({});
-    }
-  }, [selectedElement]); // Only re-run when selectedElement changes
+  }, [selectedElement]);
 
 
   const debouncedUpdate = useCallback(
@@ -85,20 +94,15 @@ export function SidebarPropertiesPanel({
     if (!selectedElement) return;
     const isNodeElement = 'position' in selectedElement; 
 
-    // Create the new full properties object
     const updatedFullProperties = {
       ...localProperties,
       [propName]: value,
     };
-    setLocalProperties(updatedFullProperties); // Update local state immediately for responsiveness
+    setLocalProperties(updatedFullProperties); 
 
-    // For direct updates like name or checkbox, update immediately.
-    // For text inputs, debouncedUpdate will handle it.
     if (propName === 'name' || typeof value === 'boolean') {
-      // Pass the complete updatedFullProperties
       onUpdateProperties(selectedElement.id, updatedFullProperties, isNodeElement);
     } else {
-      // Pass the complete updatedFullProperties
       debouncedUpdate(selectedElement.id, updatedFullProperties, isNodeElement);
     }
   };
@@ -164,34 +168,28 @@ export function SidebarPropertiesPanel({
 
 
   const isNode = 'position' in selectedElement; 
-  const elementData = selectedElement.data || {}; // data field from Node/Edge
+  const elementData = selectedElement.data || {}; 
   const elementType = isNode 
     ? ((selectedElement as Node).data?.type || (selectedElement as Node).type || 'default') 
     : 'Data Flow';
   
-  // Use localProperties.name as the source of truth for display name, fallback to elementData or type
   let elementName = localProperties.name || elementData.label || (elementData.properties?.name) ||elementType;
 
-  // Use localProperties to iterate over for rendering fields
   let currentPropsToIterate = localProperties;
   
-  // If localProperties is empty for an edge, initialize with defaults
-  // This ensures the 'isBiDirectional' checkbox and other default fields appear for newly selected edges
-  if (!isNode && Object.keys(localProperties).length === 0 && selectedElement.data) {
-     currentPropsToIterate = {
-        name: selectedElement.data.label || 'Data Flow',
+  // This ensures the UI always has a complete set of properties to iterate for edges
+  // especially after initial selection.
+  if (!isNode && Object.keys(localProperties).length > 0) { // Only if localProperties has been set
+     const defaultEdgeProps = {
+        name: 'Data Flow',
         description: 'A data flow connection.',
         dataType: 'Generic',
         protocol: 'TCP/IP',
         securityConsiderations: 'Needs review',
-        isBiDirectional: false, // Default to false
+        isBiDirectional: false,
      };
-     // Note: We might consider calling setLocalProperties(currentPropsToIterate) here
-     // if we want these defaults to immediately reflect in the state and be ready for saving.
-     // However, for now, just using it for iteration and letting handleInputChange manage updates.
-  } else if (!isNode && typeof localProperties.isBiDirectional !== 'boolean') {
-    // Ensure isBiDirectional is present for edges, defaulting to false
-    currentPropsToIterate = {...localProperties, isBiDirectional: false };
+     currentPropsToIterate = { ...defaultEdgeProps, ...localProperties };
+     currentPropsToIterate.isBiDirectional = currentPropsToIterate.isBiDirectional === true;
   }
 
 
@@ -205,20 +203,17 @@ export function SidebarPropertiesPanel({
 
         <div className="space-y-4">
           {Object.entries(currentPropsToIterate).map(([key, value]) => {
-            // List of properties considered internal or managed by React Flow, not directly user-editable here
             const internalOrStructuralProps = [
-                'position', 'width', 'height', 'type', 'label', // Node-specific structural
+                'position', 'width', 'height', 'type', 'label', 
                 'resizable', 'minWidth', 'minHeight', 'parentNode', 
                 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent',
-                'source', 'target', 'sourceHandle', 'targetHandle', // Edge-specific structural
-                'iconName', 'textColor', 'boundaryColor', 'isBoundary', 'stencilId', // Stencil-derived, usually not edited post-creation
+                'source', 'target', 'sourceHandle', 'targetHandle', 
+                'iconName', 'textColor', 'boundaryColor', 'isBoundary', 'stencilId', 
             ];
 
-            // Allow editing 'name' and 'description' even if they might be considered "structural" by some definitions
             if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { 
                  return null; 
             }
-            // Special handling for isBiDirectional: only show for edges
             if (key === 'isBiDirectional' && isNode) return null; 
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
@@ -228,7 +223,7 @@ export function SidebarPropertiesPanel({
                   <Label htmlFor={`prop-${key}`}>
                     {labelText}
                   </Label>
-                  {typeof value === 'boolean' ? ( // Unified boolean handling
+                  {typeof value === 'boolean' ? ( 
                      <div className="flex items-center space-x-2 mt-2">
                          <Checkbox
                             id={`prop-${key}`}
@@ -243,8 +238,8 @@ export function SidebarPropertiesPanel({
                     <Textarea
                       id={`prop-${key}`}
                       value={value}
-                      onChange={(e) => setLocalProperties(prev => ({...prev, [key]: e.target.value}))} // Update local state on change
-                      onBlur={(e) => handleInputChange(key, e.target.value)} // Debounced/direct update on blur
+                      onChange={(e) => setLocalProperties(prev => ({...prev, [key]: e.target.value}))} 
+                      onBlur={(e) => handleInputChange(key, e.target.value)} 
                       className="text-sm"
                       rows={3}
                       placeholder={`Enter ${labelText}...`}
@@ -253,7 +248,7 @@ export function SidebarPropertiesPanel({
                     <Input
                       id={`prop-${key}`}
                       value={String(value ?? '')} 
-                      onChange={(e) => { // Update local state on change
+                      onChange={(e) => { 
                           const val = e.target.value;
                           const originalValueType = typeof currentPropsToIterate[key];
                           if (originalValueType === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
@@ -262,7 +257,7 @@ export function SidebarPropertiesPanel({
                             setLocalProperties(prev => ({...prev, [key]: val}));
                           }
                       }}
-                      onBlur={(e) => { // Debounced/direct update on blur
+                      onBlur={(e) => { 
                         const val = e.target.value;
                         const originalValueType = typeof currentPropsToIterate[key];
                         if (originalValueType === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
@@ -287,7 +282,7 @@ export function SidebarPropertiesPanel({
                     'source', 'target', 'sourceHandle', 'targetHandle',
                     'iconName', 'textColor', 'boundaryColor', 'isBoundary', 'stencilId',
                 ];
-                if (isNode && k === 'isBiDirectional') return false; // Don't count isBiDirectional for nodes
+                if (isNode && k === 'isBiDirectional') return false; 
                 if (!internalOrStructuralProps.includes(k) || k === 'name' || k === 'description') return true;
                 return false;
            }).length === 0 && (

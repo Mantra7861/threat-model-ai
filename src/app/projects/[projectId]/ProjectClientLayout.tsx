@@ -16,6 +16,7 @@ import {
     addEdge,
     useReactFlow,
     type SelectionChangedParams,
+    MarkerType, // Import MarkerType
 } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
@@ -64,13 +65,13 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const { modelType, setModelType: setProjectContextModelType, modelName, setModelName } = useProjectContext();
     const { currentUser, loading: authLoading, firebaseReady } = useAuth();
     const { 
-        project: projectCoords, // Renamed to avoid confusion with a general 'project' concept
+        project, 
         fitView, 
         setViewport: rfSetViewport, 
         screenToFlowPosition, 
         getNodes, 
         getEdges, 
-        getViewport: getReactFlowViewport, // Renamed to avoid conflict
+        getViewport: getReactFlowViewport, 
         getSelectedNodes, 
         getSelectedEdges 
     } = useReactFlow<Node, Edge>();
@@ -83,9 +84,9 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [multipleElementsSelected, setMultipleElementsSelected] = useState(false);
 
-    const [loading, setLoading] = useState(true); // For async data loading like models
-    const [isReactFlowReady, setIsReactFlowReady] = useState(false); // For React Flow instance readiness
-    const [isLoadingModel, setIsLoadingModel] = useState(false); // Specifically for model load operations
+    const [loading, setLoading] = useState(true); 
+    const [isReactFlowReady, setIsReactFlowReady] = useState(false); 
+    const [isLoadingModel, setIsLoadingModel] = useState(false); 
     const [error, setError] = useState<string | null>(null);
     const { toast, dismiss: dismissToast } = useToast();
     const [isNewModelDialogOpen, setIsNewModelDialogOpen] = useState(false);
@@ -107,13 +108,12 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     const [isSelectionModifierKeyPressed, setIsSelectionModifierKeyPressed] = useState(false);
 
     useEffect(() => {
-        // Check if essential React Flow functions are available
         if (typeof getNodes === 'function' && typeof getEdges === 'function' && typeof getReactFlowViewport === 'function') {
             setIsReactFlowReady(true);
         } else {
-            setIsReactFlowReady(false); // Explicitly set to false if not ready
+            setIsReactFlowReady(false); 
         }
-    }, [getNodes, getEdges, getReactFlowViewport]); // Depend on these functions from useReactFlow
+    }, [getNodes, getEdges, getReactFlowViewport]); 
 
 
     useEffect(() => {
@@ -230,14 +230,14 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             isDirectlyLoading.current = false;
         }
     }, [
-        modelId, // Current modelId from state
+        modelId, 
         rfSetViewport, fitView,
         setNodesInternal, setEdgesInternal,
-        setCurrentViewport, // Local state for viewport
-        setModelName, setProjectContextModelType, // Context setters
-        setModelId, setSelectedElementId, setDiagramDataForAI, setSessionReports, // Local state setters
-        toast, router, pathname, // Hooks and utilities
-        currentViewport // Local state for viewport
+        setCurrentViewport, 
+        setModelName, setProjectContextModelType, 
+        setModelId, setSelectedElementId, setDiagramDataForAI, setSessionReports, 
+        toast, router, pathname, 
+        currentViewport 
     ]);
 
    useEffect(() => {
@@ -289,13 +289,13 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             initialLoadAttempted.current = true;
         } else {
             if (modelId === initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new' &&
-                (typeof getNodes === 'function' && (getNodes().length > 0 || (typeof getEdges === 'function' && getEdges().length > 0)))
+                (typeof project === 'function' && (project().getNodes().length > 0 || project().getEdges().length > 0)) 
             ) {
-                if (typeof fitView === 'function' && !currentViewport) {
+                if (typeof fitView === 'function' && !currentViewport) { 
                    setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 150);
                 }
             } else if (initialProjectIdFromUrl === 'new' && modelId === null) {
-                 if (typeof fitView === 'function') {
+                 if (typeof fitView === 'function') { 
                     setTimeout(() => fitView({ padding: 0.2, duration: 150 }), 50);
                  }
             }
@@ -304,28 +304,24 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
     }, [
         initialProjectIdFromUrl, currentUser, authLoading, firebaseReady,
-        modelId, modelName, modelType, // Context and local state values
+        modelId, modelName, modelType, 
         loadModel, resetDiagramState, fitView, router, pathname, currentViewport, isLoadingModel, 
-        getNodes, getEdges // Functions from useReactFlow
+        project 
     ]);
 
 
-    // Effect to update z-index based on selection state
     useEffect(() => {
         setNodesInternal(prevNodes => {
             let nodesChanged = false;
             const newNodes = prevNodes.map(node => {
-                // Node's `selected` property is managed by React Flow itself.
-                // `multipleElementsSelected` true means we are in multi-select mode.
-                // `selectedElementId` being this node's ID means it's the single selected element.
                 const isNodeSelectedForZIndex = multipleElementsSelected ? node.selected : (node.id === selectedElementId);
                 
                 const newZIndex = calculateEffectiveZIndex(
                     node.id,
                     node.type as string,
                     isNodeSelectedForZIndex,
-                    node.zIndex, // Pass current RF zIndex if any
-                    selectedElementId // Global selected element ID for context
+                    node.zIndex, 
+                    selectedElementId 
                 );
                 if (node.zIndex !== newZIndex) {
                     nodesChanged = true;
@@ -338,7 +334,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             }
             return prevNodes;
         });
-    }, [selectedElementId, multipleElementsSelected, setNodesInternal]); // Removed nodes array itself, rely on functional update
+    }, [selectedElementId, multipleElementsSelected, setNodesInternal]); 
 
 
     const onNodesChange = useCallback(
@@ -372,12 +368,8 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
 
         const clickedElement = getTopmostElementAtClick(currentFlowNodes, currentFlowEdges, flowPosition, currentFlowVp.zoom, selectedElementId);
 
-        if (typeof rfSetViewport === 'function') { // rfSetViewport is actually useReactFlow's setViewport
-             // This part might be tricky. We want React Flow to handle the selection, then onSelectionChange updates our state.
-             // For deselecting everything on pane click if no element is clicked:
+        if (typeof rfSetViewport === 'function') { 
              if (!clickedElement) {
-                 // Instruct React Flow to deselect all nodes and edges
-                 // This will trigger onSelectionChange which will update our state
                  if (typeof getSelectedNodes === 'function' && typeof getSelectedEdges === 'function') {
                     const currentlySelectedNodes = getSelectedNodes();
                     const currentlySelectedEdges = getSelectedEdges();
@@ -388,11 +380,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                     if (nodeChanges.length > 0) onNodesChange(nodeChanges);
                     if (edgeChanges.length > 0) onEdgesChange(edgeChanges);
                  }
-             } else {
-                  // If an element *is* clicked, React Flow's default behavior might handle single selection.
-                  // For multi-selection or ensuring our state aligns, we might need more direct control here if default isn't enough.
-                  // However, let's rely on onSelectionChange for now after RF handles the click.
-             }
+             } 
         }
 
     }, [getNodes, getEdges, getReactFlowViewport, screenToFlowPosition, selectedElementId, rfSetViewport, getSelectedNodes, getSelectedEdges, onNodesChange, onEdgesChange]);
@@ -432,15 +420,24 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                     return node;
                 })
             );
-        } else {
+        } else { // It's an Edge
             setEdgesInternal((eds) =>
                 eds.map((edge) => {
                     if (edge.id === elementId) {
                         const currentData = edge.data || {};
-                        const currentProperties = currentData.properties || {};
-                        const updatedDataProperties = { ...currentProperties, ...newProperties };
-                        const label = newProperties.name !== undefined ? newProperties.name : (updatedDataProperties.name || currentData.label || edge.label);
-                         return { ...edge, data: { ...currentData, properties: updatedDataProperties, label: label }, label: label };
+                        // newProperties is the complete set from SidebarPropertiesPanel
+                        const updatedEdgeProperties = { ...(currentData.properties || {}), ...newProperties }; 
+                        
+                        const label = updatedEdgeProperties.name || currentData.label || edge.label || 'Data Flow';
+                        const isBiDirectional = updatedEdgeProperties.isBiDirectional === true;
+
+                        return { 
+                            ...edge, 
+                            data: { ...currentData, properties: updatedEdgeProperties, label: label }, 
+                            label: label, 
+                            markerStart: isBiDirectional ? { type: MarkerType.ArrowClosed, color: 'hsl(var(--foreground))' } : undefined,
+                            // markerEnd will be applied by defaultEdgeOptions in DiagramCanvas
+                        };
                     }
                     return edge;
                 })
@@ -583,11 +580,11 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             setIsLoadingModel(false);
         }
     }, [
-        modelName, modelType, // Context values
-        toast, currentUser, modelId, // Hooks, auth, local state
-        getNodes, getEdges, getReactFlowViewport, // React Flow functions
-        setCurrentViewport, setModelId, setDiagramDataForAI, // Local state setters
-        router, pathname, sessionReports // Navigation, local state
+        modelName, modelType, 
+        toast, currentUser, modelId, 
+        getNodes, getEdges, getReactFlowViewport, 
+        setCurrentViewport, setModelId, setDiagramDataForAI, 
+        router, pathname, sessionReports 
     ]);
 
 
@@ -682,7 +679,6 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
     }, [setSessionReports]);
 
 
-    // Combined loading state check
     const showLoadingScreen = authLoading || loading || !isReactFlowReady;
 
     if (showLoadingScreen && !isNewModelDialogOpen && !isLoadModelDialogOpen && !initialLoadAttempted.current && initialProjectIdFromUrl !== 'new' ) {
@@ -706,7 +702,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                 <Button onClick={() => {
                     setError(null);
                     initialLoadAttempted.current = false;
-                    setIsReactFlowReady(false); // Reset React Flow readiness as well
+                    setIsReactFlowReady(false); 
                     if (initialProjectIdFromUrl && initialProjectIdFromUrl !== 'new') {
                         loadModel(initialProjectIdFromUrl);
                     } else {
