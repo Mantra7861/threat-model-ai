@@ -1,5 +1,5 @@
 
-import type { Node, Edge, XYPosition, Dimensions, Bounds, MarkerType as ReactFlowMarkerType } from '@xyflow/react'; // Import MarkerType for use in Edge definition
+import type { Node, Edge, XYPosition, Dimensions, Bounds, MarkerType as ReactFlowMarkerType } from '@xyflow/react'; 
 import type { Component as DiagramComponent, Connection as DiagramConnection } from '@/services/diagram';
 
 // Z-index constants
@@ -210,7 +210,7 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
   };
   
   const isBi = edgeDataProperties.isBiDirectional;
-  const arrowColor = 'hsl(var(--foreground))'; // Consistent color for arrows
+  const arrowColor = 'hsl(var(--foreground))'; 
 
   return {
     id: connection.id,
@@ -225,8 +225,8 @@ export const connectionToEdge = (connection: DiagramConnection, isSelectedOverri
       label: userFacingName, 
     },
     selected: selected,
-    markerEnd: { type: 'arrowclosed' as ReactFlowMarkerType, color: arrowColor }, 
-    markerStart: isBi ? { type: 'arrowclosed' as ReactFlowMarkerType, color: arrowColor } : undefined, 
+    markerEnd: { type: 'arrowclosed' as ReactFlowMarkerType, color: arrowColor, width: 20, height: 20 }, 
+    markerStart: isBi ? { type: 'arrowclosed' as ReactFlowMarkerType, color: arrowColor, width: 20, height: 20 } : undefined, 
   };
 };
 

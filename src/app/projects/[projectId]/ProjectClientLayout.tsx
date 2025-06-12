@@ -16,7 +16,7 @@ import {
     addEdge,
     useReactFlow,
     type SelectionChangedParams,
-    MarkerType, // Import MarkerType
+    MarkerType, 
 } from '@xyflow/react';
 import { DiagramCanvas } from "@/components/diagram/DiagramCanvas";
 import { SidebarPropertiesPanel } from "@/components/diagram/SidebarPropertiesPanel";
@@ -435,8 +435,7 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
                             ...edge, 
                             data: { ...currentData, properties: updatedEdgeProperties, label: label }, 
                             label: label, 
-                            markerStart: isBiDirectional ? { type: MarkerType.ArrowClosed, color: 'hsl(var(--foreground))' } : undefined,
-                            // markerEnd will be applied by defaultEdgeOptions in DiagramCanvas
+                            markerStart: isBiDirectional ? { type: MarkerType.ArrowClosed, color: 'hsl(var(--foreground))', width: 20, height: 20 } : undefined,
                         };
                     }
                     return edge;
@@ -444,16 +443,18 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             );
         }
 
-        setDiagramDataForAI(prev => {
-            if (!prev || typeof getNodes !== 'function' || typeof getEdges !== 'function') return null;
-            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
-            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
-            return {
-                ...prev,
-                components: currentDiagramNodes,
-                connections: currentDiagramEdges,
-            };
-        });
+        if (typeof getNodes === 'function' && typeof getEdges === 'function') {
+            setDiagramDataForAI(prev => {
+                if (!prev) return null;
+                const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+                const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
+                return {
+                    ...prev,
+                    components: currentDiagramNodes,
+                    connections: currentDiagramEdges,
+                };
+            });
+        }
     }, [setNodesInternal, setEdgesInternal, getNodes, getEdges]);
 
 
@@ -469,16 +470,18 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
             setMultipleElementsSelected(false);
         }
         toast({ title: `${isNode ? 'Component' : 'Connection'} Deleted`, description: `${isNode ? 'Component' : 'Connection'} removed from the diagram.` });
-        setDiagramDataForAI(prev => {
-            if (!prev || typeof getNodes !== 'function' || typeof getEdges !== 'function') return null;
-            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
-            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
-            return {
-                ...prev,
-                components: currentDiagramNodes,
-                connections: currentDiagramEdges,
-            };
-        });
+        if (typeof getNodes === 'function' && typeof getEdges === 'function') {
+            setDiagramDataForAI(prev => {
+                if (!prev) return null;
+                const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+                const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
+                return {
+                    ...prev,
+                    components: currentDiagramNodes,
+                    connections: currentDiagramEdges,
+                };
+            });
+        }
     }, [setNodesInternal, setEdgesInternal, toast, selectedElementId, setSelectedElementId, getNodes, getEdges]);
 
     const deleteAllSelectedElements = useCallback(() => {
@@ -495,17 +498,18 @@ export function ProjectClientLayout({ projectId: initialProjectIdFromUrl }: Proj
         setEdgesInternal(eds => eds.filter(e => !selEdges.find(se => se.id === e.id) && !selNodes.find(sn => sn.id === e.source || sn.id === e.target)));
 
         toast({ title: "Elements Deleted", description: `Removed ${selNodes.length} components and ${selEdges.length} connections.` });
-         setDiagramDataForAI(prev => {
-            if (!prev) return null;
-            if (typeof getNodes !== 'function' || typeof getEdges !== 'function') return prev;
-            const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
-            const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
-            return {
-                ...prev,
-                components: currentDiagramNodes,
-                connections: currentDiagramEdges,
-            };
-        });
+        if (typeof getNodes === 'function' && typeof getEdges === 'function') {
+             setDiagramDataForAI(prev => {
+                if (!prev) return null;
+                const currentDiagramNodes = getNodes().map(n => nodeToComponent(n));
+                const currentDiagramEdges = getEdges().map(e => edgeToConnection(e));
+                return {
+                    ...prev,
+                    components: currentDiagramNodes,
+                    connections: currentDiagramEdges,
+                };
+            });
+        }
     }, [getSelectedNodes, getSelectedEdges, setNodesInternal, setEdgesInternal, toast, getNodes, getEdges]);
 
 
