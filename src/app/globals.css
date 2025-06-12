@@ -99,70 +99,61 @@ body {
 }
 
 /* Custom styles for react-flow nodes and edges */
+/* These styles apply to the wrapper div React Flow creates around CustomNode */
 @layer components {
   .react-flow__node {
     @apply cursor-grab hover:shadow-md transition-shadow active:cursor-grabbing;
-    overflow: visible;
+    /* IMPORTANT: Remove default background and border from React Flow's wrapper for non-boundary nodes,
+       as CustomNode will now render its own box/shape. */
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0px !important; /* Or match CustomNode's border-radius if it has one */
+    overflow: visible; /* Allow CustomNode content (like resizer) to overflow if needed */
   }
 
-  div.react-flow__node.react-flow__node-HardDrive,
-  div.react-flow__node.react-flow__node-HardDrives,
-  div.react-flow__node.react-flow__node-Database,
-  div.react-flow__node.react-flow__node-Cloud,
-  div.react-flow__node.react-flow__node-Router,
-  div.react-flow__node.react-flow__node-User,
-  div.react-flow__node.react-flow__node-ShieldCheck,
-  div.react-flow__node.react-flow__node-Default,
-  div.react-flow__node.react-flow__node-Question,
-  div.react-flow__node.react-flow__node-Package,
-  div.react-flow__node.react-flow__node-ArchiveBox,
-  div.react-flow__node.react-flow__node-FileText,
-  div.react-flow__node.react-flow__node-PencilSimpleLine,
-  div.react-flow__node.react-flow__node-StickyNote,
-  div.react-flow__node.react-flow__node-ArrowRight {
-     @apply bg-card text-card-foreground border-2 border-solid border-neutral-300 rounded-lg;
-  }
-
-  div.react-flow__node.react-flow__node-HardDrive { @apply text-blue-700; }
-  div.react-flow__node.react-flow__node-HardDrives { @apply text-blue-700; }
-  div.react-flow__node.react-flow__node-Database { @apply text-green-700; }
-  div.react-flow__node.react-flow__node-Cloud { @apply text-sky-700; }
-  div.react-flow__node.react-flow__node-Router { @apply text-yellow-700; }
-  div.react-flow__node.react-flow__node-User { @apply text-orange-600; }
-  div.react-flow__node.react-flow__node-ShieldCheck { @apply text-indigo-600; }
-  div.react-flow__node.react-flow__node-Default,
-  div.react-flow__node.react-flow__node-Question,
-  div.react-flow__node.react-flow__node-Package { @apply text-gray-700; }
-  div.react-flow__node.react-flow__node-ArchiveBox { @apply text-orange-700; }
-  div.react-flow__node.react-flow__node-FileText { @apply text-indigo-700; }
-  div.react-flow__node.react-flow__node-PencilSimpleLine { @apply text-amber-700; }
-  div.react-flow__node.react-flow__node-StickyNote { @apply text-pink-700; }
-  div.react-flow__node.react-flow__node-ArrowRight { @apply text-teal-700; }
-
-  div.react-flow__node.react-flow__node-Boundary {
-    @apply !bg-transparent shadow-none hover:shadow-none cursor-default rounded-lg;
+  /* Specific styling for Boundary node WRAPPERS (dashed border) */
+  /* The CustomNode for 'Boundary' type should have a transparent background for this to show */
+  .react-flow__node-Boundary {
+    background-color: transparent !important; /* Ensure wrapper is transparent */
     border-width: 2px !important;
     border-style: dashed !important;
     border-color: var(--dynamic-boundary-color, hsl(var(--border))) !important;
+    border-radius: 0.5rem !important; /* Match --radius */
+    box-shadow: none !important;
+    overflow: hidden !important; /* Clip content to dashed border */
+  }
+  .react-flow__node-Boundary:hover {
+    box-shadow: none !important;
   }
 
+
+  /* Selection highlight for all node types (wrapper div) */
   .react-flow__node.selected:not(.react-flow__node-Boundary) {
+    /* CustomNode content should have its own selection state indication if needed,
+       or we apply a ring to the transparent wrapper. */
     @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
 
+  /* Selection highlight for boundary node WRAPPERS */
   .react-flow__node-Boundary.selected {
+    /* Apply a subtle ring or slightly thicker/brighter dashed border for selected boundaries */
     @apply ring-1 ring-offset-0 ring-primary;
+     /* Example: border-color: hsl(var(--primary)) !important; */
   }
 
+  /* Handle styling */
+  .react-flow__handle {
+    /* Keep existing handle styles, or adjust if needed */
+  }
   .react-flow__handle.valid, 
   .react-flow__handle-valid { 
     background-color: lightgreen !important; 
   }
-
   .react-flow__handle-connecting {
     background-color: orange !important; 
   }
   
+  /* Edge styling */
    .react-flow__edge-path {
      @apply stroke-neutral-600 stroke-2;
      stroke-dasharray: none;
@@ -179,6 +170,7 @@ body {
         @apply fill-primary font-semibold;
     }
 
+   /* Resize control styling */
    .react-flow__resize-control line {
       @apply !border-primary;
    }
@@ -187,11 +179,12 @@ body {
     }
 
    .react-flow__controls {
-      z-index: 200 !important;
+      z-index: 200 !important; /* Ensure controls are on top */
    }
 
+    /* Ensure main content area respects sidebar changes */
     main.peer-data-\[variant=inset\] {
-        margin-left: 0 !important;
+        margin-left: 0 !important; /* Adjust if sidebar variant 'inset' has specific layout needs */
     }
     .react-flow {
         height: 100%;
@@ -199,7 +192,10 @@ body {
         position: relative;
     }
 
+    /* Sidebar menu active state */
     [data-sidebar="menu-button"][data-active="true"] {
       @apply bg-sidebar-primary text-sidebar-primary-foreground;
     }
 }
+
+    

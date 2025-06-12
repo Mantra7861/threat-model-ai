@@ -43,17 +43,15 @@ export function SidebarPropertiesPanel({
 
   useEffect(() => {
     if (selectedElement?.data?.properties) {
-      // Ensure isBiDirectional has a boolean value if it's an edge
-      if ('source' in selectedElement && 'target' in selectedElement) {
-        const props = { ...selectedElement.data.properties };
-        if (props.isBiDirectional === undefined) {
-          props.isBiDirectional = false; 
+      const currentProps = { ...selectedElement.data.properties };
+      // For edges, ensure isBiDirectional has a default value if not present
+      if ('source' in selectedElement && 'target' in selectedElement) { // It's an Edge
+        if (typeof currentProps.isBiDirectional !== 'boolean') {
+          currentProps.isBiDirectional = false; 
         }
-        setLocalProperties(props);
-      } else {
-        setLocalProperties({ ...selectedElement.data.properties });
       }
-    } else if (selectedElement?.data && 'source' in selectedElement && 'target' in selectedElement) { // Edge with no 'properties' field yet
+      setLocalProperties(currentProps);
+    } else if (selectedElement?.data && 'source' in selectedElement && 'target' in selectedElement) { // Edge with data but no 'properties' field yet
       const defaultEdgeProps = {
         name: selectedElement.data.label || 'Data Flow', 
         description: 'A data flow connection.',
@@ -63,37 +61,45 @@ export function SidebarPropertiesPanel({
         isBiDirectional: false, // Default for new edges
       };
       setLocalProperties(defaultEdgeProps);
-    } else if (selectedElement?.data) { 
+      // Trigger an update to persist these defaults if the element was just selected
+      // and didn't have properties.
+      // This will be handled if a user interacts, or could be done explicitly:
+      // onUpdateProperties(selectedElement.id, defaultEdgeProps, false); 
+    } else if (selectedElement?.data) { // Node with data but no 'properties' field (less common for nodes as data is usually properties)
         setLocalProperties({...selectedElement.data}); 
     }
     else {
       setLocalProperties({});
     }
-  }, [selectedElement]);
+  }, [selectedElement]); // Only re-run when selectedElement changes
+
 
   const debouncedUpdate = useCallback(
-    debounce((elementId: string, props: Record<string, any>, isNodeElement: boolean) => {
-      onUpdateProperties(elementId, props, isNodeElement);
+    debounce((elementId: string, propsToUpdate: Record<string, any>, isNodeElement: boolean) => {
+      onUpdateProperties(elementId, propsToUpdate, isNodeElement);
     }, 300),
-    [onUpdateProperties]
+    [onUpdateProperties] 
   );
 
   const handleInputChange = (propName: string, value: any) => {
     if (!selectedElement) return;
     const isNodeElement = 'position' in selectedElement; 
 
-    const newProps = {
+    // Create the new full properties object
+    const updatedFullProperties = {
       ...localProperties,
       [propName]: value,
     };
-    setLocalProperties(newProps);
+    setLocalProperties(updatedFullProperties); // Update local state immediately for responsiveness
 
     // For direct updates like name or checkbox, update immediately.
     // For text inputs, debouncedUpdate will handle it.
     if (propName === 'name' || typeof value === 'boolean') {
-      onUpdateProperties(selectedElement.id, { ...newProps }, isNodeElement);
+      // Pass the complete updatedFullProperties
+      onUpdateProperties(selectedElement.id, updatedFullProperties, isNodeElement);
     } else {
-      debouncedUpdate(selectedElement.id, newProps, isNodeElement);
+      // Pass the complete updatedFullProperties
+      debouncedUpdate(selectedElement.id, updatedFullProperties, isNodeElement);
     }
   };
 
@@ -158,28 +164,33 @@ export function SidebarPropertiesPanel({
 
 
   const isNode = 'position' in selectedElement; 
-  const elementData = selectedElement.data || {};
+  const elementData = selectedElement.data || {}; // data field from Node/Edge
   const elementType = isNode 
     ? ((selectedElement as Node).data?.type || (selectedElement as Node).type || 'default') 
     : 'Data Flow';
   
+  // Use localProperties.name as the source of truth for display name, fallback to elementData or type
   let elementName = localProperties.name || elementData.label || (elementData.properties?.name) ||elementType;
 
+  // Use localProperties to iterate over for rendering fields
   let currentPropsToIterate = localProperties;
-  // Initialize default properties for an edge if 'properties' field doesn't exist or is empty
-  if (!isNode && (!elementData.properties || Object.keys(elementData.properties).length === 0) && Object.keys(localProperties).length === 0) {
+  
+  // If localProperties is empty for an edge, initialize with defaults
+  // This ensures the 'isBiDirectional' checkbox and other default fields appear for newly selected edges
+  if (!isNode && Object.keys(localProperties).length === 0 && selectedElement.data) {
      currentPropsToIterate = {
-        name: elementData.label || 'Data Flow',
+        name: selectedElement.data.label || 'Data Flow',
         description: 'A data flow connection.',
         dataType: 'Generic',
         protocol: 'TCP/IP',
         securityConsiderations: 'Needs review',
-        isBiDirectional: false,
+        isBiDirectional: false, // Default to false
      };
-     // Persist these defaults if they were just created
-     // This will be handled by onUpdateProperties when any field is changed
-  } else if (!isNode && localProperties.isBiDirectional === undefined) {
-    // Ensure isBiDirectional exists for edges in local state
+     // Note: We might consider calling setLocalProperties(currentPropsToIterate) here
+     // if we want these defaults to immediately reflect in the state and be ready for saving.
+     // However, for now, just using it for iteration and letting handleInputChange manage updates.
+  } else if (!isNode && typeof localProperties.isBiDirectional !== 'boolean') {
+    // Ensure isBiDirectional is present for edges, defaulting to false
     currentPropsToIterate = {...localProperties, isBiDirectional: false };
   }
 
@@ -194,24 +205,30 @@ export function SidebarPropertiesPanel({
 
         <div className="space-y-4">
           {Object.entries(currentPropsToIterate).map(([key, value]) => {
-            const internalOrStructuralProps = ['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 
-            'source', 'target', 'sourceHandle', 'targetHandle' 
+            // List of properties considered internal or managed by React Flow, not directly user-editable here
+            const internalOrStructuralProps = [
+                'position', 'width', 'height', 'type', 'label', // Node-specific structural
+                'resizable', 'minWidth', 'minHeight', 'parentNode', 
+                'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent',
+                'source', 'target', 'sourceHandle', 'targetHandle', // Edge-specific structural
+                'iconName', 'textColor', 'boundaryColor', 'isBoundary', 'stencilId', // Stencil-derived, usually not edited post-creation
             ];
+
             // Allow editing 'name' and 'description' even if they might be considered "structural" by some definitions
             if (internalOrStructuralProps.includes(key) && key !== 'name' && key !== 'description') { 
                  return null; 
             }
+            // Special handling for isBiDirectional: only show for edges
+            if (key === 'isBiDirectional' && isNode) return null; 
 
             const labelText = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-
-            if (key === 'isBiDirectional' && isNode) return null; // Only show for edges
 
             return (
                 <div key={key} className="space-y-1">
                   <Label htmlFor={`prop-${key}`}>
                     {labelText}
                   </Label>
-                  {typeof value === 'boolean' && key === 'isBiDirectional' ? (
+                  {typeof value === 'boolean' ? ( // Unified boolean handling
                      <div className="flex items-center space-x-2 mt-2">
                          <Checkbox
                             id={`prop-${key}`}
@@ -219,26 +236,15 @@ export function SidebarPropertiesPanel({
                             onCheckedChange={(checked) => handleInputChange(key, Boolean(checked))}
                           />
                          <Label htmlFor={`prop-${key}`} className="text-sm font-normal">
-                            {value ? 'Enabled' : 'Disabled'} 
-                         </Label>
-                     </div>
-                  ) : typeof value === 'boolean' ? ( // Other booleans
-                     <div className="flex items-center space-x-2 mt-2">
-                         <Checkbox
-                            id={`prop-${key}`}
-                            checked={value}
-                            onCheckedChange={(checked) => handleInputChange(key, Boolean(checked))}
-                          />
-                         <Label htmlFor={`prop-${key}`} className="text-sm font-normal">
-                            {value ? 'Yes' : 'No'} {/* More generic for other booleans */}
+                            {key === 'isBiDirectional' ? (value ? 'Enabled' : 'Disabled') : (value ? 'Yes' : 'No')}
                          </Label>
                      </div>
                   ) : typeof value === 'string' && value.length > 60 ? (
                     <Textarea
                       id={`prop-${key}`}
                       value={value}
-                      onChange={(e) => handleInputChange(key, e.target.value)}
-                      onBlur={(e) => debouncedUpdate(selectedElement.id, { ...localProperties, [key]: e.target.value }, isNode)}
+                      onChange={(e) => setLocalProperties(prev => ({...prev, [key]: e.target.value}))} // Update local state on change
+                      onBlur={(e) => handleInputChange(key, e.target.value)} // Debounced/direct update on blur
                       className="text-sm"
                       rows={3}
                       placeholder={`Enter ${labelText}...`}
@@ -247,7 +253,7 @@ export function SidebarPropertiesPanel({
                     <Input
                       id={`prop-${key}`}
                       value={String(value ?? '')} 
-                      onChange={(e) => {
+                      onChange={(e) => { // Update local state on change
                           const val = e.target.value;
                           const originalValueType = typeof currentPropsToIterate[key];
                           if (originalValueType === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
@@ -256,13 +262,13 @@ export function SidebarPropertiesPanel({
                             setLocalProperties(prev => ({...prev, [key]: val}));
                           }
                       }}
-                      onBlur={(e) => {
+                      onBlur={(e) => { // Debounced/direct update on blur
                         const val = e.target.value;
                         const originalValueType = typeof currentPropsToIterate[key];
                         if (originalValueType === 'number' && !isNaN(Number(val)) && val.trim() !== '') {
-                           debouncedUpdate(selectedElement.id, { ...localProperties, [key]: Number(val) }, isNode);
+                           handleInputChange(key, Number(val));
                         } else {
-                           debouncedUpdate(selectedElement.id, { ...localProperties, [key]: val }, isNode);
+                           handleInputChange(key, val);
                         }
                       }}
                       className="text-sm"
@@ -273,7 +279,18 @@ export function SidebarPropertiesPanel({
                 </div>
             );
           })}
-           {Object.keys(currentPropsToIterate).filter(k => !['position', 'width', 'height', 'type', 'label', 'resizable', 'minWidth', 'minHeight', 'parentNode', 'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent', 'source', 'target', 'sourceHandle', 'targetHandle'].includes(k) || k === 'name' || k === 'description' || (!isNode && k === 'isBiDirectional')).length === 0 && (
+           {Object.keys(currentPropsToIterate).filter(k => {
+                const internalOrStructuralProps = [
+                    'position', 'width', 'height', 'type', 'label',
+                    'resizable', 'minWidth', 'minHeight', 'parentNode', 
+                    'selected', 'sourcePosition', 'targetPosition', 'dragging', 'extent',
+                    'source', 'target', 'sourceHandle', 'targetHandle',
+                    'iconName', 'textColor', 'boundaryColor', 'isBoundary', 'stencilId',
+                ];
+                if (isNode && k === 'isBiDirectional') return false; // Don't count isBiDirectional for nodes
+                if (!internalOrStructuralProps.includes(k) || k === 'name' || k === 'description') return true;
+                return false;
+           }).length === 0 && (
                <p className="text-sm text-muted-foreground">No editable properties for this element.</p>
             )}
         </div>
@@ -317,3 +334,5 @@ function debounce<F extends (...args: any[]) => any>(func: F, waitFor: number) {
 
   return debounced as (...args: Parameters<F>) => void;
 }
+
+    
