@@ -8,9 +8,16 @@ if (!admin.apps.length) {
   try {
     const serviceAccountKeyJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_JSON;
     if (!serviceAccountKeyJson) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY_JSON environment variable is not set.');
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY_JSON environment variable is not set or is empty.');
     }
-    const serviceAccount = JSON.parse(serviceAccountKeyJson);
+    
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(serviceAccountKeyJson);
+    } catch (parseError) {
+      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY_JSON. Ensure it's a valid JSON string. Raw content (first 100 chars):", serviceAccountKeyJson.substring(0, 100));
+      throw new Error(`FIREBASE_SERVICE_ACCOUNT_KEY_JSON is not valid JSON. Parsing error: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+    }
 
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
