@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarTrigger, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton } from "@/components/ui/sidebar";
 import Link from 'next/link';
-import { Users, Layout, ShieldWarning, SignOut, UserCircle, Spinner, SquaresFour, Warning } from '@phosphor-icons/react'; // Corrected import
+import { Users, Layout, ShieldWarning, SignOut, UserCircle, Spinner, SquaresFour, Warning, Cpu } from '@phosphor-icons/react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -85,6 +85,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         <SidebarMenuButton tooltip="Stencil Management" className="justify-start">
                             <SquaresFour />
                             <span className="group-data-[collapsible=icon]:hidden">Stencil Management</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <Link href="/admin/ai-config">
+                        <SidebarMenuButton tooltip="AI Configuration" className="justify-start">
+                            <Cpu />
+                            <span className="group-data-[collapsible=icon]:hidden">AI Configuration</span>
                         </SidebarMenuButton>
                     </Link>
                 </SidebarMenuItem>
