@@ -5,6 +5,7 @@ import { googleAI } from '@genkit-ai/googleai';
 
 const provider = process.env.AI_PROVIDER || 'googleai';
 let defaultModelName: string;
+const knownGoogleModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-2.0-flash-exp']; // Add other valid models as needed
 
 // Determine default model name based on provider
 switch (provider) {
@@ -16,12 +17,25 @@ switch (provider) {
 }
 
 // Allow overriding the default model name with a specific environment variable
-const modelName = process.env.AI_MODEL_NAME || defaultModelName;
+let modelName = process.env.AI_MODEL_NAME || defaultModelName;
+
+console.log(`Attempting to initialize AI with provider: "${provider}", requested model (from AI_MODEL_NAME or default): "${modelName}"`);
+
+if (provider === 'googleai' && process.env.AI_MODEL_NAME && !knownGoogleModels.includes(modelName)) {
+    console.warn(`********************************************************************************`);
+    console.warn(`WARNING: AI_PROVIDER is 'googleai' but AI_MODEL_NAME is set to "${modelName}", which is not in the known Google AI models list.`);
+    console.warn(`Known Google AI models: ${knownGoogleModels.join(', ')}`);
+    console.warn(`The application might fail if "${modelName}" is not a valid model for Google AI.`);
+    console.warn(`Consider unsetting AI_MODEL_NAME in your .env file to use the default ("${defaultModelName}") or set it to a valid Google AI model.`);
+    console.warn(`********************************************************************************`);
+} else if (provider === 'googleai' && !process.env.AI_MODEL_NAME) {
+    console.log(`AI_MODEL_NAME is not set in .env, using default Google AI model: "${defaultModelName}"`);
+    modelName = defaultModelName; // Ensure modelName is the default if not overridden
+}
+
 
 const plugins: GenkitPlugin[] = [];
 let apiKey: string | undefined;
-
-console.log(`Initializing AI with provider: "${provider}", model: "${modelName}"`);
 
 switch (provider) {
   // Cases for 'openai' and 'anthropic' are removed
@@ -33,7 +47,7 @@ switch (provider) {
     apiKey = process.env.GOOGLE_GENAI_API_KEY;
     if (apiKey) {
       plugins.push(googleAI({ apiKey }));
-      console.log('Google AI plugin configured.');
+      console.log(`Google AI plugin configured. Effective model for Genkit: "${modelName}"`);
     } else {
       console.warn('AI_PROVIDER is "googleai" (or default), but GOOGLE_GENAI_API_KEY is not set. Google AI features will not be available.');
     }
