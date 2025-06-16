@@ -1,18 +1,18 @@
 
 import { genkit, type GenkitPlugin } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
-// OpenAI plugin (genkitx-openai) has been removed due to installation issues.
+// OpenAI plugin import removed as genkitx-openai installation is problematic
+// import { openAI } from 'genkitx-openai';
 
-const provider = process.env.AI_PROVIDER || 'googleai';
+const provider = process.env.AI_PROVIDER?.toLowerCase() || 'googleai';
 let defaultModelName: string;
 
+// Default model logic
 switch (provider) {
-  // case 'openai': // OpenAI temporarily disabled
-  //   defaultModelName = 'gpt-4o-mini';
-  //   break;
+  // Case for openai removed as the plugin is not being used
   case 'googleai':
   default:
-    defaultModelName = 'gemini-2.0-flash';
+    defaultModelName = 'gemini-2.0-flash'; // Default for Google AI
     break;
 }
 
@@ -21,7 +21,7 @@ let modelName = process.env.AI_MODEL_NAME || defaultModelName;
 console.log(`Attempting to initialize AI with provider: "${provider}", requested model (from AI_MODEL_NAME or default): "${modelName}"`);
 
 const knownGoogleModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-2.0-flash-exp'];
-// const knownOpenAIModels = ['gpt-4o-mini', 'gpt-4', 'gpt-3.5-turbo', 'gpt-4-turbo', 'gpt-4-32k']; // Kept for reference if OpenAI plugin is re-added
+// Known OpenAI models list removed as OpenAI provider is not active
 
 if (provider === 'googleai' && process.env.AI_MODEL_NAME && !knownGoogleModels.includes(modelName)) {
     console.warn(`********************************************************************************`);
@@ -33,42 +33,27 @@ if (provider === 'googleai' && process.env.AI_MODEL_NAME && !knownGoogleModels.i
 } else if (provider === 'googleai' && !process.env.AI_MODEL_NAME) {
     console.log(`AI_MODEL_NAME is not set in .env, using default Google AI model: "${defaultModelName}"`);
     modelName = defaultModelName;
-} else if (provider === 'openai') { // OpenAI is not currently supported
-    console.warn(`********************************************************************************`);
-    console.warn(`WARNING: AI_PROVIDER is set to "openai", but the OpenAI plugin is currently unavailable due to installation issues.`);
-    console.warn(`The application will attempt to fall back to Google AI if configured, or AI features might not work.`);
-    console.warn(`Consider setting AI_PROVIDER to "googleai" in your .env file.`);
-    console.warn(`********************************************************************************`);
 }
-
+// Logic for OpenAI model name check removed
 
 const plugins: GenkitPlugin[] = [];
 let apiKey: string | undefined;
 
 switch (provider) {
-  // case 'openai': // OpenAI temporarily disabled
-  //   console.warn('OpenAI provider selected but plugin is currently not available. AI features for OpenAI will not work.');
-  //   // apiKey = process.env.OPENAI_API_KEY;
-  //   // if (apiKey) {
-  //   //   // plugins.push(openAI({ apiKey })); // This would be the line for genkitx-openai
-  //   //   // console.log(`OpenAI plugin (genkitx-openai) configured. Effective model for Genkit: "${modelName}"`);
-  //   // } else {
-  //   //   console.warn('AI_PROVIDER is "openai", but OPENAI_API_KEY is not set. OpenAI features will not be available.');
-  //   // }
-  //   // For now, if openai is selected, we should try to fall back or clearly state it won't work.
-  //   // Defaulting to googleai if provider is openai but plugin not available
-  //   if (provider === 'openai') {
-  //       console.warn('AI_PROVIDER is "openai", but the plugin is unavailable. Attempting to use Google AI as fallback if GOOGLE_GENAI_API_KEY is set.');
-  //       // Fall through to googleai logic
+  // case 'openai': // OpenAI case removed
+  //   apiKey = process.env.OPENAI_API_KEY;
+  //   if (apiKey) {
+  //     plugins.push(openAI({ apiKey })); // This would fail as openAI is not imported
+  //     console.log(`OpenAI plugin configured. Effective model for Genkit: "${modelName}"`);
+  //   } else {
+  //     console.warn('AI_PROVIDER is "openai", but OPENAI_API_KEY is not set. OpenAI features will not be available.');
   //   }
-  //   // Deliberate fall-through removed to ensure only googleai is attempted if explicit.
-  //   // If 'openai' is chosen, it will now result in no plugins added for it.
   //   break;
 
   case 'googleai':
   default:
-    if (provider !== 'googleai') { 
-        console.warn(`AI_PROVIDER is set to "${provider}", which is not currently supported or configured. Defaulting to "googleai".`);
+    if (provider !== 'googleai') {
+        console.warn(`AI_PROVIDER is set to "${provider}", which is not currently supported. Defaulting to "googleai".`);
     }
     apiKey = process.env.GOOGLE_GENAI_API_KEY;
     if (apiKey) {
@@ -81,14 +66,14 @@ switch (provider) {
 }
 
 if (plugins.length === 0) {
-    console.error(`No AI provider plugins were successfully configured. This usually means the API key for the selected provider ("${provider}") is missing (e.g., GOOGLE_GENAI_API_KEY) or the provider plugin is unavailable. AI functionality will be severely limited or unavailable. Please check your .env file and application setup.`);
+    console.error(`No AI provider plugins were successfully configured. This usually means the API key for the selected provider ("${provider}") is missing (e.g., GOOGLE_GENAI_API_KEY). AI functionality will be severely limited or unavailable. Please check your .env file and application setup.`);
 }
 
 
 export const ai = genkit({
   promptDir: './prompts',
   plugins: plugins,
-  model: modelName, // Genkit will use this model with the configured plugin
+  model: modelName,
   telemetry: {
     instrumentation: false, 
     metrics: false,
