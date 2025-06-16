@@ -6,14 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info, Warning, WarningTriangle } from '@phosphor-icons/react'; // Added WarningTriangle
+import { Info, Warning, WarningCircle } from '@phosphor-icons/react'; // Changed WarningTriangle to WarningCircle
 import { Button } from '@/components/ui/button';
 
 
 export default function AIConfigPage() {
   const [currentProviderDisplay, setCurrentProviderDisplay] = useState<string>("googleai (default)");
   const [googleApiKeyStatus, setGoogleApiKeyStatus] = useState<string>("Not directly readable from client.");
-  // const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client."); // Keep for consistency if re-added
+  // const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client."); // Kept for potential re-addition
 
   useEffect(() => {
     // These are client-side guesses based on NEXT_PUBLIC env vars.
@@ -92,7 +92,7 @@ export default function AIConfigPage() {
         <div className="space-y-4 border-t pt-4 mt-6">
           <h3 className="text-lg font-medium">OpenAI (GPT Models)</h3>
            <Alert variant="destructive">
-            <WarningTriangle className="h-4 w-4" />
+            <WarningCircle className="h-4 w-4" /> {/* Changed WarningTriangle to WarningCircle */}
             <AlertTitle>OpenAI Currently Unavailable</AlertTitle>
             <AlertDescription>
               The Genkit plugin for OpenAI (<code>genkitx-openai</code> or <code>@genkit-ai/openai</code>)
