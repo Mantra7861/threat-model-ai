@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info, WarningCircle, Cpu } from '@phosphor-icons/react';
+import { Info, Cpu, WarningCircle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 
 
@@ -16,7 +16,7 @@ export default function AIConfigPage() {
   const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client.");
   
   // These default model names should match the defaults in src/ai/ai-instance.ts
-  const defaultGoogleModel = "gemini-1.5-flash";
+  const defaultGoogleModel = "gemini-1.0-pro"; // Updated default
   const defaultOpenAIModel = "gpt-4o-mini";
 
   useEffect(() => {
@@ -29,6 +29,12 @@ export default function AIConfigPage() {
     setOpenaiApiKeyStatus(process.env.NEXT_PUBLIC_HAS_OPENAI_KEY === "true" ? "Assumed to be set in .env" : "Assumed to be MISSING or unset in .env");
     
   }, []);
+
+  // Check if genkitx-openai is likely available - for now assume it could be.
+  // A more robust check might involve trying to dynamically import or checking package.json.
+  // For simplicity, we'll assume it's available if the user sets AI_PROVIDER to openai.
+  // The real check happens server-side in ai-instance.ts.
+  const isGenkitxOpenAIInstalled = true; // Optimistic assumption for UI display
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -92,14 +98,14 @@ export default function AIConfigPage() {
             <Label htmlFor="google-model-name">AI_MODEL_NAME (for Google AI)</Label>
             <Input
               id="google-model-name"
-              placeholder={`e.g., gemini-2.0-flash (defaults to ${defaultGoogleModel} if unset)`}
+              placeholder={`e.g., gemini-1.5-flash (defaults to ${defaultGoogleModel} if unset)`}
               readOnly
               disabled
               className="bg-muted/50"
               aria-label="Google AI Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Optional. Set this in your <code>.env</code> to use a specific Google AI model (e.g., gemini-1.0-pro, gemini-2.0-flash).
+              Optional. Set this in your <code>.env</code> to use a specific Google AI model (e.g., gemini-1.5-flash, gemini-2.0-flash-exp).
               If unset, <code>${defaultGoogleModel}</code> will be used for Google AI.
             </p>
           </div>
@@ -110,11 +116,17 @@ export default function AIConfigPage() {
            <p className="text-sm text-muted-foreground">
             Used if <code>AI_PROVIDER</code> is <code>openai</code>. Requires <code>genkitx-openai</code> package to be installed.
           </p>
-          {/* Check if genkitx-openai is likely available - for now assume it could be.
-              Actual availability depends on npm install success.
-              A more robust check might involve trying to dynamically import or checking package.json,
-              but that's complex for a client component without direct fs access.
-          */}
+          {!isGenkitxOpenAIInstalled && (
+             <Alert variant="destructive">
+              <WarningCircle className="h-4 w-4" />
+              <AlertTitle>OpenAI Currently Unavailable</AlertTitle>
+              <AlertDescription>
+                The Genkit plugin for OpenAI (e.g., <code>genkitx-openai</code>)
+                is facing installation issues or is not correctly integrated.
+                Please use Google AI as the provider, or verify your <code>genkitx-openai</code> installation.
+              </AlertDescription>
+            </Alert>
+          )}
           
           <div className="space-y-2">
             <Label htmlFor="openai-api-key">OPENAI_API_KEY</Label>
@@ -123,7 +135,7 @@ export default function AIConfigPage() {
               type="password"
               value="**************" 
               readOnly
-              disabled
+              disabled={!isGenkitxOpenAIInstalled}
               className="bg-muted/50"
               aria-label="OpenAI API Key input field (display only)"
             />
@@ -138,7 +150,7 @@ export default function AIConfigPage() {
               id="openai-model-name"
               placeholder={`e.g., gpt-4, gpt-3.5-turbo (defaults to ${defaultOpenAIModel} if unset)`}
               readOnly
-              disabled
+              disabled={!isGenkitxOpenAIInstalled}
               className="bg-muted/50"
               aria-label="OpenAI Model Name input field (display only)"
             />

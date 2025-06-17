@@ -12,7 +12,7 @@ switch (provider) {
     break;
   case 'googleai':
   default:
-    defaultModelName = 'gemini-1.5-flash'; // Changed Default for Google AI
+    defaultModelName = 'gemini-1.0-pro'; // Changed Default for Google AI to gemini-1.0-pro
     break;
 }
 
