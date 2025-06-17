@@ -12,7 +12,7 @@ switch (provider) {
     break;
   case 'googleai':
   default:
-    defaultModelName = 'gemini-2.0-flash'; // Default for Google AI
+    defaultModelName = 'gemini-1.5-flash'; // Changed Default for Google AI
     break;
 }
 
@@ -20,7 +20,7 @@ let modelName = process.env.AI_MODEL_NAME || defaultModelName;
 
 console.log(`Attempting to initialize AI with provider: "${provider}", requested model (from AI_MODEL_NAME or default): "${modelName}"`);
 
-const knownGoogleModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-2.0-flash-exp'];
+const knownGoogleModels = ['gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-2.0-flash', 'gemini-2.0-flash-exp'];
 // For OpenAI, model names are more varied and frequently updated, so we won't use a strict known list for warnings.
 // We'll rely on the OpenAI API to validate the model name.
 
@@ -56,7 +56,7 @@ switch (provider) {
 
   case 'googleai':
   default:
-    if (provider !== 'googleai' && provider !== 'openai') { // Added openai check
+    if (provider !== 'googleai' && provider !== 'openai') {
         console.warn(`AI_PROVIDER is set to "${provider}", which is not currently supported by this setup. Defaulting to "googleai".`);
     }
     apiKey = process.env.GOOGLE_GENAI_API_KEY;

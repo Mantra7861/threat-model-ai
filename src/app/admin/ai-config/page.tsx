@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info, WarningCircle, Cpu } from '@phosphor-icons/react'; // Using Cpu from main import
+import { Info, WarningCircle, Cpu } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 
 
@@ -14,22 +14,20 @@ export default function AIConfigPage() {
   const [currentProviderDisplay, setCurrentProviderDisplay] = useState<string>("googleai (default)");
   const [googleApiKeyStatus, setGoogleApiKeyStatus] = useState<string>("Not directly readable from client.");
   const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client.");
+  
+  // These default model names should match the defaults in src/ai/ai-instance.ts
+  const defaultGoogleModel = "gemini-1.5-flash";
+  const defaultOpenAIModel = "gpt-4o-mini";
 
   useEffect(() => {
     // This value is purely for display and might not reflect the actual backend provider if misconfigured.
-    setCurrentProviderDisplay(process.env.NEXT_PUBLIC_AI_PROVIDER_DISPLAY || "googleai (default)");
+    const displayProvider = process.env.NEXT_PUBLIC_AI_PROVIDER_DISPLAY || "googleai (default)";
+    setCurrentProviderDisplay(displayProvider);
 
-    if (process.env.NEXT_PUBLIC_HAS_GOOGLE_KEY === "true") {
-        setGoogleApiKeyStatus("Assumed to be set in .env");
-    } else {
-        setGoogleApiKeyStatus("Assumed to be MISSING or unset in .env");
-    }
-
-    if (process.env.NEXT_PUBLIC_HAS_OPENAI_KEY === "true") {
-        setOpenaiApiKeyStatus("Assumed to be set in .env");
-    } else {
-        setOpenaiApiKeyStatus("Assumed to be MISSING or unset in .env");
-    }
+    // Illustrative status based on NEXT_PUBLIC_HAS_... flags (not actual key presence)
+    setGoogleApiKeyStatus(process.env.NEXT_PUBLIC_HAS_GOOGLE_KEY === "true" ? "Assumed to be set in .env" : "Assumed to be MISSING or unset in .env");
+    setOpenaiApiKeyStatus(process.env.NEXT_PUBLIC_HAS_OPENAI_KEY === "true" ? "Assumed to be set in .env" : "Assumed to be MISSING or unset in .env");
+    
   }, []);
 
   return (
@@ -64,8 +62,8 @@ export default function AIConfigPage() {
             className="bg-muted/50"
           />
           <p className="text-xs text-muted-foreground">
-            Set <code>AI_PROVIDER</code> in your <code>.env</code> file to <code>googleai</code> or <code>openai</code>.
-            To update this display text, set <code>NEXT_PUBLIC_AI_PROVIDER_DISPLAY</code> accordingly in your <code>.env</code> (e.g., "OpenAI (GPT)").
+            To change the backend AI provider, set <code>AI_PROVIDER</code> in your <code>.env</code> file to <code>googleai</code> or <code>openai</code>.
+            To update this display text for clarity, also set <code>NEXT_PUBLIC_AI_PROVIDER_DISPLAY</code> (e.g., "OpenAI (GPT)" or "Google AI (Gemini)").
           </p>
         </div>
 
@@ -83,6 +81,7 @@ export default function AIConfigPage() {
               readOnly
               disabled
               className="bg-muted/50"
+              aria-label="Google GenAI API Key input field (display only)"
             />
             <p className="text-xs text-muted-foreground">
               Status (Illustrative based on <code>NEXT_PUBLIC_HAS_GOOGLE_KEY</code>): <span className={googleApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{googleApiKeyStatus}</span>.
@@ -93,13 +92,15 @@ export default function AIConfigPage() {
             <Label htmlFor="google-model-name">AI_MODEL_NAME (for Google AI)</Label>
             <Input
               id="google-model-name"
-              placeholder="e.g., gemini-1.5-flash (defaults to gemini-2.0-flash if unset)"
+              placeholder={`e.g., gemini-2.0-flash (defaults to ${defaultGoogleModel} if unset)`}
               readOnly
               disabled
               className="bg-muted/50"
+              aria-label="Google AI Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Optional. Set this in your <code>.env</code> to use a specific Google AI model.
+              Optional. Set this in your <code>.env</code> to use a specific Google AI model (e.g., gemini-1.0-pro, gemini-2.0-flash).
+              If unset, <code>${defaultGoogleModel}</code> will be used for Google AI.
             </p>
           </div>
         </div>
@@ -107,8 +108,14 @@ export default function AIConfigPage() {
         <div className="space-y-4 border-t pt-4">
           <h3 className="text-lg font-medium">OpenAI (GPT models via genkitx-openai)</h3>
            <p className="text-sm text-muted-foreground">
-            Used if <code>AI_PROVIDER</code> is <code>openai</code>. Requires <code>genkitx-openai</code> package.
+            Used if <code>AI_PROVIDER</code> is <code>openai</code>. Requires <code>genkitx-openai</code> package to be installed.
           </p>
+          {/* Check if genkitx-openai is likely available - for now assume it could be.
+              Actual availability depends on npm install success.
+              A more robust check might involve trying to dynamically import or checking package.json,
+              but that's complex for a client component without direct fs access.
+          */}
+          
           <div className="space-y-2">
             <Label htmlFor="openai-api-key">OPENAI_API_KEY</Label>
             <Input
@@ -118,6 +125,7 @@ export default function AIConfigPage() {
               readOnly
               disabled
               className="bg-muted/50"
+              aria-label="OpenAI API Key input field (display only)"
             />
             <p className="text-xs text-muted-foreground">
               Status (Illustrative based on <code>NEXT_PUBLIC_HAS_OPENAI_KEY</code>): <span className={openaiApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{openaiApiKeyStatus}</span>.
@@ -128,13 +136,15 @@ export default function AIConfigPage() {
             <Label htmlFor="openai-model-name">AI_MODEL_NAME (for OpenAI)</Label>
             <Input
               id="openai-model-name"
-              placeholder="e.g., gpt-4, gpt-4o-mini (defaults to gpt-4o-mini if unset)"
+              placeholder={`e.g., gpt-4, gpt-3.5-turbo (defaults to ${defaultOpenAIModel} if unset)`}
               readOnly
               disabled
               className="bg-muted/50"
+              aria-label="OpenAI Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
               Optional. Set this in your <code>.env</code> to use a specific OpenAI model.
+              If unset, <code>${defaultOpenAIModel}</code> will be used for OpenAI.
             </p>
           </div>
         </div>
