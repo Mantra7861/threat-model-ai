@@ -14,27 +14,23 @@ export default function AIConfigPage() {
   const [currentProviderDisplay, setCurrentProviderDisplay] = useState<string>("googleai (default)");
   const [googleApiKeyStatus, setGoogleApiKeyStatus] = useState<string>("Not directly readable from client.");
   const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client.");
+  const [openRouterApiKeyStatus, setOpenRouterApiKeyStatus] = useState<string>("Not directly readable from client.");
   
-  // These default model names should match the defaults in src/ai/ai-instance.ts
-  const defaultGoogleModel = "gemini-1.0-pro"; // Updated default
+  const defaultGoogleModel = "gemini-1.0-pro";
   const defaultOpenAIModel = "gpt-4o-mini";
+  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct"; // Example default
 
   useEffect(() => {
-    // This value is purely for display and might not reflect the actual backend provider if misconfigured.
     const displayProvider = process.env.NEXT_PUBLIC_AI_PROVIDER_DISPLAY || "googleai (default)";
     setCurrentProviderDisplay(displayProvider);
 
-    // Illustrative status based on NEXT_PUBLIC_HAS_... flags (not actual key presence)
     setGoogleApiKeyStatus(process.env.NEXT_PUBLIC_HAS_GOOGLE_KEY === "true" ? "Assumed to be set in .env" : "Assumed to be MISSING or unset in .env");
     setOpenaiApiKeyStatus(process.env.NEXT_PUBLIC_HAS_OPENAI_KEY === "true" ? "Assumed to be set in .env" : "Assumed to be MISSING or unset in .env");
+    setOpenRouterApiKeyStatus(process.env.NEXT_PUBLIC_HAS_OPENROUTER_KEY === "true" ? "Assumed to be set in .env" : "Assumed to be MISSING or unset in .env");
     
   }, []);
 
-  // Check if genkitx-openai is likely available - for now assume it could be.
-  // A more robust check might involve trying to dynamically import or checking package.json.
-  // For simplicity, we'll assume it's available if the user sets AI_PROVIDER to openai.
-  // The real check happens server-side in ai-instance.ts.
-  const isGenkitxOpenAIInstalled = true; // Optimistic assumption for UI display
+  const isGenkitxOpenAIInstalled = true; 
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -68,8 +64,8 @@ export default function AIConfigPage() {
             className="bg-muted/50"
           />
           <p className="text-xs text-muted-foreground">
-            To change the backend AI provider, set <code>AI_PROVIDER</code> in your <code>.env</code> file to <code>googleai</code> or <code>openai</code>.
-            To update this display text for clarity, also set <code>NEXT_PUBLIC_AI_PROVIDER_DISPLAY</code> (e.g., "OpenAI (GPT)" or "Google AI (Gemini)").
+            To change the backend AI provider, set <code>AI_PROVIDER</code> in your <code>.env</code> file to <code>googleai</code>, <code>openai</code>, or <code>openrouter</code>.
+            To update this display text for clarity, also set <code>NEXT_PUBLIC_AI_PROVIDER_DISPLAY</code> (e.g., "OpenAI (GPT)" or "OpenRouter (Mistral)").
           </p>
         </div>
 
@@ -114,20 +110,8 @@ export default function AIConfigPage() {
         <div className="space-y-4 border-t pt-4">
           <h3 className="text-lg font-medium">OpenAI (GPT models via genkitx-openai)</h3>
            <p className="text-sm text-muted-foreground">
-            Used if <code>AI_PROVIDER</code> is <code>openai</code>. Requires <code>genkitx-openai</code> package to be installed.
+            Used if <code>AI_PROVIDER</code> is <code>openai</code>. Requires <code>genkitx-openai</code> package.
           </p>
-          {!isGenkitxOpenAIInstalled && (
-             <Alert variant="destructive">
-              <WarningCircle className="h-4 w-4" />
-              <AlertTitle>OpenAI Currently Unavailable</AlertTitle>
-              <AlertDescription>
-                The Genkit plugin for OpenAI (e.g., <code>genkitx-openai</code>)
-                is facing installation issues or is not correctly integrated.
-                Please use Google AI as the provider, or verify your <code>genkitx-openai</code> installation.
-              </AlertDescription>
-            </Alert>
-          )}
-          
           <div className="space-y-2">
             <Label htmlFor="openai-api-key">OPENAI_API_KEY</Label>
             <Input
@@ -160,6 +144,45 @@ export default function AIConfigPage() {
             </p>
           </div>
         </div>
+
+        <div className="space-y-4 border-t pt-4">
+          <h3 className="text-lg font-medium">OpenRouter (via genkitx-openai)</h3>
+           <p className="text-sm text-muted-foreground">
+            Used if <code>AI_PROVIDER</code> is <code>openrouter</code>. Uses <code>genkitx-openai</code> configured for OpenRouter's API.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="openrouter-api-key">OPENROUTER_API_KEY</Label>
+            <Input
+              id="openrouter-api-key"
+              type="password"
+              value="**************" 
+              readOnly
+              disabled={!isGenkitxOpenAIInstalled}
+              className="bg-muted/50"
+              aria-label="OpenRouter API Key input field (display only)"
+            />
+            <p className="text-xs text-muted-foreground">
+              Status (Illustrative based on <code>NEXT_PUBLIC_HAS_OPENROUTER_KEY</code>): <span className={openRouterApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{openRouterApiKeyStatus}</span>.
+              Set this in your <code>.env</code> file.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="openrouter-model-name">AI_MODEL_NAME (for OpenRouter)</Label>
+            <Input
+              id="openrouter-model-name"
+              placeholder={`e.g., mistralai/mistral-7b-instruct (defaults to ${defaultOpenRouterModel} if unset)`}
+              readOnly
+              disabled={!isGenkitxOpenAIInstalled}
+              className="bg-muted/50"
+              aria-label="OpenRouter Model Name input field (display only)"
+            />
+             <p className="text-xs text-muted-foreground">
+              Required for OpenRouter. Set this in your <code>.env</code> to specify the model string (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>).
+              If unset, <code>${defaultOpenRouterModel}</code> will be used.
+            </p>
+          </div>
+        </div>
+
       </CardContent>
     </Card>
   );
