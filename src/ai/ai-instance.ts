@@ -15,7 +15,7 @@ const plugins: GenkitPlugin[] = [];
 console.log(`Attempting to initialize AI with effective provider: "${provider}"`);
 
 // Known model lists for warnings (optional, for guidance)
-const knownGoogleModels = ['gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-pro', 'gemini-2.0-flash-exp']; // Added gemini-pro
+const knownGoogleModels = ['gemini-1.5-flash', 'gemini-1.0-pro', 'gemini-pro', 'gemini-2.0-flash-exp'];
 const knownOpenAIModels = ['gpt-4o-mini', 'gpt-4', 'gpt-3.5-turbo']; // Common OpenAI models
 
 switch (provider) {
@@ -46,14 +46,14 @@ switch (provider) {
   case 'openrouter':
     console.log("Selected AI Provider: OpenRouter");
     apiKey = process.env.OPENROUTER_API_KEY;
-    defaultModelName = 'mistralai/mistral-7b-instruct'; 
+    defaultModelName = 'mistralai/mistral-7b-instruct';
     effectiveModelName = process.env.AI_MODEL_NAME || defaultModelName;
 
     if (apiKey) {
       console.log("OPENROUTER_API_KEY found.");
-      plugins.push(openAI({ 
+      plugins.push(openAI({
         apiKey: apiKey,
-        baseURL: 'https://openrouter.ai/api/v1', 
+        baseURL: 'https://openrouter.ai/api/v1',
       }));
       console.log(`OpenRouter plugin configured (via OpenAI compatible API with genkitx-openai). Effective model for Genkit: "${effectiveModelName}"`);
     } else {
@@ -76,6 +76,7 @@ switch (provider) {
             console.warn(`This often denotes a specific version, variant, or tier (e.g., ':free').`);
             console.warn(`While Genkit passes this string as-is, ensure this exact format is supported by OpenRouter's OpenAI-compatible API for the model you're using.`);
             console.warn(`If you encounter "Model not found" errors, verify the model string on OpenRouter or try without the suffix.`);
+            console.warn(`It is highly recommended to test with a basic model (e.g., '${defaultModelName}') first.`);
             console.warn(`********************************************************************************`);
         }
     }
@@ -85,7 +86,7 @@ switch (provider) {
   default:
     console.log(`Selected AI Provider: Google AI (default or explicit: "${provider}")`);
     apiKey = process.env.GOOGLE_GENAI_API_KEY;
-    defaultModelName = 'gemini-1.0-pro'; 
+    defaultModelName = 'gemini-1.0-pro'; // Changed default for Google
     effectiveModelName = process.env.AI_MODEL_NAME || defaultModelName;
 
     if (apiKey) {
@@ -103,7 +104,7 @@ switch (provider) {
         console.warn(`The application might fail if "${effectiveModelName}" is not a valid model for Google AI.`);
         console.warn(`Consider unsetting AI_MODEL_NAME in your .env file to use the default Google AI model ("${defaultModelName}") or set it to a valid one.`);
         console.warn(`********************************************************************************`);
-    } else if (!process.env.AI_MODEL_NAME && (provider === 'googleai' || provider === '')) { 
+    } else if (!process.env.AI_MODEL_NAME && (provider === 'googleai' || provider === '')) {
         console.log(`AI_MODEL_NAME is not set for Google AI, using default: "${defaultModelName}"`);
     }
     if (provider !== 'googleai' && provider !== 'openai' && provider !== 'openrouter' && provider !== '') {
@@ -126,11 +127,6 @@ if (plugins.length === 0) {
 export const ai = genkit({
   promptDir: './prompts',
   plugins: plugins,
-  model: effectiveModelName, 
-  telemetry: {
-    instrumentation: false,
-    metrics: false,
-    traces: false,
-  }
+  model: effectiveModelName,
+  // telemetry can be configured here if needed, e.g., telemetry: { enabled: false }
 });
-

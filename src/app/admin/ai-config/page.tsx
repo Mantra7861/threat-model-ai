@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -17,7 +16,7 @@ export default function AIConfigPage() {
   
   const defaultGoogleModel = "gemini-1.0-pro";
   const defaultOpenAIModel = "gpt-4o-mini";
-  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct";
+  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct"; // Updated default
 
   const [isClient, setIsClient] = useState(false);
 
