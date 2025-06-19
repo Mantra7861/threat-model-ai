@@ -7,8 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Cpu, WarningCircle } from '@phosphor-icons/react';
-// Button removed as it's not used
-// import { Button } from '@/components/ui/button';
 
 
 export default function AIConfigPage() {
@@ -17,15 +15,14 @@ export default function AIConfigPage() {
   const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client.");
   const [openRouterApiKeyStatus, setOpenRouterApiKeyStatus] = useState<string>("Not directly readable from client.");
   
-  const defaultGoogleModel = "gemini-1.0-pro"; // Updated default
+  const defaultGoogleModel = "gemini-1.0-pro";
   const defaultOpenAIModel = "gpt-4o-mini";
   const defaultOpenRouterModel = "mistralai/mistral-7b-instruct";
 
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setIsClient(true); // Indicate component has mounted
-    // Values from NEXT_PUBLIC_... are for display/guidance only, read on client
+    setIsClient(true); 
     const displayProvider = process.env.NEXT_PUBLIC_AI_PROVIDER_DISPLAY || "googleai (default)";
     setCurrentProviderDisplay(displayProvider);
 
@@ -35,10 +32,9 @@ export default function AIConfigPage() {
     
   }, []);
 
-  const isGenkitxOpenAIInstalled = true; // Assume it's installed if we're showing OpenRouter/OpenAI options
+  const isGenkitxOpenAIInstalled = true; 
 
   if (!isClient) {
-    // Render nothing or a placeholder on the server to avoid hydration mismatches with process.env
     return null; 
   }
 
@@ -106,7 +102,7 @@ export default function AIConfigPage() {
             <Label htmlFor="google-model-name">AI_MODEL_NAME (for Google AI)</Label>
             <Input
               id="google-model-name"
-              placeholder={`e.g., gemini-1.5-flash (defaults to ${defaultGoogleModel} if unset)`}
+              placeholder={`e.g., gemini-1.5-flash, gemini-pro (defaults to ${defaultGoogleModel} if unset)`}
               readOnly
               disabled
               className="bg-muted/50"
@@ -161,7 +157,21 @@ export default function AIConfigPage() {
           <h3 className="text-lg font-medium">OpenRouter (via genkitx-openai)</h3>
            <p className="text-sm text-muted-foreground">
             Used if <code>AI_PROVIDER</code> is <code>openrouter</code>. Uses <code>genkitx-openai</code> configured for OpenRouter's API.
-          </p>
+           </p>
+           <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
+            <Info className="h-4 w-4 !text-blue-600 dark:!text-blue-400" />
+            <AlertTitle className="text-blue-700 dark:text-blue-300">OpenRouter Model IDs</AlertTitle>
+            <AlertDescription className="text-blue-600 dark:text-blue-400">
+                Model IDs for OpenRouter must be the exact string provided by OpenRouter (e.g., <code>vendor/model-name</code> or <code>vendor/model-name:version-suffix</code>).
+                Complex model IDs with colons (e.g., <code>qwen/qwen-72b-chat:free</code>) are passed as-is. If you encounter "Model not found" errors with such IDs:
+                <ul className="list-disc pl-5 mt-1 text-xs">
+                    <li>Verify the exact model string on the OpenRouter website.</li>
+                    <li>Ensure the model is available for your API key.</li>
+                    <li>Try a simpler, well-known model first (e.g., <code>mistralai/mistral-7b-instruct</code>) to confirm your API key and basic setup.</li>
+                    <li>Some models or suffixes might have specific requirements or may not be fully compatible with the OpenAI-compatible API layer.</li>
+                </ul>
+            </AlertDescription>
+          </Alert>
           <div className="space-y-2">
             <Label htmlFor="openrouter-api-key">OPENROUTER_API_KEY</Label>
             <Input
@@ -189,8 +199,8 @@ export default function AIConfigPage() {
               aria-label="OpenRouter Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Set this in your <code>.env</code> to specify the model string (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>).
-              If unset, <code>${defaultOpenRouterModel}</code> will be used by default for OpenRouter.
+              Set this in your <code>.env</code> to specify the model string (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>, <code>google/gemini-pro-1.5</code>).
+              If unset, <code>${defaultOpenRouterModel}</code> will be used by default for OpenRouter. See notes above for complex model IDs.
             </p>
           </div>
         </div>
