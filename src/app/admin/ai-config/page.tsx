@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Cpu, WarningCircle } from '@phosphor-icons/react';
-import { Button } from '@/components/ui/button';
+// Button removed as it's not used
+// import { Button } from '@/components/ui/button';
 
 
 export default function AIConfigPage() {
@@ -16,11 +17,15 @@ export default function AIConfigPage() {
   const [openaiApiKeyStatus, setOpenaiApiKeyStatus] = useState<string>("Not directly readable from client.");
   const [openRouterApiKeyStatus, setOpenRouterApiKeyStatus] = useState<string>("Not directly readable from client.");
   
-  const defaultGoogleModel = "gemini-1.0-pro";
+  const defaultGoogleModel = "gemini-1.0-pro"; // Updated default
   const defaultOpenAIModel = "gpt-4o-mini";
-  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct"; // Example default
+  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct";
+
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true); // Indicate component has mounted
+    // Values from NEXT_PUBLIC_... are for display/guidance only, read on client
     const displayProvider = process.env.NEXT_PUBLIC_AI_PROVIDER_DISPLAY || "googleai (default)";
     setCurrentProviderDisplay(displayProvider);
 
@@ -30,7 +35,12 @@ export default function AIConfigPage() {
     
   }, []);
 
-  const isGenkitxOpenAIInstalled = true; 
+  const isGenkitxOpenAIInstalled = true; // Assume it's installed if we're showing OpenRouter/OpenAI options
+
+  if (!isClient) {
+    // Render nothing or a placeholder on the server to avoid hydration mismatches with process.env
+    return null; 
+  }
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
@@ -51,6 +61,7 @@ export default function AIConfigPage() {
             on your server or through your hosting provider's environment variable settings.
             The actual backend provider is determined by the <code>AI_PROVIDER</code> environment variable on the server.
             The model used is determined by <code>AI_MODEL_NAME</code> or the provider's default.
+            Restart your development server after changing <code>.env</code> variables.
           </AlertDescription>
         </Alert>
 
@@ -64,8 +75,9 @@ export default function AIConfigPage() {
             className="bg-muted/50"
           />
           <p className="text-xs text-muted-foreground">
-            To change the backend AI provider, set <code>AI_PROVIDER</code> in your <code>.env</code> file to <code>googleai</code>, <code>openai</code>, or <code>openrouter</code>.
-            To update this display text for clarity, also set <code>NEXT_PUBLIC_AI_PROVIDER_DISPLAY</code> (e.g., "OpenAI (GPT)" or "OpenRouter (Mistral)").
+            This text is for display purposes, controlled by <code>NEXT_PUBLIC_AI_PROVIDER_DISPLAY</code> in <code>.env</code>.
+            To change the actual backend AI provider, set <code>AI_PROVIDER</code> in your <code>.env</code> file to <code>googleai</code>, <code>openai</code>, or <code>openrouter</code>.
+            Example: <code>AI_PROVIDER=openrouter</code>
           </p>
         </div>
 
@@ -86,8 +98,8 @@ export default function AIConfigPage() {
               aria-label="Google GenAI API Key input field (display only)"
             />
             <p className="text-xs text-muted-foreground">
-              Status (Illustrative based on <code>NEXT_PUBLIC_HAS_GOOGLE_KEY</code>): <span className={googleApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{googleApiKeyStatus}</span>.
-              Set this in your <code>.env</code> file.
+              Set this in your <code>.env</code> file. For display status, set <code>NEXT_PUBLIC_HAS_GOOGLE_KEY=true</code>.
+              Current illustrative status: <span className={googleApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{googleApiKeyStatus}</span>.
             </p>
           </div>
            <div className="space-y-2">
@@ -102,7 +114,7 @@ export default function AIConfigPage() {
             />
              <p className="text-xs text-muted-foreground">
               Optional. Set this in your <code>.env</code> to use a specific Google AI model (e.g., gemini-1.5-flash, gemini-2.0-flash-exp).
-              If unset, <code>${defaultGoogleModel}</code> will be used for Google AI.
+              If unset, <code>${defaultGoogleModel}</code> will be used by default for Google AI.
             </p>
           </div>
         </div>
@@ -124,8 +136,8 @@ export default function AIConfigPage() {
               aria-label="OpenAI API Key input field (display only)"
             />
             <p className="text-xs text-muted-foreground">
-              Status (Illustrative based on <code>NEXT_PUBLIC_HAS_OPENAI_KEY</code>): <span className={openaiApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{openaiApiKeyStatus}</span>.
-              Set this in your <code>.env</code> file.
+              Set this in your <code>.env</code> file. For display status, set <code>NEXT_PUBLIC_HAS_OPENAI_KEY=true</code>.
+              Current illustrative status: <span className={openaiApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{openaiApiKeyStatus}</span>.
             </p>
           </div>
           <div className="space-y-2">
@@ -140,7 +152,7 @@ export default function AIConfigPage() {
             />
              <p className="text-xs text-muted-foreground">
               Optional. Set this in your <code>.env</code> to use a specific OpenAI model.
-              If unset, <code>${defaultOpenAIModel}</code> will be used for OpenAI.
+              If unset, <code>${defaultOpenAIModel}</code> will be used by default for OpenAI.
             </p>
           </div>
         </div>
@@ -162,8 +174,8 @@ export default function AIConfigPage() {
               aria-label="OpenRouter API Key input field (display only)"
             />
             <p className="text-xs text-muted-foreground">
-              Status (Illustrative based on <code>NEXT_PUBLIC_HAS_OPENROUTER_KEY</code>): <span className={openRouterApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{openRouterApiKeyStatus}</span>.
-              Set this in your <code>.env</code> file.
+              Set this in your <code>.env</code> file. For display status, set <code>NEXT_PUBLIC_HAS_OPENROUTER_KEY=true</code>.
+              Current illustrative status: <span className={openRouterApiKeyStatus.includes("MISSING") ? "text-destructive" : "text-green-600"}>{openRouterApiKeyStatus}</span>.
             </p>
           </div>
           <div className="space-y-2">
@@ -177,8 +189,8 @@ export default function AIConfigPage() {
               aria-label="OpenRouter Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Required for OpenRouter. Set this in your <code>.env</code> to specify the model string (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>).
-              If unset, <code>${defaultOpenRouterModel}</code> will be used.
+              Set this in your <code>.env</code> to specify the model string (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>).
+              If unset, <code>${defaultOpenRouterModel}</code> will be used by default for OpenRouter.
             </p>
           </div>
         </div>
