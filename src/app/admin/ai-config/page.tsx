@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -16,7 +17,7 @@ export default function AIConfigPage() {
   
   const defaultGoogleModel = "gemini-1.0-pro";
   const defaultOpenAIModel = "gpt-4o-mini";
-  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct"; // Updated default
+  const defaultOpenRouterModel = "mistralai/mistral-7b-instruct";
 
   const [isClient, setIsClient] = useState(false);
 
@@ -42,21 +43,23 @@ export default function AIConfigPage() {
       <CardHeader>
         <CardTitle className="flex items-center"><Cpu size={28} className="mr-2 text-primary" /> AI Provider Configuration</CardTitle>
         <CardDescription>
-          Manage and view guidance for configuring AI providers. API keys and provider choice
+          Manage and view guidance for configuring AI providers. API keys, provider choice, and model name
           must be set in your <code>.env</code> file or server environment variables.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertTitle>Important Configuration Note</AlertTitle>
+        <Alert variant="destructive">
+          <WarningCircle className="h-4 w-4" />
+          <AlertTitle>Crucial: Resolving "Model Not Found" Errors</AlertTitle>
           <AlertDescription>
-            API keys and provider settings are sensitive and critical for AI functionality.
-            This interface is for guidance ONLY. You must set these values in your <code>.env</code> file
-            on your server or through your hosting provider's environment variable settings.
-            The actual backend provider is determined by the <code>AI_PROVIDER</code> environment variable on the server.
-            The model used is determined by <code>AI_MODEL_NAME</code> or the provider's default.
-            Restart your development server after changing <code>.env</code> variables.
+            If you encounter "Model not found" errors:
+            <ul className="list-disc pl-5 mt-1 text-xs">
+              <li>The <strong><code>AI_MODEL_NAME</code></strong> in your <code>.env</code> file overrides the default model for the selected <code>AI_PROVIDER</code>.</li>
+              <li>Ensure <code>AI_MODEL_NAME</code> is set to a model string that is <strong>valid and accessible for YOUR API key and the CHOSEN <code>AI_PROVIDER</code></strong>.</li>
+              <li><strong>To use the provider's default model (recommended for initial testing):</strong> Delete or comment out the <code>AI_MODEL_NAME</code> line in your <code>.env</code> file.</li>
+              <li>Common Google AI models: <code>gemini-1.5-flash</code>, <code>gemini-1.0-pro</code>. Common OpenAI models: <code>gpt-4o-mini</code>, <code>gpt-4</code>. Common OpenRouter models: <code>mistralai/mistral-7b-instruct</code>, <code>openai/gpt-4o-mini</code>, <code>google/gemini-flash-1.5</code>.</li>
+              <li>Always restart your development server after changing <code>.env</code> variables.</li>
+            </ul>
           </AlertDescription>
         </Alert>
 
@@ -101,15 +104,16 @@ export default function AIConfigPage() {
             <Label htmlFor="google-model-name">AI_MODEL_NAME (for Google AI)</Label>
             <Input
               id="google-model-name"
-              placeholder={`e.g., gemini-1.5-flash, gemini-pro (defaults to ${defaultGoogleModel} if unset)`}
+              placeholder={`e.g., gemini-1.5-flash (defaults to ${defaultGoogleModel} if unset)`}
               readOnly
               disabled
               className="bg-muted/50"
               aria-label="Google AI Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Optional. Set this in your <code>.env</code> to use a specific Google AI model (e.g., gemini-1.5-flash, gemini-2.0-flash-exp).
-              If unset, <code>${defaultGoogleModel}</code> will be used by default for Google AI.
+              Optional. If set in <code>.env</code>, this overrides the default. Valid text models include: <code>gemini-1.5-flash</code>, <code>gemini-1.0-pro</code>, <code>gemini-pro</code>.
+              (<code>gemini-2.0-flash-exp</code> is for image generation).
+              If unset, <code>${defaultGoogleModel}</code> will be used.
             </p>
           </div>
         </div>
@@ -139,15 +143,15 @@ export default function AIConfigPage() {
             <Label htmlFor="openai-model-name">AI_MODEL_NAME (for OpenAI)</Label>
             <Input
               id="openai-model-name"
-              placeholder={`e.g., gpt-4, gpt-3.5-turbo (defaults to ${defaultOpenAIModel} if unset)`}
+              placeholder={`e.g., gpt-4o-mini (defaults to ${defaultOpenAIModel} if unset)`}
               readOnly
               disabled={!isGenkitxOpenAIInstalled}
               className="bg-muted/50"
               aria-label="OpenAI Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Optional. Set this in your <code>.env</code> to use a specific OpenAI model.
-              If unset, <code>${defaultOpenAIModel}</code> will be used by default for OpenAI.
+              Optional. If set in <code>.env</code>, this overrides the default. Common models: <code>gpt-4o-mini</code>, <code>gpt-4</code>, <code>gpt-3.5-turbo</code>.
+              If unset, <code>${defaultOpenAIModel}</code> will be used.
             </p>
           </div>
         </div>
@@ -159,15 +163,14 @@ export default function AIConfigPage() {
            </p>
            <Alert variant="default" className="bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-700">
             <Info className="h-4 w-4 !text-blue-600 dark:!text-blue-400" />
-            <AlertTitle className="text-blue-700 dark:text-blue-300">OpenRouter Model IDs</AlertTitle>
+            <AlertTitle className="text-blue-700 dark:text-blue-300">OpenRouter Model IDs - Important!</AlertTitle>
             <AlertDescription className="text-blue-600 dark:text-blue-400">
                 Model IDs for OpenRouter must be the exact string provided by OpenRouter (e.g., <code>vendor/model-name</code> or <code>vendor/model-name:version-suffix</code>).
-                Complex model IDs with colons (e.g., <code>qwen/qwen-72b-chat:free</code>) are passed as-is. If you encounter "Model not found" errors with such IDs:
+                If you encounter "Model not found" errors:
                 <ul className="list-disc pl-5 mt-1 text-xs">
-                    <li>Verify the exact model string on the OpenRouter website.</li>
-                    <li>Ensure the model is available for your API key.</li>
-                    <li>Try a simpler, well-known model first (e.g., <code>mistralai/mistral-7b-instruct</code>) to confirm your API key and basic setup.</li>
-                    <li>Some models or suffixes might have specific requirements or may not be fully compatible with the OpenAI-compatible API layer.</li>
+                    <li><strong>Test with a basic model first:</strong> Try <code>AI_MODEL_NAME=mistralai/mistral-7b-instruct</code> (or leave <code>AI_MODEL_NAME</code> unset to use this default) to confirm your API key and basic OpenRouter setup.</li>
+                    <li>Verify the exact model string on the OpenRouter website for their OpenAI-compatible API.</li>
+                    <li>Ensure the model is available for your API key tier. Some models (especially free ones or those with suffixes like <code>:free</code>) may have specific usage restrictions or might not be fully compatible with the standard OpenAI-compatible API endpoint.</li>
                 </ul>
             </AlertDescription>
           </Alert>
@@ -198,12 +201,10 @@ export default function AIConfigPage() {
               aria-label="OpenRouter Model Name input field (display only)"
             />
              <p className="text-xs text-muted-foreground">
-              Set this in your <code>.env</code> to specify the model string (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>, <code>google/gemini-pro-1.5</code>).
-              If unset, <code>${defaultOpenRouterModel}</code> will be used by default for OpenRouter. See notes above for complex model IDs.
+              If set in <code>.env</code>, this overrides the default (<code>${defaultOpenRouterModel}</code>). Use exact OpenRouter model strings (e.g., <code>openai/gpt-4o-mini</code>, <code>anthropic/claude-3-haiku</code>, <code>google/gemini-flash-1.5</code>). See important notes above.
             </p>
           </div>
         </div>
-
       </CardContent>
     </Card>
   );
